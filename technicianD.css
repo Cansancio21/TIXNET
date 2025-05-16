@@ -326,6 +326,9 @@ tr:hover td {
     color: #f44336;
     font-weight: 500;
 }
+.status-open.clickable {
+    cursor: pointer;
+}
 
 .tab-container {
     margin-top: 20px;
