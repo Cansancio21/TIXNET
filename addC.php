@@ -1,0 +1,418 @@
+<?php
+session_start(); // Start session for login management
+include 'db.php';
+
+// Include PHPMailer classes
+require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
+require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
+require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
+
+// Use PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Check if the user is logged in
+if (!isset($_SESSION['username'])) {
+    header("Location: index.php");
+    exit();
+}
+
+// Initialize variables for user data
+$username = $_SESSION['username'];
+$lastName = '';
+$firstName = '';
+$userType = '';
+$avatarPath = 'default-avatar.png';
+$avatarFolder = 'Uploads/avatars/';
+$userAvatar = $avatarFolder . $username . '.png';
+
+if (file_exists($userAvatar)) {
+    $_SESSION['avatarPath'] = $userAvatar . '?' . time(); // Prevent caching issues
+} else {
+    $_SESSION['avatarPath'] = 'default-avatar.png';
+}
+$avatarPath = $_SESSION['avatarPath'];
+
+// Fetch user data from the database
+if ($conn) {
+    $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
+    $stmt = $conn->prepare($sqlUser);
+    $stmt->bind_param("s", $_SESSION['username']);
+    $stmt->execute();
+    $resultUser = $stmt->get_result();
+
+    if ($resultUser->num_rows > 0) {
+        $row = $resultUser->fetch_assoc();
+        $firstName = $row['u_fname'];
+        $lastName = $row['u_lname'];
+        $userType = $row['u_type'];
+    }
+    $stmt->close();
+} else {
+    echo "Database connection failed.";
+    exit();
+}
+
+// Initialize customer form variables
+$firstname = $lastname = $contact = $email = $dob = "";
+$napname = $napport = $macaddress = $status = "";
+$purok = $barangay = $plan = $equipment = "";
+$firstnameErr = $lastnameErr = $contactErr = $emailErr = $dobErr = "";
+$napnameErr = $napportErr = $macaddressErr = $statusErr = "";
+$purokErr = $barangayErr = $planErr = $equipmentErr = "";
+$hasError = false;
+
+// Handle customer registration form submission
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $firstname = trim($_POST['firstname'] ?? '');
+    $lastname = trim($_POST['lastname'] ?? '');
+    $contact = trim($_POST['contact'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $dob = trim($_POST['date'] ?? '');
+    $napname = trim($_POST['napname'] ?? '');
+    $napport = trim($_POST['napport'] ?? '');
+    $macaddress = trim($_POST['macaddress'] ?? '');
+    $status = trim($_POST['status'] ?? '');
+    $purok = trim($_POST['purok'] ?? '');
+    $barangay = trim($_POST['barangay'] ?? '');
+    $plan = trim($_POST['plan'] ?? '');
+    $equipment = trim($_POST['equipment'] ?? '');
+
+    // Validate inputs
+    if (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
+        $firstnameErr = "First Name should not contain numbers.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[0-9]+$/", $contact)) {
+        $contactErr = "Contact must contain numbers only.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
+        $lastnameErr = "Last Name should not contain numbers.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[0-9]+$/", $napport)) {
+        $napportErr = "Nap Port must contain numbers only.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z]+$/", $napname)) {
+        $napnameErr = "Nap Name must contain letters only.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
+        $macaddressErr = "Mac Address should not contain special characters.";
+        $hasError = true;
+    }
+    if (empty($dob)) {
+        $dobErr = "Date is required.";
+        $hasError = true;
+    }
+    if (empty($status)) {
+        $statusErr = "Status is required.";
+        $hasError = true;
+    }
+    if (empty($email)) {
+        $emailErr = "Email is required.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z\s]+$/", $barangay)) {
+        $barangayErr = "Barangay should contain letters only.";
+        $hasError = true;
+    }
+    if (empty($plan)) {
+        $planErr = "Internet Plan is required.";
+        $hasError = true;
+    }
+    if (empty($equipment)) {
+        $equipmentErr = "Equipment is required.";
+        $hasError = true;
+    }
+
+    // Insert into database if no errors
+    if (!$hasError) {
+        $sql = "INSERT INTO tbl_customer (c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            $_SESSION['error'] = "Prepare failed: " . $conn->error;
+            header("Location: addC.php");
+            exit();
+        }
+
+        $stmt->bind_param("sssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $equipment);
+
+        if ($stmt->execute()) {
+            // Get the inserted customer ID
+            $customerId = $conn->insert_id;
+
+            // Send the confirmation email using PHPMailer
+            $mail = new PHPMailer(true); // Enable exceptions
+
+            try {
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host = 'smtp.gmail.com';
+                $mail->SMTPAuth = true;
+                $mail->Username = 'jonwilyammayormita@gmail.com';
+                $mail->Password = 'mqkcqkytlwurwlks';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port = 587;
+
+                // Recipients
+                $mail->setFrom('jonwilyammayormita@gmail.com', 'Your Website');
+                $mail->addAddress($email, "$firstname $lastname");
+
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = 'Welcome to Our Platform!';
+                $mail->Body = "
+                    <html>
+                    <head>
+                        <title>Welcome to Our Platform</title>
+                    </head>
+                    <body>
+                        <p>Dear $firstname $lastname,</p>
+                        <p>Thank you for registering with us. Your account details are:</p>
+                        <p><strong>Customer ID:</strong> $customerId</p>
+                        <p><strong>Last Name:</strong> $lastname</p>
+                        <p>Please use these credentials to log in to our customer portal by clicking the link below:</p>
+                        <p><a href='http://localhost/TIMSSS/customerP.php'>Customer Portal</a></p>
+                        <p>Enter your Customer ID and Last Name to access your account.</p>
+                        <p>Best regards,<br>Your Platform Team</p>
+                    </body>
+                    </html>
+                ";
+                $mail->AltBody = "Dear $firstname $lastname,\n\nThank you for registering with us. Your account details are:\nCustomer ID: $customerId\nLast Name: $lastname\n\nPlease use these credentials to log in to our customer portal at http://localhost/TIMSSS/customerP.php\n\nBest regards,\nYour Platform Team";
+
+                // Send the email
+                $mail->send();
+                
+                // Store success message in session and redirect
+                $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent.";
+                
+                // Clear form variables
+                $firstname = $lastname = $contact = $email = $dob = "";
+                $napname = $napport = $macaddress = $status = "";
+                $purok = $barangay = $plan = $equipment = "";
+                
+                header("Location: addC.php");
+                exit();
+            } catch (Exception $e) {
+                // Store error message in session and redirect
+                $_SESSION['message'] = "Customer registered, but error sending confirmation email: " . $mail->ErrorInfo;
+                header("Location: addC.php");
+                exit();
+            }
+            
+            $stmt->close();
+        } else {
+            $_SESSION['error'] = "Execution failed: " . $stmt->error;
+            header("Location: addC.php");
+            exit();
+        }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Customer</title>
+    <link rel="stylesheet" href="addsC.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+    <div class="sidebar glass-container">
+        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
+        <ul>
+            <li><a href="staffD.php"><img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/><span>View Tickets</span></a></li>
+            <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
+            <li><a href="customersT.php"><img src="https://img.icons8.com/color/48/conference-skin-type-7.png" alt="conference-skin-type-7"/> <span>View Customers</span></a></li>
+            <li><a href="borrowedStaff.php"><i class="fas fa-book"></i> <span>Borrowed Assets</span></a></li>
+            <li><a href="addC.php" class="active"><img src="https://img.icons8.com/officel/40/add-user-male.png" alt="add-user-male"/><span>Add Customer</span></a></li>
+        </ul>
+        <footer>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </footer>
+    </div>
+
+    <div class="container">
+        <div class="upper"> 
+            <h1>Add Customer</h1>
+            <div class="user-profile">
+                <div class="user-icon">
+                    <a href="image.php">
+                        <?php 
+                        $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
+                        if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
+                            echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
+                        } else {
+                            echo "<i class='fas fa-user-circle'></i>";
+                        }
+                        ?>
+                    </a>
+                </div>
+                <div class="user-details">
+                    <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
+                    <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
+                </div>
+                <a href="settings.php" class="settings-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </div>
+          
+        <div class="alert-container">
+            <?php if (isset($_SESSION['message'])): ?>
+                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+            <?php endif; ?>
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+            <?php endif; ?>
+        </div>
+
+        <div class="form-box glass-container">
+            <h2>Customer Profile</h2>
+            <hr class="title-line">
+            <form action="" method="POST" id="customerForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="firstname">First Name <span class="required">*</span></label>
+                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname); ?>" required>
+                        <span class="error"><?php echo $firstnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastname">Last Name <span class="required">*</span></label>
+                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname); ?>" required>
+                        <span class="error"><?php echo $lastnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="purok">Purok Name</label>
+                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok); ?>">
+                        <span class="error"><?php echo $purokErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="barangay">Barangay <span class="required">*</span></label>
+                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay); ?>" required>
+                        <span class="error"><?php echo $barangayErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact">Contact Number <span class="required">*</span></label>
+                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact); ?>" required>
+                        <span class="error"><?php echo $contactErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email); ?>" required>
+                        <span class="error"><?php echo $emailErr; ?></span>
+                    </div>
+                </div>
+
+                <h2>Advance Profile</h2>
+                <hr class="title-line">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date">Subscription Date <span class="required">*</span></label>
+                        <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($dob); ?>" required>
+                        <span class="error"><?php echo $dobErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="napname">NAP Name <span class="required">*</span></label>
+                        <input type="text" id="napname" name="napname" placeholder="e.g., NAP1" value="<?php echo htmlspecialchars($napname); ?>" required>
+                        <span class="error"><?php echo $napnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="napport">NAP Port <span class="required">*</span></label>
+                        <input type="text" id="napport" name="napport" placeholder="e.g., 123" value="<?php echo htmlspecialchars($napport); ?>" required>
+                        <span class="error"><?php echo $napportErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="macaddress">MAC Address <span class="required">*</span></label>
+                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress); ?>" required>
+                        <span class="error"><?php echo $macaddressErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Customer Status <span class="required">*</span></label>
+                        <select id="status" name="status" required>
+                            <option value="" <?php echo ($status === '') ? 'selected' : ''; ?>>Select Status</option>
+                            <option value="Active" <?php echo ($status === 'Active') ? 'selected' : ''; ?>>Active</option>
+                            <option value="Inactive" <?php echo ($status === 'Inactive') ? 'selected' : ''; ?>>Inactive</option>
+                        </select>
+                        <span class="error"><?php echo $statusErr; ?></span>
+                    </div>
+                </div>
+
+                <h2>Service Details</h2>
+                <hr class="title-line">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="plan">Internet Plan <span class="required">*</span></label>
+                        <select id="plan" name="plan" required>
+                            <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Plan</option>
+                            <option value="100 Mbps Fiber" <?php echo ($plan === '100 Mbps Fiber') ? 'selected' : ''; ?>>100 Mbps Fiber</option>
+                            <option value="1 Gbps Fiber" <?php echo ($plan === '1 Gbps Fiber') ? 'selected' : ''; ?>>1 Gbps Fiber</option>
+                            <option value="25 Mbps DSL" <?php echo ($plan === '25 Mbps DSL') ? 'selected' : ''; ?>>25 Mbps DSL</option>
+                        </select>
+                        <span class="error"><?php echo $planErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="equipment">Equipment <span class="required">*</span></label>
+                        <select id="equipment" name="equipment" required>
+                            <option value="" <?php echo ($equipment === '') ? 'selected' : ''; ?>>Select Equipment</option>
+                            <option value="ISP-Provided Modem/Router" <?php echo ($equipment === 'ISP-Provided Modem/Router') ? 'selected' : ''; ?>>ISP-Provided Modem/Router</option>
+                            <option value="Customer-Owned" <?php echo ($equipment === 'Customer-Owned') ? 'selected' : ''; ?>>Customer-Owned</option>
+                        </select>
+                        <span class="error"><?php echo $equipmentErr; ?></span>
+                    </div>
+                </div>
+
+                <div class="button-container">
+                    <button type="submit" id="submitBtn">Submit Application</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Prevent multiple form submissions and reset form on successful submission
+    document.getElementById('customerForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        
+        // Reset form if no validation errors
+        <?php if (!$hasError && $_SERVER["REQUEST_METHOD"] == "POST"): ?>
+            this.reset();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Application';
+        <?php endif; ?>
+    });
+
+    // Fade out success message after 10 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.querySelector('.alert-success');
+        if (successAlert) {
+            setTimeout(() => {
+                successAlert.style.transition = 'opacity 1s ease-out';
+                successAlert.style.opacity = '0';
+                setTimeout(() => {
+                    successAlert.remove();
+                }, 1000); // Remove after fade-out completes
+            }, 10000); // 10 seconds
+        }
+    });
+</script>
+</body>
+</html>
+
+<?php
+$conn->close();
+?>
