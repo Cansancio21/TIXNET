@@ -30,7 +30,7 @@ $regularActivePage = isset($_GET['regularActivePage']) ? max(1, (int)$_GET['regu
 $supportActivePage = isset($_GET['supportActivePage']) ? max(1, (int)$_GET['supportActivePage']) : 1;
 $regularArchivedPage = isset($_GET['regularArchivedPage']) ? max(1, (int)$_GET['regularArchivedPage']) : 1;
 $supportArchivedPage = isset($_GET['supportArchivedPage']) ? max(1, (int)$_GET['supportArchivedPage']) : 1;
-$regularActiveOffset = max(0, ($regularActivePage - 1) * $limit); // Ensure non-negative offset
+$regularActiveOffset = max(0, ($regularActivePage - 1) * $limit);
 $supportActiveOffset = max(0, ($supportActivePage - 1) * $limit);
 $regularArchivedOffset = max(0, ($regularArchivedPage - 1) * $limit);
 $supportArchivedOffset = max(0, ($supportArchivedPage - 1) * $limit);
@@ -38,29 +38,20 @@ $tab = $_GET['tab'] ?? 'regular'; // Main tab: regular, support, regularArchived
 $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 if ($conn) {
-    // Fetch firstName and userType from the database
+    // Fetch firstName and userType
     $sqlUser = "SELECT u_fname, u_type FROM tbl_user WHERE u_username = ?";
     $stmt = $conn->prepare($sqlUser);
-    if ($stmt === false) {
-        error_log("Prepare failed for user query: " . $conn->error);
-    } else {
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $resultUser = $stmt->get_result();
-        if ($resultUser->num_rows > 0) {
-            $row = $resultUser->fetch_assoc();
-            $firstName = $row['u_fname'] ?: '';
-            $userType = $row['u_type'] ?: '';
-        } else {
-            error_log("No user found for username: $username");
-        }
-        $stmt->close();
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $resultUser = $stmt->get_result();
+    if ($resultUser->num_rows > 0) {
+        $row = $resultUser->fetch_assoc();
+        $firstName = $row['u_fname'] ?: '';
+        $userType = $row['u_type'] ?: '';
     }
+    $stmt->close();
 
-    // Debug mode to log tickets included in counts
-    $debugCounts = true;
-
-    // Regular Ticket counts (exclude archived status)
+    // Regular Ticket counts (exclude archived)
     $sqlOpenTickets = "SELECT COUNT(*) AS openTickets FROM tbl_ticket WHERE t_status = 'open' AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) AND t_status != 'archived'";
     if ($searchTerm) {
         $sqlOpenTickets .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
@@ -74,24 +65,6 @@ if ($conn) {
     $resultOpenTickets = $stmtOpenTickets->get_result();
     $openTickets = $resultOpenTickets ? ($resultOpenTickets->fetch_assoc()['openTickets'] ?? 0) : 0;
     $stmtOpenTickets->close();
-
-    // Debug open regular tickets
-    if ($debugCounts && $openTickets > 0) {
-        $debugSql = "SELECT t_id, t_status, t_details FROM tbl_ticket WHERE t_status = 'open' AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) AND t_status != 'archived'";
-        if ($searchTerm) {
-            $debugSql .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
-        }
-        $debugStmt = $conn->prepare($debugSql);
-        if ($searchTerm) {
-            $debugStmt->bind_param("sss", $searchLike, $searchLike, $searchLike);
-        }
-        $debugStmt->execute();
-        $debugResult = $debugStmt->get_result();
-        while ($row = $debugResult->fetch_assoc()) {
-            error_log("Open regular ticket counted: ID={$row['t_id']}, Status={$row['t_status']}, Details=" . ($row['t_details'] ?? 'NULL'));
-        }
-        $debugStmt->close();
-    }
 
     $sqlClosedTickets = "SELECT COUNT(*) AS closedTickets FROM tbl_ticket WHERE t_status = 'closed' AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) AND t_status != 'archived'";
     if ($searchTerm) {
@@ -107,31 +80,12 @@ if ($conn) {
     $closedTickets = $resultClosedTickets ? ($resultClosedTickets->fetch_assoc()['closedTickets'] ?? 0) : 0;
     $stmtClosedTickets->close();
 
-    // Debug closed regular tickets
-    if ($debugCounts && $closedTickets > 0) {
-        $debugSql = "SELECT t_id, t_status, t_details FROM tbl_ticket WHERE t_status = 'closed' AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) AND t_status != 'archived'";
-        if ($searchTerm) {
-            $debugSql .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
-        }
-        $debugStmt = $conn->prepare($debugSql);
-        if ($searchTerm) {
-            $debugStmt->bind_param("sss", $searchLike, $searchLike, $searchLike);
-        }
-        $debugStmt->execute();
-        $debugResult = $debugStmt->get_result();
-        while ($row = $debugResult->fetch_assoc()) {
-            error_log("Closed regular ticket counted: ID={$row['t_id']}, Status={$row['t_status']}, Details=" . ($row['t_details'] ?? 'NULL'));
-        }
-        $debugStmt->close();
-    }
-
     $sqlArchivedRegular = "SELECT COUNT(*) AS archivedTickets FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%' AND t_status != 'archived'";
     if ($searchTerm) {
         $sqlArchivedRegular .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
     }
     $stmtArchivedRegular = $conn->prepare($sqlArchivedRegular);
     if ($searchTerm) {
-        $searchLike = "%$searchTerm%";
         $stmtArchivedRegular->bind_param("sss", $searchLike, $searchLike, $searchLike);
     }
     $stmtArchivedRegular->execute();
@@ -139,7 +93,7 @@ if ($conn) {
     $archivedRegular = $resultArchivedRegular ? ($resultArchivedRegular->fetch_assoc()['archivedTickets'] ?? 0) : 0;
     $stmtArchivedRegular->close();
 
-    // Support Tickets status breakdown (exclude archived)
+    // Support Tickets counts
     $sqlSupportOpen = "SELECT COUNT(*) AS supportOpen FROM tbl_supp_tickets WHERE s_status = 'Open' AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
     if ($searchTerm) {
         $sqlSupportOpen .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
@@ -154,24 +108,6 @@ if ($conn) {
     $supportOpen = $resultSupportOpen ? ($resultSupportOpen->fetch_assoc()['supportOpen'] ?? 0) : 0;
     $stmtSupportOpen->close();
 
-    // Debug open support tickets
-    if ($debugCounts && $supportOpen > 0) {
-        $debugSql = "SELECT id, s_status, s_message FROM tbl_supp_tickets WHERE s_status = 'Open' AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
-        if ($searchTerm) {
-            $debugSql .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
-        }
-        $debugStmt = $conn->prepare($debugSql);
-        if ($searchTerm) {
-            $debugStmt->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
-        }
-        $debugStmt->execute();
-        $debugResult = $debugStmt->get_result();
-        while ($row = $debugResult->fetch_assoc()) {
-            error_log("Open support ticket counted: ID={$row['id']}, Status={$row['s_status']}, Message=" . ($row['s_message'] ?? 'NULL'));
-        }
-        $debugStmt->close();
-    }
-
     $sqlSupportClosed = "SELECT COUNT(*) AS supportClosed FROM tbl_supp_tickets WHERE s_status = 'Closed' AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
     if ($searchTerm) {
         $sqlSupportClosed .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
@@ -179,30 +115,12 @@ if ($conn) {
     $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
     if ($searchTerm) {
         $searchLike = "%$searchTerm%";
-        $stmtSupportClosed->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
+        $stmtSupportCloseduki->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
     }
     $stmtSupportClosed->execute();
     $resultSupportClosed = $stmtSupportClosed->get_result();
     $supportClosed = $resultSupportClosed ? ($resultSupportClosed->fetch_assoc()['supportClosed'] ?? 0) : 0;
     $stmtSupportClosed->close();
-
-    // Debug closed support tickets
-    if ($debugCounts && $supportClosed > 0) {
-        $debugSql = "SELECT id, s_status, s_message FROM tbl_supp_tickets WHERE s_status = 'Closed' AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
-        if ($searchTerm) {
-            $debugSql .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
-        }
-        $debugStmt = $conn->prepare($debugSql);
-        if ($searchTerm) {
-            $debugStmt->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
-        }
-        $debugStmt->execute();
-        $debugResult = $debugStmt->get_result();
-        while ($row = $debugResult->fetch_assoc()) {
-            error_log("Closed support ticket counted: ID={$row['id']}, Status={$row['s_status']}, Message=" . ($row['s_message'] ?? 'NULL'));
-        }
-        $debugStmt->close();
-    }
 
     $sqlArchivedSupport = "SELECT COUNT(*) AS archivedSupport FROM tbl_supp_tickets WHERE s_message LIKE 'ARCHIVED:%'";
     if ($searchTerm) {
@@ -210,7 +128,6 @@ if ($conn) {
     }
     $stmtArchivedSupport = $conn->prepare($sqlArchivedSupport);
     if ($searchTerm) {
-        $searchLike = "%$searchTerm%";
         $stmtArchivedSupport->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
     }
     $stmtArchivedSupport->execute();
@@ -221,7 +138,7 @@ if ($conn) {
     // Pending tasks
     $pendingTasks = $openTickets + $supportOpen;
 
-    // Handle actions (triggered via POST from modal)
+    // Handle actions (close, archive, unarchive, delete)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['action']) && $_POST['action'] === 'close' && isset($_POST['id']) && isset($_POST['type']) && isset($_POST['technicianFirstName'])) {
             $id = (int)$_POST['id'];
@@ -238,205 +155,70 @@ if ($conn) {
             if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
                 if (strtolower($row['u_fname']) !== strtolower($technicianFirstName)) {
-                    echo json_encode(['success' => false, 'message' => 'Invalid first name. Please enter your correct first name.']);
+                    echo json_encode(['success' => false, 'message' => 'Invalid first name.']);
                     $stmt->close();
                     exit;
                 }
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Techn /
-
-ician not found.']);
-                $stmt->close();
-                exit;
             }
             $stmt->close();
 
             if ($type === 'regular') {
-                // Check if ticket is open and not archived
-                $sql = "SELECT t_status FROM tbl_ticket WHERE t_id = ? AND t_status = 'open' AND t_status != 'archived'";
+                $sql = "UPDATE tbl_ticket SET t_status = 'closed' WHERE t_id = ? AND t_status = 'open' AND t_status != 'archived'";
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result->num_rows === 0) {
-                    echo json_encode(['success' => false, 'message' => 'Ticket is not open or does not exist.']);
-                    $stmt->close();
-                    exit;
-                }
-                $stmt->close();
-
-                // Update ticket status to closed
-                $sql = "UPDATE tbl_ticket SET t_status = 'closed' WHERE t_id = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("i", $id);
-                if ($stmt->execute()) {
-                    // Log the action
-                    $logDescription = "Technician $firstName closed regular ticket ID $id";
-                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-                    $stmtLog = $conn->prepare($sqlLog);
-                    $stmtLog->bind_param("s", $logDescription);
-                    $stmtLog->execute();
-                    $stmtLog->close();
-
-                    $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
-                                    "&regularActivePage=" . urlencode($regularActivePage) .
-                                    "&supportActivePage=" . urlencode($supportActivePage) .
-                                    "&regularArchivedPage=" . urlencode($regularArchivedPage) .
-                                    "&supportArchivedPage=" . urlencode($supportArchivedPage) .
-                                    ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                    echo json_encode(['success' => true, 'redirect' => $redirect_url]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to close ticket.']);
-                }
-                $stmt->close();
-            } elseif ($type === 'support') {
-                // Check if support ticket is open
-                $sql = "SELECT s_status FROM tbl_supp_tickets WHERE id = ? AND s_status = 'Open'";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result->num_rows === 0) {
-                    echo json_encode(['success' => false, 'message' => 'Support ticket is not open or does not exist.']);
-                    $stmt->close();
-                    exit;
-                }
-                $stmt->close();
-
-                // Update support ticket status to closed
-                $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE id = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("i", $id);
-                if ($stmt->execute()) {
-                    // Log the action
-                    $logDescription = "Technician $firstName closed support ticket ID $id";
-                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-                    $stmtLog = $conn->prepare($sqlLog);
-                    $stmtLog->bind_param("s", $logDescription);
-                    $stmtLog->execute();
-                    $stmtLog->close();
-
-                    $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
-                                    "&regularActivePage=" . urlencode($regularActivePage) .
-                                    "&supportActivePage=" . urlencode($supportActivePage) .
-                                    "&regularArchivedPage=" . urlencode($regularArchivedPage) .
-                                    "&supportArchivedPage=" . urlencode($supportArchivedPage) .
-                                    ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                    echo json_encode(['success' => true, 'redirect' => $redirect_url]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to close support ticket.']);
-                }
-                $stmt->close();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid ticket type.']);
+                $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE id = ? AND s_status = 'Open'";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("i", $id);
             }
+            if ($stmt->execute() && $stmt->affected_rows > 0) {
+                $logDescription = "Technician $firstName closed $type ticket ID $id";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $stmtLog = $conn->prepare($sqlLog);
+                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->execute();
+                $stmtLog->close();
+
+                $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
+                                "&regularActivePage=" . urlencode($regularActivePage) .
+                                "&supportActivePage=" . urlencode($supportActivePage) .
+                                "&regularArchivedPage=" . urlencode($regularArchivedPage) .
+                                "&supportArchivedPage=" . urlencode($supportArchivedPage) .
+                                ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                echo json_encode(['success' => true, 'redirect' => $redirect_url]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to close ticket.']);
+            }
+            $stmt->close();
             exit;
         } elseif (isset($_POST['action']) && isset($_POST['id']) && isset($_POST['type'])) {
             $id = (int)$_POST['id'];
             $type = trim($_POST['type']);
             $action = trim($_POST['action']);
+            $targetTab = $tab; // Use current tab (regular, support, regularArchived, supportArchived)
 
-            // Validate inputs
-            if ($id <= 0 || !in_array($type, ['regular', 'support']) || !in_array($action, ['archive', 'unarchive', 'delete'])) {
-                error_log("Invalid POST data: id=$id, type=$type, action=$action");
-                header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=invalid_action");
-                exit;
-            }
-
-            // Set targetTab based on action and type
-            $targetTab = $tab;
             if ($action === 'archive') {
-                $targetTab = ($type === 'regular') ? 'regularArchived' : 'supportArchived';
+                $targetTab = ($type === 'regular') ? 'regular' : 'support';
+                if ($type === 'regular') {
+                    $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_id = ? AND t_status != 'archived'";
+                } else {
+                    $sql = "UPDATE tbl_supp_tickets SET s_message = CONCAT('ARCHIVED:', s_message) WHERE id = ?";
+                }
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("i", $id);
             } elseif ($action === 'unarchive') {
                 $targetTab = ($type === 'regular') ? 'regular' : 'support';
+                if ($type === 'regular') {
+                    $sql = "UPDATE tbl_ticket SET t_details = REPLACE(t_details, 'ARCHIVED:', '') WHERE t_id = ?";
+                } else {
+                    $sql = "UPDATE tbl_supp_tickets SET s_message = REPLACE(s_message, 'ARCHIVED:', '') WHERE id = ?";
+                }
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("i", $id);
             } elseif ($action === 'delete') {
                 $targetTab = ($type === 'regular') ? 'regularArchived' : 'supportArchived';
-            }
-
-            // Database operations
-            if ($action === 'archive') {
                 if ($type === 'regular') {
-                    $sql = "SELECT t_details FROM tbl_ticket WHERE t_id = ? AND t_status != 'archived'";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    if ($result->num_rows === 0) {
-                        error_log("Ticket not found or already archived: id=$id, type=regular");
-                        header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=ticket_not_found");
-                        $stmt->close();
-                        exit;
-                    }
-                    $row = $result->fetch_assoc();
-                    $current_details = $row['t_details'] ?? '';
-                    $stmt->close();
-                    $new_details = 'ARCHIVED:' . $current_details;
-                    $sql = "UPDATE tbl_ticket SET t_details = ? WHERE t_id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("si", $new_details, $id);
-                } else {
-                    $sql = "SELECT s_message FROM tbl_supp_tickets WHERE id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    if ($result->num_rows === 0) {
-                        error_log("Support ticket not found: id=$id");
-                        header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=ticket_not_found");
-                        $stmt->close();
-                        exit;
-                    }
-                    $row = $result->fetch_assoc();
-                    $current_message = $row['s_message'] ?? '';
-                    $stmt->close();
-                    $new_message = 'ARCHIVED:' . $current_message;
-                    $sql = "UPDATE tbl_supp_tickets SET s_message = ? WHERE id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("si", $new_message, $id);
-                }
-            } elseif ($action === 'unarchive') {
-                if ($type === 'regular') {
-                    $sql = "SELECT t_details FROM tbl_ticket WHERE t_id = ? AND t_status != 'archived'";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    if ($result->num_rows === 0) {
-                        error_log("Ticket not found or not archived: id=$id, type=regular");
-                        header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=ticket_not_found");
-                        $stmt->close();
-                        exit;
-                    }
-                    $row = $result->fetch_assoc();
-                    $current_details = $row['t_details'] ?? '';
-                    $stmt->close();
-                    $new_details = preg_replace('/^ARCHIVED:/', '', $current_details);
-                    $sql = "UPDATE tbl_ticket SET t_details = ? WHERE t_id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("si", $new_details, $id);
-                } else {
-                    $sql = "SELECT s_message FROM tbl_supp_tickets WHERE id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    if ($result->num_rows === 0) {
-                        error_log("Support ticket not found: id=$id");
-                        header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=ticket_not_found");
-                        $stmt->close();
-                        exit;
-                    }
-                    $row = $result->fetch_assoc();
-                    $current_message = $row['s_message'] ?? '';
-                    $stmt->close();
-                    $new_message = preg_replace('/^ARCHIVED:/', '', $current_message);
-                    $sql = "UPDATE tbl_supp_tickets SET s_message = ? WHERE id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("si", $new_message, $id);
-                }
-            } elseif ($action === 'delete') {
-                if ($type === 'regular') {
-                    $sql = "DELETE FROM tbl_ticket WHERE t_id = ? AND t_details LIKE 'ARCHIVED:%' AND t_status != 'archived'";
+                    $sql = "DELETE FROM tbl_ticket WHERE t_id = ? AND t_details LIKE 'ARCHIVED:%'";
                 } else {
                     $sql = "DELETE FROM tbl_supp_tickets WHERE id = ? AND s_message LIKE 'ARCHIVED:%'";
                 }
@@ -444,38 +226,30 @@ ician not found.']);
                 $stmt->bind_param("i", $id);
             }
 
-            // Execute the statement and handle errors
-            if ($stmt->execute()) {
-                if ($action !== 'delete' || $stmt->affected_rows > 0) {
-                    // Log the action
-                    $logDescription = "Technician $firstName performed $action on $type ticket ID $id";
-                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-                    $stmtLog = $conn->prepare($sqlLog);
-                    $stmtLog->bind_param("s", $logDescription);
-                    $stmtLog->execute();
-                    $stmtLog->close();
-                }
+            if ($stmt->execute() && $stmt->affected_rows > 0) {
+                $logDescription = "Technician $firstName performed $action on $type ticket ID $id";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $stmtLog = $conn->prepare($sqlLog);
+                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->execute();
+                $stmtLog->close();
+
+                $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
+                                "&regularActivePage=" . urlencode($regularActivePage) .
+                                "&supportActivePage=" . urlencode($supportActivePage) .
+                                "&regularArchivedPage=" . urlencode($regularArchivedPage) .
+                                "&supportArchivedPage=" . urlencode($supportArchivedPage) .
+                                ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                header("Location: $redirect_url");
             } else {
-                error_log("Database operation failed: action=$action, type=$type, id=$id, error=" . $stmt->error);
-                header("Location: technicianD.php?tab=" . urlencode($tab) . "&error=database_error");
-                $stmt->close();
-                exit;
+                echo json_encode(['success' => false, 'message' => "Failed to $action ticket."]);
             }
             $stmt->close();
-
-            // Build redirect URL with pagination and search
-            $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
-                            "&regularActivePage=" . urlencode($regularActivePage) .
-                            "&supportActivePage=" . urlencode($supportActivePage) .
-                            "&regularArchivedPage=" . urlencode($regularArchivedPage) .
-                            "&supportArchivedPage=" . urlencode($supportArchivedPage) .
-                            ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-            header("Location: $redirect_url");
             exit;
         }
     }
 
-    // Pagination for Regular Tickets - Active (exclude archived status)
+    // Pagination for Regular Tickets - Active
     $sqlTotalRegularActive = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) AND t_status != 'archived'";
     if ($searchTerm) {
         $sqlTotalRegularActive .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
@@ -489,7 +263,6 @@ ician not found.']);
     $resultTotalRegularActive = $stmtTotalRegularActive->get_result();
     $totalRegularActive = $resultTotalRegularActive ? ($resultTotalRegularActive->fetch_assoc()['total'] ?? 0) : 0;
     $stmtTotalRegularActive->close();
-    error_log("Total active regular tickets: $totalRegularActive"); // Debug total count
     $totalRegularActivePages = ceil($totalRegularActive / $limit) ?: 1;
     $regularActivePage = min($regularActivePage, $totalRegularActivePages);
     $regularActiveOffset = max(0, ($regularActivePage - 1) * $limit);
@@ -509,22 +282,10 @@ ician not found.']);
     }
     $stmtRegularActive->execute();
     $resultRegularActive = $stmtRegularActive->get_result();
-
-    // Debug fetched tickets
-    if ($resultRegularActive && $resultRegularActive->num_rows > 0) {
-        $ticketIds = [];
-        while ($row = $resultRegularActive->fetch_assoc()) {
-            $ticketIds[] = $row['t_id'];
-        }
-        $resultRegularActive->data_seek(0); // Reset result pointer
-        error_log("Tickets fetched for page $regularActivePage: " . implode(', ', $ticketIds));
-    } else {
-        error_log("No tickets fetched for page $regularActivePage");
-    }
     $stmtRegularActive->close();
 
-    // Pagination for Support Tickets - Active (exclude archived)
-    $sqlTotalSupportActive = "SELECT COUNT(*) AS total FROM tbl_supp_tickets WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
+    // Pagination for Support Tickets - Active
+    $sqlTotalSupportActive = "SELECT COUNT(*) AS total FROM tbl_supp_tickets WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL) AND s_status IN ('Open', 'Closed')";
     if ($searchTerm) {
         $sqlTotalSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
     }
@@ -543,7 +304,7 @@ ician not found.']);
 
     $sqlSupportActive = "SELECT id AS t_id, CONCAT(c_fname, ' ', c_lname) AS t_aname, s_subject, s_ref, s_message AS t_details, s_status AS t_status 
                         FROM tbl_supp_tickets 
-                        WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
+                        WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL) AND s_status IN ('Open', 'Closed')";
     if ($searchTerm) {
         $sqlSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
     }
@@ -589,14 +350,8 @@ ician not found.']);
     } else {
         $stmtRegularArchived->bind_param("ii", $limit, $regularArchivedOffset);
     }
-    if (!$stmtRegularArchived->execute()) {
-        error_log("Execution failed: " . $stmtRegularArchived->error);
-        die("Error executing query for archived regular tickets.");
-    }
+    $stmtRegularArchived->execute();
     $resultRegularArchived = $stmtRegularArchived->get_result();
-    if (!$resultRegularArchived) {
-        error_log("Failed to get result: " . $stmtRegularArchived->error);
-    }
     $stmtRegularArchived->close();
 
     // Pagination for Support Tickets - Archived
@@ -634,7 +389,6 @@ ician not found.']);
     $resultSupportArchived = $stmtSupportArchived->get_result();
     $stmtSupportArchived->close();
 } else {
-    error_log("Database connection failed.");
     $firstName = '';
     $userType = '';
     $openTickets = $closedTickets = $pendingTasks = $supportOpen = $supportClosed = 0;
@@ -652,76 +406,9 @@ ician not found.']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISP Technician Dashboard</title>
-    <link rel="stylesheet" href="techniciansD.css">
+    <link rel="stylesheet" href="technicianD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        .support-tickets-link {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            padding: 10px;
-            color: #fff;
-            text-decoration: none;
-        }
-        .support-tickets-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        .support-tickets-input {
-            display: none;
-            margin: 10px 0 10px 20px;
-            align-items: center;
-        }
-        .support-tickets-input.active {
-            display: flex;
-        }
-        .support-tickets-input input {
-            width: 120px;
-            padding: 8px;
-            margin-right: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            color: #333;
-            font-size: 14px;
-        }
-        .support-tickets-input button {
-            padding: 8px 12px;
-            background: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .support-tickets-input button:hover {
-            background: #0056b3;
-        }
-        .close-btn {
-            cursor: pointer;
-            color: #28a745;
-            margin: 0 5px;
-            transition: color 0.2s;
-        }
-        .close-btn:hover {
-            color: #218838;
-        }
-        .close-btn i {
-            font-size: 18px;
-        }
-        .status-open.clickable cujo {
-            cursor: pointer;
-            text-decoration: none;
-            color: #28a745;
-        }
-        .status-open.clickable:hover {
-            text-decoration: underline;
-        }
-        .modal-btn.confirm:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-    </style>
 </head>
 <body> 
 <div class="wrapper">
@@ -730,7 +417,7 @@ ician not found.']);
         <ul>
             <li><a href="technicianD.php" class="active"><img src="https://img.icons8.com/parakeet/35/dashboard.png" alt="dashboard"/><span>Dashboard</span></a></li>
             <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
-            <li><a href="techBorrowed.php"> <img src="https://img.icons8.com/cotton/35/documents--v1.png" alt="documents--v1"/> <span>Borrowed Records</span></a></li>
+            <li><a href="techBorrowed.php"><img src="https://img.icons8.com/cotton/35/documents--v1.png" alt="documents--v1"/><span>Borrowed Records</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -767,7 +454,7 @@ ician not found.']);
             </div>
         </div>
 
-        <!-- Dashboard Cards Section -->
+        <!-- Dashboard Cards -->
         <div class="dashboard-cards">
             <div class="card">
                 <i class="fas fa-tasks text-yellow-500"></i>
@@ -795,7 +482,19 @@ ician not found.']);
             </div>
         </div>
 
-        <!-- Modal STRUCTURE -->
+        <!-- Modals -->
+        <div id="viewTicketModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Ticket Details</h2>
+                </div>
+                <div id="viewTicketContent"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
         <div id="actionModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header"></div>
@@ -804,14 +503,13 @@ ician not found.']);
             </div>
         </div>
 
-        <!-- Close Ticket Modal -->
         <div id="closeModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Close Ticket</h2>
                 </div>
                 <div class="modal-body">
-                    <p>Confirm closing ticket ID <span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>.</p>
+                    <p>Confirm closing ticket <span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>.</p>
                     <label for="technicianFirstName">Enter Your First Name</label>
                     <input type="text" id="technicianFirstName" name="technicianFirstName" required>
                     <p id="closeError" style="color: red; display: none;"></p>
@@ -823,7 +521,6 @@ ician not found.']);
             </div>
         </div>
 
-        <!-- Hidden Form for Action Submission -->
         <form id="actionForm" method="POST" style="display: none;">
             <input type="hidden" name="action" id="formAction">
             <input type="hidden" name="id" id="formId">
@@ -831,19 +528,19 @@ ician not found.']);
         </form>
 
         <div class="tab-container">
-            <!-- Main Tab Buttons -->
+            <!-- Main Tabs -->
             <div class="main-tab-buttons">
                 <button class="tab-button <?php echo in_array($tab, ['regular', 'regularArchived']) ? 'active' : ''; ?>" onclick="openMainTab('regularTickets', '<?php echo $tab === 'regularArchived' ? 'regularArchived' : 'regular'; ?>')">Regular Tickets</button>
                 <button class="tab-button <?php echo in_array($tab, ['support', 'supportArchived']) ? 'active' : ''; ?>" onclick="openMainTab('supportTickets', '<?php echo $tab === 'supportArchived' ? 'supportArchived' : 'support'; ?>')">Support Tickets</button>
             </div>
 
-            <!-- Regular Tickets Section -->
+            <!-- Regular Tickets -->
             <div id="regularTickets" class="main-tab-content <?php echo in_array($tab, ['regular', 'regularArchived']) ? 'active' : ''; ?>">
                 <div class="table-box">
                     <div class="sub-tab-buttons">
                         <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openSubTab('regularTicketsContent', 'regular')">Active (<?php echo $totalRegularActive; ?>)</button>
                         <button class="tab-button <?php echo $tab === 'regularArchived' ? 'active' : ''; ?>" onclick="openSubTab('regularArchivedTicketsContent', 'regularArchived')">
-                            Archived (<?php echo $totalRegularArchived; ?>)
+                            Archived 
                             <?php if ($totalRegularArchived > 0): ?>
                                 <span class="tab-badge"><?php echo $totalRegularArchived; ?></span>
                             <?php endif; ?>
@@ -887,20 +584,20 @@ ician not found.']);
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td>" . htmlspecialchars($row['t_date'] ?? '-') . "</td>
                                                 <td class='action-buttons'>
-                                                    <span class='view-btn' onclick='openModal(\"view\", \"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                    <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
                                                     <span class='archive-btn' onclick='openModal(\"archive\", \"regular\", {\"id\": {$row['t_id']}})' title='Archive'><i class='fas fa-archive'></i></span>
                                                 </td>
                                               </tr>";
                                     }
                                 } else {
-                                    echo "<tr><td colspan='7' style='text-align: center;'>No active regular tickets found.</td></tr>";
+                                    echo "<tr><td colspan='7'>No active regular tickets found.</td></tr>";
                                 }
                                 ?>
                             </tbody>
                         </table>
                         <div class="pagination" id="regular-active-pagination">
                             <?php
-                            $paginationParams = "&supportActivePage=$supportActivePage&regularArchivedPage=$regularArchivedPage&supportArchivedPage=$supportArchivedPage" . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                            $paginationParams = "&supportActivePage=" . urlencode($supportActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                             if ($regularActivePage > 1): ?>
                                 <a href="?tab=regular&regularActivePage=<?php echo $regularActivePage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                             <?php else: ?>
@@ -915,7 +612,7 @@ ician not found.']);
                         </div>
                     </div>
 
-                    <!-- Regular Archived Tickets -->
+                    <!-- Archived Regular Tickets -->
                     <div id="regularArchivedTicketsContent" class="sub-tab-content <?php echo $tab === 'regularArchived' ? 'active' : ''; ?>">
                         <table class="tickets-table" id="regular-archived-tickets">
                             <thead>
@@ -950,21 +647,21 @@ ician not found.']);
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td>" . htmlspecialchars($row['t_date'] ?? '-') . "</td>
                                                 <td class='action-buttons'>
-                                                    <span class='view-btn' onclick='openModal(\"view\", \"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                    <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
                                                     <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"regular\", {\"id\": {$row['t_id']}})' title='Unarchive'><i class='fas fa-box-open'></i></span>
                                                     <span class='delete-btn' onclick='openModal(\"delete\", \"regular\", {\"id\": {$row['t_id']}})' title='Delete'><i class='fas fa-trash'></i></span>
                                                 </td>
                                               </tr>";
                                     }
                                 } else {
-                                    echo "<tr><td colspan='7' style='text-align: center;'>No archived regular tickets found.</td></tr>";
+                                    echo "<tr><td colspan='7'>No archived regular tickets found.</td></tr>";
                                 }
                                 ?>
                             </tbody>
                         </table>
                         <div class="pagination" id="regular-archived-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=$regularActivePage&supportActivePage=$supportActivePage&supportArchivedPage=$supportArchivedPage" . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&supportActivePage=" . urlencode($supportActivePage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                             if ($regularArchivedPage > 1): ?>
                                 <a href="?tab=regularArchived&regularArchivedPage=<?php echo $regularArchivedPage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                             <?php else: ?>
@@ -981,13 +678,13 @@ ician not found.']);
                 </div>
             </div>
 
-            <!-- Support Tickets Section -->
+            <!-- Support Tickets -->
             <div id="supportTickets" class="main-tab-content <?php echo in_array($tab, ['support', 'supportArchived']) ? 'active' : ''; ?>">
                 <div class="table-box">
                     <div class="sub-tab-buttons">
                         <button class="tab-button <?php echo $tab === 'support' ? 'active' : ''; ?>" onclick="openSubTab('supportTicketsContent', 'support')">Active (<?php echo $totalSupportActive; ?>)</button>
                         <button class="tab-button <?php echo $tab === 'supportArchived' ? 'active' : ''; ?>" onclick="openSubTab('supportArchivedTicketsContent', 'supportArchived')">
-                            Archived (<?php echo $totalSupportArchived; ?>)
+                            Archived 
                             <?php if ($totalSupportArchived > 0): ?>
                                 <span class="tab-badge"><?php echo $totalSupportArchived; ?></span>
                             <?php endif; ?>
@@ -999,10 +696,9 @@ ician not found.']);
                         <table class="tickets-table" id="support-active-tickets">
                             <thead>
                                 <tr>
-                                    <th>Ticket ID</th>
+                                    <th>Ticket No.</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
-                                    <th>Reference</th>
                                     <th>Message</th>
                                     <th>Status</th>
                                     <th>Action</th>
@@ -1015,37 +711,36 @@ ician not found.']);
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
                                             'id' => $row['t_id'],
+                                            'ref' => $row['s_ref'] ?? '',
                                             'aname' => $row['t_aname'] ?? '',
                                             'subject' => $row['s_subject'] ?? '',
-                                            'ref' => $row['s_ref'] ?? '',
                                             'details' => $display_details,
                                             'status' => ucfirst(strtolower($row['t_status'] ?? '')),
                                             'date' => '-'
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['t_id']) . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($display_details) . "</td>
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . 
                                                 (strtolower($row['t_status']) === 'open' ? " clickable' onclick='openCloseModal({$row['t_id']}, \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"support\")'" : "'") . 
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
-                                                    <span class='view-btn' onclick='openModal(\"view\", \"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                    <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
                                                     <span class='archive-btn' onclick='openModal(\"archive\", \"support\", {\"id\": {$row['t_id']}})' title='Archive'><i class='fas fa-archive'></i></span>
                                                 </td>
                                               </tr>";
                                     }
                                 } else {
-                                    echo "<tr><td colspan='7' style='text-align: center;'>No active support tickets found.</td></tr>";
+                                    echo "<tr><td colspan='6'>No active support tickets found.</td></tr>";
                                 }
                                 ?>
                             </tbody>
                         </table>
                         <div class="pagination" id="support-active-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=$regularActivePage&regularArchivedPage=$regularArchivedPage&supportArchivedPage=$supportArchivedPage" . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                             if ($supportActivePage > 1): ?>
                                 <a href="?tab=support&supportActivePage=<?php echo $supportActivePage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                             <?php else: ?>
@@ -1060,15 +755,14 @@ ician not found.']);
                         </div>
                     </div>
 
-                    <!-- Support Archived Tickets -->
+                    <!-- Archived Support Tickets -->
                     <div id="supportArchivedTicketsContent" class="sub-tab-content <?php echo $tab === 'supportArchived' ? 'active' : ''; ?>">
                         <table class="tickets-table" id="support-archived-tickets">
                             <thead>
                                 <tr>
-                                    <th>Ticket ID</th>
+                                    <th>Ticket No.</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
-                                    <th>Reference</th>
                                     <th>Message</th>
                                     <th>Status</th>
                                     <th>Action</th>
@@ -1081,36 +775,35 @@ ician not found.']);
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
                                             'id' => $row['t_id'],
+                                            'ref' => $row['s_ref'] ?? '',
                                             'aname' => $row['t_aname'] ?? '',
                                             'subject' => $row['s_subject'] ?? '',
-                                            'ref' => $row['s_ref'] ?? '',
                                             'details' => $display_details,
                                             'status' => ucfirst(strtolower($row['t_status'] ?? '')),
                                             'date' => '-'
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['t_id']) . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($display_details) . "</td>
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
-                                                    <span class='view-btn' onclick='openModal(\"view\", \"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                    <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
                                                     <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"support\", {\"id\": {$row['t_id']}})' title='Unarchive'><i class='fas fa-box-open'></i></span>
                                                     <span class='delete-btn' onclick='openModal(\"delete\", \"support\", {\"id\": {$row['t_id']}})' title='Delete'><i class='fas fa-trash'></i></span>
                                                 </td>
                                               </tr>";
                                     }
                                 } else {
-                                    echo "<tr><td colspan='7' style='text-align: center;'>No archived support tickets found.</td></tr>";
+                                    echo "<tr><td colspan='6'>No archived support tickets found.</td></tr>";
                                 }
                                 ?>
                             </tbody>
                         </table>
                         <div class="pagination" id="support-archived-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=$regularActivePage&regularArchivedPage=$regularArchivedPage&supportActivePage=$supportActivePage" . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
+                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportActivePage=" . urlencode($supportActivePage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                             if ($supportArchivedPage > 1): ?>
                                 <a href="?tab=supportArchived&supportArchivedPage=<?php echo $supportArchivedPage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                             <?php else: ?>
@@ -1216,6 +909,31 @@ function searchTickets(page = 1) {
 
 const debouncedSearchTickets = debounce(searchTickets, 300);
 
+function showViewModal(type, data) {
+    const content = document.getElementById('viewTicketContent');
+    const statusClass = `status-${data.status.toLowerCase().replace(' ', '-')}`;
+    if (type === 'regular') {
+        content.innerHTML = `
+            <p><strong>Ticket ID:</strong> ${data.id}</p>
+            <p><strong>Customer Name:</strong> ${data.aname}</p>
+            <p><strong>Subject:</strong> ${data.subject}</p>
+            <p><strong>Message:</strong> ${data.details}</p>
+            <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
+            <p><strong>Date:</strong> ${data.date}</p>
+        `;
+    } else {
+        content.innerHTML = `
+            <p><strong>Ticket No.:</strong> ${data.ref}</p>
+            <p><strong>Customer Name:</strong> ${data.aname}</p>
+            <p><strong>Subject:</strong> ${data.subject}</p>
+            <p><strong>Message:</strong> ${data.details}</p>
+            <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
+        `;
+    }
+    document.getElementById('viewTicketModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
 function openModal(action, type, data) {
     const modal = document.getElementById('actionModal');
     const modalHeader = modal.querySelector('.modal-header');
@@ -1226,43 +944,13 @@ function openModal(action, type, data) {
     modalBody.innerHTML = '';
     modalFooter.innerHTML = '';
 
-    if (action === 'view') {
-        modalHeader.textContent = `View Ticket #${data.id}`;
-        if (type === 'regular') {
-            modalBody.innerHTML = `
-                <div class="ticket-details">
-                    <p><strong>Ticket ID:</strong> ${data.id}</p>
-                    <p><strong>Customer Name:</strong> ${data.aname}</p>
-                    <p><strong>Subject:</strong> ${data.subject}</p>
-                    <p><strong>Message:</strong> ${data.details}</p>
-                    <p><strong>Status:</strong> ${data.status}</p>
-                    <p><strong>Date:</strong> ${data.date}</p>
-                </div>
-            `;
-        } else {
-            modalBody.innerHTML = `
-                <div class="ticket-details">
-                    <p><strong>Ticket ID:</strong> ${data.id}</p>
-                    <p><strong>Customer Name:</strong> ${data.aname}</p>
-                    <p><strong>Subject:</strong> ${data.subject}</p>
-                    <p><strong>Reference:</strong> ${data.ref}</p>
-                    <p><strong>Message:</strong> ${data.details}</p>
-                    <p><strong>Status:</strong> ${data.status}</p>
-                </div>
-            `;
-        }
-        modalFooter.innerHTML = `
-            <button class="modal-btn close" onclick="closeModal('actionModal')">Close</button>
-        `;
-    } else {
-        let actionText = action.charAt(0).toUpperCase() + action.slice(1);
-        modalHeader.textContent = `${actionText} Ticket #${data.id}`;
-        modalBody.innerHTML = `<p>Are you sure you want to ${action} this ticket?</p>`;
-        modalFooter.innerHTML = `
-            <button class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
-            <button class="modal-btn confirm" onclick="submitAction('${action}', '${type}', ${data.id})">Confirm</button>
-        `;
-    }
+    let actionText = action.charAt(0).toUpperCase() + action.slice(1);
+    modalHeader.textContent = `${actionText} Ticket #${data.id}`;
+    modalBody.innerHTML = `<p>Are you sure you want to ${action} this ticket?</p>`;
+    modalFooter.innerHTML = `
+        <button class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
+        <button class="modal-btn confirm" onclick="submitAction('${action}', '${type}', ${data.id})">Confirm</button>
+    `;
 
     modal.style.display = 'block';
     document.body.classList.add('modal-open');
@@ -1319,11 +1007,10 @@ function submitCloseAction() {
         }
     })
     .catch(error => {
-        errorElement.textContent = 'An error occurred. Please try again.';
+        errorElement.textContent = 'An error occurred.';
         errorElement.style.display = 'block';
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Confirm';
-        console.error('Error:', error);
     });
 }
 
@@ -1343,16 +1030,16 @@ function submitAction(action, type, id) {
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab') || 'regular';
-    if (tab === 'support' || tab === 'supportArchived') {
-        openMainTab('supportTickets', tab);
-    } else {
-        openMainTab('regularTickets', tab);
-    }
+    const mainTab = tab === 'regular' || tab === 'regularArchived' ? 'regularTickets' : 'supportTickets';
+    openMainTab(mainTab, tab);
+    const subTabContentId = tab === 'regular' ? 'regularTicketsContent' :
+                           tab === 'regularArchived' ? 'regularArchivedTicketsContent' :
+                           tab === 'support' ? 'supportTicketsContent' : 'supportArchivedTicketsContent';
+    openSubTab(subTabContentId, tab);
 });
 </script>
 </body>
 </html>
 
-<?php
-$conn->close();
-?>
+
+

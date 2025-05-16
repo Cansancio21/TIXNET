@@ -163,7 +163,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
                           <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td class='$statusClass$clickableAttr>" . ucfirst(strtolower($row['t_status'])) . "</td>
-                          <td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
+                          <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                           <td>" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td class='action-buttons'>";
             if ($userType !== 'technician') {
@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $nameParts = explode(" ", $accountname);
             if (count($nameParts) < 2) {
-                $accountnameErr = "Account Name must consist of first and foremost.";
+                $accountnameErr = "Account Name must consist of first and last name.";
                 $hasError = true;
             } else {
                 $firstNameCustomer = $nameParts[0];
@@ -775,7 +775,7 @@ $conn->close();
                                         <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='$statusClass$clickableAttr>" . ucfirst(strtolower($row['t_status'])) . "</td>
-                                        <td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                                         <td>" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>";
                                 if ($userType !== 'technician') {
@@ -843,7 +843,7 @@ $conn->close();
                                         <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='status-" . strtolower($row['t_status']) . "'>" . ucfirst(strtolower($row['t_status'])) . "</td>
-                                        <td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                                         <td>" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>";
                                 if ($userType !== 'technician') {
@@ -888,7 +888,6 @@ $conn->close();
     <div class="modal-content">
         <div class="modal-header">
             <h2>Ticket Details</h2>
-           
         </div>
         <div id="viewContent" class="view-details"></div>
         <div class="modal-footer">
@@ -1071,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value) {
         console.log('Search input has value, triggering searchTickets');
-        searchTickets();
+        searchTickets(tab === 'active' ? defaultPageActive : defaultPageArchived, tab);
     }
 
     // Prevent navigation to restricted pages for technicians
@@ -1100,18 +1099,17 @@ function debounce(func, wait) {
     };
 }
 
-function searchTickets(page = 1) {
+function searchTickets(page = 1, tab = null) {
     const searchTerm = document.getElementById('searchInput').value;
     const activeSection = document.querySelector('.active-tickets');
-    const archivedSection = document.querySelector('.archived-tickets');
-    const tab = activeSection.classList.contains('active') ? 'active' : 'archived';
-    const tbody = tab === 'active' ? document.getElementById('active-table-body') : document.getElementById('archived-table-body');
-    const paginationContainer = tab === 'active' ? document.getElementById('active-pagination') : document.getElementById('archived-pagination');
-    const defaultPageToUse = tab === 'active' ? defaultPageActive : defaultPageArchived;
+    const currentTab = tab || (activeSection.classList.contains('active') ? 'active' : 'archived');
+    const tbody = currentTab === 'active' ? document.getElementById('active-table-body') : document.getElementById('archived-table-body');
+    const paginationContainer = currentTab === 'active' ? document.getElementById('active-pagination') : document.getElementById('archived-pagination');
+    const defaultPage = currentTab === 'active' ? defaultPageActive : defaultPageArchived;
 
     currentSearchPage = page;
 
-    console.log(`Searching tickets: tab=${tab}, page=${page}, searchTerm=${searchTerm}`);
+    console.log(`Searching tickets: tab=${currentTab}, page=${page}, searchTerm=${searchTerm}`);
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -1119,22 +1117,28 @@ function searchTickets(page = 1) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 tbody.innerHTML = response.html;
-                updatePagination(response.currentPage, response.totalPages, response.searchTerm, tab === 'active' ? 'active-pagination' : 'archived-pagination');
+                updatePagination(response.currentPage, response.totalPages, response.searchTerm, currentTab);
+                // Update default page variables to reflect the current page
+                if (currentTab === 'active') {
+                    defaultPageActive = response.currentPage;
+                } else {
+                    defaultPageArchived = response.currentPage;
+                }
             } catch (e) {
                 console.error('Error parsing JSON:', e, xhr.responseText);
             }
         }
     };
-    xhr.open('GET', `staffD.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPageToUse}`, true);
+    xhr.open('GET', `staffD.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}`, true);
     xhr.send();
 }
 
-function updatePagination(currentPage, totalPages, searchTerm, paginationId) {
-    const paginationContainer = document.getElementById(paginationId);
+function updatePagination(currentPage, totalPages, searchTerm, tab) {
+    const paginationContainer = document.getElementById(tab === 'active' ? 'active-pagination' : 'archived-pagination');
     let paginationHtml = '';
 
     if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchTickets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+        paginationHtml += `<a href="javascript:searchTickets(${currentPage - 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     }
@@ -1142,7 +1146,7 @@ function updatePagination(currentPage, totalPages, searchTerm, paginationId) {
     paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
     if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchTickets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+        paginationHtml += `<a href="javascript:searchTickets(${currentPage + 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     }
@@ -1150,7 +1154,7 @@ function updatePagination(currentPage, totalPages, searchTerm, paginationId) {
     paginationContainer.innerHTML = paginationHtml;
 }
 
-const debouncedSearchTickets = debounce(searchTickets, 300);
+const debouncedSearchTickets = debounce((page, tab) => searchTickets(page, tab), 300);
 
 function showRestrictedMessage() {
     console.log('Restricted action attempted by technician');
@@ -1167,11 +1171,13 @@ function showTab(tab) {
         archivedSection.classList.remove('active');
         activeSection.style.display = 'block';
         archivedSection.style.display = 'none';
+        currentSearchPage = defaultPageActive; // Reset to active tab's page
     } else if (tab === 'archived') {
         activeSection.classList.remove('active');
         archivedSection.classList.add('active');
         activeSection.style.display = 'none';
         archivedSection.style.display = 'block';
+        currentSearchPage = defaultPageArchived; // Reset to archived tab's page
     }
 
     document.querySelectorAll('.tab-btn').forEach(button => {
@@ -1185,14 +1191,15 @@ function showTab(tab) {
     urlParams.set('tab', tab);
     history.replaceState(null, '', '?' + urlParams.toString());
 
-    document.getElementById('searchInput').value = '';
-    searchTickets();
+    // Clear search input and trigger search with the correct page
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = '';
+    searchTickets(currentSearchPage, tab);
 }
 
 function showViewModal(id, aname, subject, status, details, date) {
     console.log(`Opening view modal for ticket ID=${id}`);
     try {
-        // Escape HTML to prevent XSS
         const escapeHTML = (str) => {
             return str.replace(/&/g, '&amp;')
                      .replace(/</g, '&lt;')
@@ -1201,17 +1208,15 @@ function showViewModal(id, aname, subject, status, details, date) {
                      .replace(/'/g, '&#039;');
         };
 
-        // Populate modal content
         document.getElementById('viewContent').innerHTML = `
             <p><strong>ID:</strong> ${escapeHTML(id.toString())}</p>
             <p><strong>Account Name:</strong> ${escapeHTML(aname)}</p>
             <p><strong>Subject:</strong> ${escapeHTML(subject)}</p>
             <p><strong>Ticket Status:</strong> <span class="status-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></p>
-            <p><strong>Ticket Details:</strong> ${escapeHTML(details)}</p>
+            <p><strong>Ticket Details:</strong> ${escapeHTML(details.replace(/^ARCHIVED:/, ''))}</p>
             <p><strong>Date:</strong> ${escapeHTML(date)}</p>
         `;
         
-        // Show the modal
         const modal = document.getElementById('viewModal');
         if (modal) {
             modal.style.display = 'block';
@@ -1264,7 +1269,7 @@ function showEditTicketModal(id, aname, subject, status, details, date) {
     document.getElementById('edit_account_name').value = aname;
     document.getElementById('edit_ticket_subject').value = subject;
     document.getElementById('edit_ticket_status').value = status;
-    document.getElementById('edit_ticket_details').value = details;
+    document.getElementById('edit_ticket_details').value = details.replace(/^ARCHIVED:/, '');
     document.getElementById('edit_date').value = date;
     document.querySelectorAll('#editTicketForm .error').forEach(span => span.textContent = '');
     document.getElementById('editTicketModal').style.display = 'block';
@@ -1280,7 +1285,6 @@ window.addEventListener('click', function(event) {
     }
 });
 
-// Event delegation for view buttons
 document.addEventListener('click', function(event) {
     const target = event.target.closest('.view-btn');
     if (target) {
@@ -1298,7 +1302,6 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Handle Add Ticket form submission via AJAX
 document.getElementById('addTicketForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -1309,11 +1312,9 @@ document.getElementById('addTicketForm').addEventListener('submit', function(e) 
             const response = JSON.parse(xhr.responseText);
             const alertContainer = document.querySelector('.alert-container');
 
-            // Clear previous error messages
             document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
 
             if (response.success) {
-                // Show success alert
                 const alert = document.createElement('div');
                 alert.className = 'alert alert-success';
                 alert.textContent = response.message;
@@ -1323,9 +1324,8 @@ document.getElementById('addTicketForm').addEventListener('submit', function(e) 
                     setTimeout(() => alert.remove(), 500);
                 }, 2000);
                 closeModal('addTicketModal');
-                searchTickets(defaultPageActive);
+                searchTickets(defaultPageActive, 'active');
             } else if (response.errors) {
-                // Display errors below respective fields inside the modal only
                 for (const [field, error] of Object.entries(response.errors)) {
                     if (error) {
                         document.getElementById(`${field}_error`).textContent = error;
@@ -1337,7 +1337,6 @@ document.getElementById('addTicketForm').addEventListener('submit', function(e) 
     xhr.send(formData);
 });
 
-// Handle Edit Ticket form submission via AJAX
 document.getElementById('editTicketForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -1348,11 +1347,9 @@ document.getElementById('editTicketForm').addEventListener('submit', function(e)
             const response = JSON.parse(xhr.responseText);
             const alertContainer = document.querySelector('.alert-container');
 
-            // Clear previous error messages
             document.querySelectorAll('#editTicketForm .error').forEach(span => span.textContent = '');
 
             if (response.success) {
-                // Show success alert
                 const alert = document.createElement('div');
                 alert.className = 'alert alert-success';
                 alert.textContent = response.message;
@@ -1362,9 +1359,8 @@ document.getElementById('editTicketForm').addEventListener('submit', function(e)
                     setTimeout(() => alert.remove(), 500);
                 }, 2000);
                 closeModal('editTicketModal');
-                searchTickets(defaultPageActive);
+                searchTickets(defaultPageActive, 'active');
             } else if (response.errors) {
-                // Display errors below respective fields inside the modal only
                 for (const [field, error] of Object.entries(response.errors)) {
                     if (error) {
                         document.getElementById(`edit_${field}_error`).textContent = error;
@@ -1378,3 +1374,4 @@ document.getElementById('editTicketForm').addEventListener('submit', function(e)
 </script>
 </body>
 </html>
+

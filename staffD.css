@@ -166,9 +166,7 @@ footer {
 .back-home i {
     margin-right: 0;
     margin-bottom: 5px;
-}
-
-/* Main Content */
+}/* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
@@ -774,3 +772,5 @@ tr:hover td {
 .alert-hidden {
     opacity: 0;
 }
+
+
