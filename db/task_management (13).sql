@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 15, 2025 at 08:38 PM
+-- Generation Time: May 17, 2025 at 02:08 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -49,6 +49,31 @@ INSERT INTO `tbl_archive` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tbl_assets`
+--
+
+CREATE TABLE `tbl_assets` (
+  `a_id` int(50) NOT NULL,
+  `a_name` varchar(200) NOT NULL,
+  `a_status` varchar(200) NOT NULL,
+  `a_quantity` int(50) NOT NULL,
+  `a_date` date NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_assets`
+--
+
+INSERT INTO `tbl_assets` (`a_id`, `a_name`, `a_status`, `a_quantity`, `a_date`) VALUES
+(1, 'Ladder', 'Borrowing', 10, '2025-05-16'),
+(2, 'Modems', 'Deployment', 14, '2025-05-16'),
+(3, 'Wire', 'Borrowing', 16, '2025-05-16'),
+(4, 'Fiber Optic Cable', 'Deployment', 13, '2025-05-16'),
+(5, 'Example', 'Borrowing', 2, '2025-05-16');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tbl_borrowed`
 --
 
@@ -66,35 +91,40 @@ CREATE TABLE `tbl_borrowed` (
 --
 
 INSERT INTO `tbl_borrowed` (`b_id`, `b_assets_name`, `b_quantity`, `b_technician_name`, `b_date`, `b_technician_id`) VALUES
-(17, 'Bukog', 0, 'Yumi Chan', '2025-04-24', 45),
-(18, 'Fiber Optic Cable', 3, 'Tatyana Hayden', '2025-04-24', 37),
-(19, 'Fiber Optic Cable', 2, 'Zia Jackson', '2025-04-26', 42),
-(20, 'Fiber Optic Cable', 5, 'Yumi Chan', '2025-04-24', 45);
+(27, 'Modems', 1, 'Joelle Graves', '2025-05-17', 54);
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tbl_borrow_assets`
+-- Table structure for table `tbl_close_regular`
 --
 
-CREATE TABLE `tbl_borrow_assets` (
-  `a_id` int(50) NOT NULL,
-  `a_name` varchar(200) NOT NULL,
-  `a_status` varchar(200) NOT NULL,
-  `a_date` date NOT NULL,
-  `a_quantity` int(50) NOT NULL
+CREATE TABLE `tbl_close_regular` (
+  `t_id` int(50) NOT NULL,
+  `t_aname` varchar(200) NOT NULL,
+  `te_technician` varchar(200) NOT NULL,
+  `t_subject` varchar(200) NOT NULL,
+  `t_status` varchar(200) NOT NULL,
+  `t_details` varchar(200) NOT NULL,
+  `t_date` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `tbl_borrow_assets`
+-- Table structure for table `tbl_close_supp`
 --
 
-INSERT INTO `tbl_borrow_assets` (`a_id`, `a_name`, `a_status`, `a_date`, `a_quantity`) VALUES
-(1, 'Router', 'Borrowing', '2025-03-21', 0),
-(2, 'Bukog', 'Borrowing', '2025-02-26', 2),
-(3, 'Modems', 'Borrowing', '2025-03-25', 0),
-(4, 'Example', 'Borrowing', '2025-03-25', 0),
-(5, 'Fiber Optic Cable', 'Borrowing', '2025-03-31', 27);
+CREATE TABLE `tbl_close_supp` (
+  `s_ref` varchar(200) NOT NULL,
+  `c_id` int(50) NOT NULL,
+  `te_technician` varchar(200) NOT NULL,
+  `c_fname` varchar(200) NOT NULL,
+  `c_lname` varchar(200) NOT NULL,
+  `s_subject` varchar(200) NOT NULL,
+  `s_message` varchar(200) NOT NULL,
+  `s_status` varchar(200) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -106,34 +136,43 @@ CREATE TABLE `tbl_customer` (
   `c_id` int(50) NOT NULL,
   `c_fname` varchar(200) NOT NULL,
   `c_lname` varchar(200) NOT NULL,
-  `c_address` varchar(200) NOT NULL,
-  `c_contact` int(50) NOT NULL,
+  `c_purok` varchar(200) NOT NULL,
+  `c_barangay` varchar(200) NOT NULL,
+  `c_contact` varchar(100) NOT NULL,
   `c_email` varchar(200) NOT NULL,
   `c_date` date NOT NULL,
   `c_napname` varchar(200) NOT NULL,
-  `c_napport` int(100) NOT NULL,
+  `c_napport` int(50) NOT NULL,
   `c_macaddress` varchar(200) NOT NULL,
-  `c_status` varchar(200) NOT NULL
+  `c_status` varchar(200) NOT NULL,
+  `c_plan` varchar(200) NOT NULL,
+  `c_equipment` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_customer`
 --
 
-INSERT INTO `tbl_customer` (`c_id`, `c_fname`, `c_lname`, `c_address`, `c_contact`, `c_email`, `c_date`, `c_napname`, `c_napport`, `c_macaddress`, `c_status`) VALUES
-(1, 'awawawa', 'wawawawaw', 'awawawawaw', 12121212, 'awaw@gmail.com', '2000-02-21', 'awaaw', 12, 'awawaw', 'awawaw'),
-(2, 'awawawa', 'wawaw', 'awawaw', 1212121212, 'awaw@gmail.com', '2000-02-21', 'awaw', 12, 'awawaw', 'awawawawa'),
-(4, 'awawa', 'wawa', 'wawaw', 121212112, 'awaw@gmail.com', '2000-02-21', 'awawawa', 121, 'awaw', 'awawaw'),
-(5, 'awawa', 'wawawaw', 'awawawa', 0, 'awawawawaw@gmail.com', '2000-02-21', 'awawaw', 12, 'awaw', 'awawaw'),
-(6, 'awawa', 'wawawa', 'awaww', 0, 'wawa', '2000-02-21', 'awaw', 0, 'aww', 'awaw'),
-(7, 'awawa', 'wawa', 'wawaw', 0, 'waw', '2000-02-21', 'awaw', 0, 'waw', 'awaw'),
-(8, 'awawaw', 'awawa', 'wawa', 0, 'awa', '2000-02-21', 'awaw', 0, 'waw', 'awaw'),
-(9, 'Latifah', 'Sims', 'Perspiciatis ea dol', 0, 'zehid@mailinator.com', '1970-01-21', 'In sequi eum maxime', 0, 'Nulla magna porro al', 'Aute eum maxime aper'),
-(10, 'Mohammad', 'Mcdaniel', 'Vel ut a et deserunt', 939990939, 'lidyb@mailinator.com', '2024-08-31', 'Laborum voluptatem t', 0, 'Mollit quo deserunt', 'Sapiente suscipit no'),
-(11, 'Lunea', 'Mendez', 'Dolores accusamus mo', 93442324, 'jupev@mailinator.com', '2025-03-20', 'Est et molestiae qui', 2147483647, 'Ad eos nesciunt ir', 'Ut dolorem quia est'),
-(12, 'Leila', 'Swanson', 'Pakigne Minglanilla', 939990939, 'lyrusofor@mailinator.com', '2025-04-28', 'Testing', 123490, 'Test1', 'Active'),
-(13, 'Cara', 'Blackwell', 'Possimus ab dolores', 2147483647, 'williammayormita69@gmail.com', '2025-05-13', 'SukiFinch', 12, 'Eum ratione asperior', 'ARCHIVED:Active'),
-(15, 'Donovan', 'Montgomery', 'Suscipit ut et ut ex', 10292993, 'williammayormita69@gmail.com', '2025-05-13', 'RafaelGillespie', 1213232, 'Nobisquamcumquae', 'Active');
+INSERT INTO `tbl_customer` (`c_id`, `c_fname`, `c_lname`, `c_purok`, `c_barangay`, `c_contact`, `c_email`, `c_date`, `c_napname`, `c_napport`, `c_macaddress`, `c_status`, `c_plan`, `c_equipment`) VALUES
+(1, 'awawawa', 'wawawawaw', 'awawawawaw', '12121212', '0', '2000-02-21', '0000-00-00', '12', 0, 'awawaw', '', '', ''),
+(2, 'awawawa', 'wawaw', 'awawaw', '1212121212', '0', '2000-02-21', '0000-00-00', '12', 0, 'awawawawa', '', '', ''),
+(4, 'awawa', 'wawa', 'wawaw', '121212112', '0', '2000-02-21', '0000-00-00', '121', 0, 'awawaw', '', '', ''),
+(5, 'awawa', 'wawawaw', 'awawawa', '0', '0', '2000-02-21', '0000-00-00', '12', 0, 'awawaw', '', '', ''),
+(6, 'awawa', 'wawawa', 'awaww', '0', '0', '2000-02-21', '0000-00-00', '0', 0, 'awaw', '', '', ''),
+(7, 'awawa', 'wawa', 'wawaw', '0', '0', '2000-02-21', '0000-00-00', '0', 0, 'awaw', '', '', ''),
+(8, 'awawaw', 'awawa', 'wawa', '0', '0', '2000-02-21', '0000-00-00', '0', 0, 'awaw', '', '', ''),
+(9, 'Latifah', 'Sims', 'Perspiciatis ea dol', '0', '0', '1970-01-21', '0000-00-00', '0', 0, 'Aute eum maxime aper', '', '', ''),
+(10, 'Mohammad', 'Mcdaniel', 'Vel ut a et deserunt', '939990939', '0', '2024-08-31', '0000-00-00', '0', 0, 'Sapiente suscipit no', '', '', ''),
+(11, 'Lunea', 'Mendez', 'Dolores accusamus mo', '93442324', '0', '2025-03-20', '0000-00-00', '2147483647', 0, 'Ut dolorem quia est', '', '', ''),
+(12, 'Leila', 'Swanson', 'Pakigne Minglanilla', '939990939', '0', '2025-04-28', '0000-00-00', '123490', 0, 'Active', '', '', ''),
+(13, 'Cara', 'Blackwell', 'Possimus ab dolores', '2147483647', '0', '2025-05-13', '0000-00-00', '12', 0, 'ARCHIVED:Active', '', '', ''),
+(15, 'Donovan', 'Montgomery', 'Suscipit ut et ut ex', '10292993', '0', '2025-05-13', '0000-00-00', '1213232', 0, 'Active', '', '', ''),
+(16, 'Haley', 'Waller', 'Blair Harvey', 'Ullam provident ali', '2147483647', 'xomati@mailinator.com', '1977-05-07', 'Wilma', 1203333, '102030i9mdk', 'Active', '1 Gbps Fiber', 'Customer-Owned'),
+(17, 'Justin', 'Peterson', 'Aladdin Klein', 'Fugiat laudantium h', '463', 'dokykutuko@mailinator.com', '1989-08-18', 'Marsden', 1234, '102038798i9mdk', 'Active', '1 Gbps Fiber', 'Customer-Owned'),
+(18, 'Andrew', 'Hurley', 'Purok Catleya', 'Pakigne', '2147483647', 'kajokupy@mailinator.com', '2025-05-17', 'One', 2, 'BC-BD-84-A5-CE', 'Active', '25 Mbps DSL', 'Customer-Owned'),
+(19, 'Duncan', 'William', 'Purok Tambis', 'Ward II', '09394578940', 'fadipobo@mailinator.com', '2025-05-17', 'Lp1 Np2', 2, 'A5-ER-BX-R4-DE', 'Active', '100 Mbps', 'ISP-Provided Modem/Router'),
+(20, 'Karleigh', 'Landry', 'Purok 11', 'Banhigan', '09567894567', 'pava@mailinator.com', '2025-05-17', 'Lp1 Np1', 1, 'AD-GH-DB-E3-CC', 'ARCHIVED:Active', '1 Gbps', 'Customer-Owned'),
+(21, 'Zachary', 'Beasley', 'Purok Wildflower', 'Banhigan', '09453458693', 'fyjuxyjo@mailinator.com', '2025-05-17', 'Lp1 Np6', 6, 'AS-DK-FK-B3-DW', 'Active', '50 Mbps', 'Customer-Owned');
 
 -- --------------------------------------------------------
 
@@ -156,29 +195,6 @@ CREATE TABLE `tbl_deployed` (
 
 INSERT INTO `tbl_deployed` (`d_id`, `d_assets_name`, `d_quantity`, `d_technician_name`, `d_date`, `d_technician_id`) VALUES
 (1, 'Modem', 5, 'Tatyana Hayden', '2025-04-21', 37);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `tbl_deployment_assets`
---
-
-CREATE TABLE `tbl_deployment_assets` (
-  `a_id` int(50) NOT NULL,
-  `a_name` varchar(200) NOT NULL,
-  `a_status` varchar(200) NOT NULL,
-  `a_date` date NOT NULL,
-  `a_quantity` int(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `tbl_deployment_assets`
---
-
-INSERT INTO `tbl_deployment_assets` (`a_id`, `a_name`, `a_status`, `a_date`, `a_quantity`) VALUES
-(1, 'Wire', 'Deployment', '2025-03-20', 0),
-(2, 'Wire', 'Deployment', '2025-03-20', 0),
-(3, 'Modem', 'Deployment', '2025-03-25', 5);
 
 -- --------------------------------------------------------
 
@@ -208,19 +224,12 @@ INSERT INTO `tbl_logs` (`I_id`, `l_stamp`, `l_description`) VALUES
 (0, '2025-05-15 17:24:56', 'Staff Germaine archived ticket ID 13'),
 (0, '2025-05-15 17:48:03', 'Staff Germaine archived ticket ID 4'),
 (0, '2025-05-15 18:16:24', 'Staff Germaine has successfully logged in'),
-(0, '2025-05-15 21:07:33', 'Staff awaw has successfully logged in'),
-(0, '2025-05-15 21:14:35', 'Staff awaw unarchived ticket ID 2'),
-(0, '2025-05-15 21:41:12', 'Technician awaw closed regular ticket ID 7'),
-(0, '2025-05-15 22:01:20', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-05-15 22:27:04', 'Staff awaww added ticket for Latifah Sims'),
-(0, '2025-05-15 22:28:52', 'Staff awaww added ticket for Latifah Sims'),
-(0, '2025-05-15 22:35:03', 'Staff awaww edited ticket ID 14 subject'),
-(0, '2025-05-15 22:41:33', 'Technician awaw closed regular ticket ID 8'),
-(0, '2025-05-15 22:41:53', 'Technician awaw closed support ticket ID 16'),
-(0, '2025-05-15 22:53:09', 'Staff awaww archived ticket ID 14'),
-(0, '2025-05-15 23:40:13', 'Staff awaww archived ticket ID 15'),
-(0, '2025-05-16 01:00:27', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-05-16 02:28:51', 'Technician awaw closed regular ticket ID 16');
+(0, '2025-05-15 21:52:10', 'user \"Donovan Montgomery\" has successfully logged in'),
+(0, '2025-05-16 16:24:04', 'Staff Aiah edited ticket ID 14 subject'),
+(0, '2025-05-17 16:38:36', 'Staff Aiah added ticket for Duncan William'),
+(0, '2025-05-17 18:18:56', 'user \"Zachary Beasley\" has successfully logged in'),
+(0, '2025-05-17 18:19:37', 'user \"Zachary Beasley\" has successfully logged in'),
+(0, '2025-05-17 18:21:00', 'user \"Karleigh Landry\" has successfully logged in');
 
 -- --------------------------------------------------------
 
@@ -258,7 +267,20 @@ INSERT INTO `tbl_returned` (`r_id`, `r_assets_name`, `r_quantity`, `r_technician
 (25, 'Fiber Optic Cable', 1, 'Yumi Chan', 45, '2025-04-25'),
 (26, 'Bukog', 2, 'Yumi Chan', 45, '2025-04-24'),
 (27, 'Fiber Optic Cable', 1, 'Tatyana Hayden', 37, '2025-04-24'),
-(28, 'Fiber Optic Cable', 5, 'Yumi Chan', 45, '2025-04-24');
+(28, 'Fiber Optic Cable', 5, 'Yumi Chan', 45, '2025-04-24'),
+(29, 'Wire', 5, 'Kolehe Kai', 41, '2025-05-16'),
+(30, 'Wire', 3, 'Kolehe Kai', 41, '2025-05-16'),
+(31, 'Wire', 3, 'Kolehe Kai', 41, '2025-05-16'),
+(32, 'Modems', 5, 'Joelle Graves', 54, '2025-05-16'),
+(33, 'Wire', 1, 'Kolehe Kai', 41, '2025-05-16'),
+(34, 'Wire', 1, 'Kolehe Kai', 41, '2025-05-16'),
+(35, 'Fiber Optic Cable', 3, 'Yumi Chan', 45, '2025-05-16'),
+(37, 'Wire', 1, 'Kolehe Kai', 41, '2025-05-16'),
+(38, 'Ladder', 4, 'Kolehe Kai', 41, '2025-05-16'),
+(39, 'Ladder', 1, 'Kolehe Kai', 41, '2025-05-16'),
+(43, 'Example', 2, 'Kolehe Kai', 41, '2025-05-16'),
+(44, 'Fiber Optic Cable', 2, 'Yumi Chan', 45, '2025-05-16'),
+(45, 'Fiber Optic Cable', 1, 'Yumi Chan', 45, '2025-05-16');
 
 -- --------------------------------------------------------
 
@@ -267,35 +289,57 @@ INSERT INTO `tbl_returned` (`r_id`, `r_assets_name`, `r_quantity`, `r_technician
 --
 
 CREATE TABLE `tbl_supp_tickets` (
-  `id` int(50) NOT NULL,
   `c_id` int(50) NOT NULL,
   `c_lname` varchar(200) NOT NULL,
   `c_fname` varchar(200) NOT NULL,
   `s_ref` varchar(200) NOT NULL,
   `s_subject` varchar(200) NOT NULL,
   `s_message` varchar(200) NOT NULL,
-  `s_status` varchar(200) NOT NULL
+  `s_status` varchar(200) NOT NULL,
+  `id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_supp_tickets`
 --
 
-INSERT INTO `tbl_supp_tickets` (`id`, `c_id`, `c_lname`, `c_fname`, `s_ref`, `s_subject`, `s_message`, `s_status`) VALUES
-(1, 0, 'awawawa', 'ref#-23-03-2025-211213', 'aqaqaqaqaq', '0', '', ''),
-(4, 0, 'awawa', 'ref#-23-03-2025-558320', 'awaw', '1', '', ''),
-(5, 0, 'awawa', 'ref#-23-03-2025-590610', 'awawawawaw', '0', '', ''),
-(9, 0, '', 'ref#-23-03-2025-155334', 'awaw', '1', '', ''),
-(10, 0, '', 'ref#-23-03-2025-702429', 'aw', '1', '', ''),
-(11, 0, '', 'ref#-23-03-2025-707144', 'awaw', '1', '', ''),
-(12, 8, 'awawa', 'awawaw', 'ref#-23-03-2025-610925', 'awaw', '1', ''),
-(13, 8, 'awawa', 'awawaw', 'ref#-23-03-2025-469749', 'awawaw', '1', ''),
-(14, 8, 'awawa', 'awawaw', 'ref#-23-03-2025-859139', 'awawaw', '1', ''),
-(15, 10, 'Mcdaniel', 'Mohammad', 'ref#-23-03-2025-786879', 'awawawaw', '1', ''),
-(16, 9, 'Sims', 'Latifah', 'ref#-07-04-2025-484929', 'Critical', 'awaw', 'Closed'),
-(17, 15, 'Montgomery', 'Donovan', '', 'Critical', 'rtyhtrhrthth', 'Open'),
-(18, 15, 'Montgomery', 'Donovan', 'ref#-13-05-2025-618934', 'Minor', 'No wifi', 'Closed'),
-(19, 9, 'Sims', 'Latifah', 'ref#-16-05-2025-620167', 'redlight', 'awawawaw', 'Open');
+INSERT INTO `tbl_supp_tickets` (`c_id`, `c_lname`, `c_fname`, `s_ref`, `s_subject`, `s_message`, `s_status`, `id`) VALUES
+(0, 'awawawa', 'ref#-23-03-2025-211213', 'aqaqaqaqaq', '0', '', '', 1),
+(0, 'awawa', 'ref#-23-03-2025-558320', 'awaw', '1', '', '', 2),
+(0, 'awawa', 'ref#-23-03-2025-590610', 'awawawawaw', '0', '', '', 3),
+(0, '', 'ref#-23-03-2025-155334', 'awaw', '1', '', '', 4),
+(0, '', 'ref#-23-03-2025-702429', 'aw', '1', '', '', 5),
+(0, '', 'ref#-23-03-2025-707144', 'awaw', '1', '', '', 6),
+(8, 'awawa', 'awawaw', 'ref#-23-03-2025-610925', 'awaw', '1', '', 7),
+(8, 'awawa', 'awawaw', 'ref#-23-03-2025-469749', 'awawaw', '1', '', 8),
+(8, 'awawa', 'awawaw', 'ref#-23-03-2025-859139', 'awawaw', '1', '', 9),
+(10, 'Mcdaniel', 'Mohammad', 'ref#-23-03-2025-786879', 'awawawaw', '1', '', 10),
+(9, 'Sims', 'Latifah', 'ref#-07-04-2025-484929', 'Critical', 'awaw', 'Open', 11),
+(15, 'Montgomery', 'Donovan', '', 'Critical', 'rtyhtrhrthth', 'Open', 12),
+(15, 'Montgomery', 'Donovan', 'ref#-13-05-2025-618934', 'Minor', 'No wifi', 'Closed', 13);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_techborrowed`
+--
+
+CREATE TABLE `tbl_techborrowed` (
+  `b_assets_name` varchar(200) NOT NULL,
+  `b_quantity` int(50) NOT NULL,
+  `b_technician_name` varchar(200) NOT NULL,
+  `b_date` varchar(100) NOT NULL,
+  `b_technician_id` int(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_techborrowed`
+--
+
+INSERT INTO `tbl_techborrowed` (`b_assets_name`, `b_quantity`, `b_technician_name`, `b_date`, `b_technician_id`) VALUES
+('Example', 6, 'Kolehe Kai', '2025-05-16', 41),
+('Example', 6, 'Kolehe Kai', '2025-05-16', 41),
+('Modems', 1, 'Joelle Graves', '2025-05-17', 54);
 
 -- --------------------------------------------------------
 
@@ -318,22 +362,21 @@ CREATE TABLE `tbl_ticket` (
 
 INSERT INTO `tbl_ticket` (`t_id`, `t_aname`, `t_subject`, `t_status`, `t_date`, `t_details`) VALUES
 (1, 'Sydnee Kramer', 'Minor', 'open', '2025-03-10', 'its over now najud hahays'),
-(2, 'Portia Whitfield', 'Critical', 'open', '2025-03-09', 'hahays sige nalang, naa ra lage para sa atoa unya'),
+(2, 'Portia Whitfield', 'Critical', 'archived', '2025-03-09', 'hahays sige nalang, naa ra lage para sa atoa unya'),
 (3, 'Samantha Hooper', 'Critical', 'archived', '2025-03-10', 'Ako e fight ang ako karapatan sa iyaha love'),
 (4, 'Shaeleigh Baker', 'Critical', 'archived', '2025-03-08', 'Balik kana plsssssssssss'),
 (5, 'Wilyam Sama', 'Minor', 'Open', '2025-03-16', 'nahutdan kog pang bayad sa amoa wifi, pwedi pa utang'),
 (6, 'Ryan', 'Critical', 'Closed', '2025-03-16', 'naboang naman ko oy'),
-(7, 'awawaaw', 'Critical', 'closed', '2000-02-21', 'Kung tayo ? tayo'),
-(8, 'awawawaw', 'Critical', 'closed', '2000-02-21', 'relapse time'),
+(7, 'awawaaw', 'Critical', 'Open', '2000-02-21', 'Kung tayo ? tayo'),
+(8, 'awawawaw', 'Critical', 'Open', '2000-02-21', 'relapse time'),
 (9, 'Gwapo', 'Critical', 'Open', '2025-03-20', 'dinajud mada ang gibati'),
 (10, 'Finn Melton', 'Minor', 'Closed', '2013-08-12', 'Adipisicing molestia'),
 (11, 'Hedy Rogers', 'Minor', 'Closed', '1987-07-25', 'Ullam magni culpa fu'),
 (12, 'Cyrus Steele', 'Critical', 'archived', '2016-07-03', 'Aut qui quo earum se'),
 (13, 'Erin Finley', 'Critical', 'archived', '2025-04-10', 'back to being friends hahays'),
-(14, 'Lunea Mendez', 'redlight', 'archived', '2025-04-10', 'example rani love ha'),
-(15, 'Leila Swanson', 'Moderate', 'archived', '2025-05-01', 'testing lang'),
-(16, 'Latifah Sims', 'redlight', 'closed', '2025-05-20', 'awawawaaw'),
-(17, 'Latifah Sims', 'redlight', 'Open', '2025-05-21', 'awawawawa');
+(14, 'Lunea Mendez', 'Redlight', 'Open', '2025-04-10', 'example rani love ha'),
+(15, 'Leila Swanson', 'Moderate', 'Open', '2025-05-01', 'testing lang'),
+(16, 'Duncan William', 'Redlight', 'Open', '2025-05-17', 'the wire is broken');
 
 -- --------------------------------------------------------
 
@@ -389,40 +432,23 @@ INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `
 (53, 'Zeph', 'Patel', 'huhezeru@mailinator.com', 'ADMINN', '$2y$10$rCAUF7yizAqKOlXGNmlf5OuO.wX.X5ZV2I4FBrBHMR3J3.qRo6V2u', 'admin', 'active'),
 (54, 'Joelle', 'Graves', 'vefud@mailinator.com', 'TestT', '$2y$10$YcCrLftfHHg/JVNrXCJsO.x0pJ3vXRtukqGjj8OS00jDuA2JQez3i', 'technician', 'active'),
 (55, 'Germaine', 'Gray', 'williammayormita69@gmail.com', 'Jawil', '$2y$10$8ZbZIaaUs001K4sgyso0VeizbeCokz.6bTY2hIzonOsr3.lLhZYWy', 'staff', 'active'),
-(64, 'Samantha', 'Holloway', 'ruvixir@mailinator.com', 'Kysecu', '$2y$10$wUkZRXsNrZoYjgFYOX.HCecyTc2xzvPuP2VqrB7cprW7M7ZVmUUz.', 'admin', 'active'),
-(65, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$yDxMkKhk41pKKBi2uAMSFevljhY3TVre4Lhq9BcvLtArn.yTyhz7u', 'user', 'active'),
-(66, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$P0kJjURUjDOGe5J/bynL6OXOn7wEUHPYWPUd0IgdDWBw2ApJ7zE4a', 'user', 'active'),
-(67, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$fyFxI58//VDaO55dbBYOt.qRx6Jp1MssGg9YrZN8mz4ljlnZ4JU.W', 'user', 'active'),
-(68, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$YDLHykqmEkepLDxaUZ78V.pb5A27gDXPVrP6OHIBTxXdL1Ef5.HVq', 'user', 'active'),
-(69, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$oc.P6K1em9Nx42o3dnyfpexYFH.X0gwHYqlJoR5mW5muoRAvk8CQq', 'user', 'active'),
-(70, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$wwnessrbTb.hbMI8EKBJxe1Z6tuWoeYmzwLmSck1OGn07P0v//CaC', 'user', 'active'),
-(71, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$jsSQaOa0ErST2dA5Ad/eU.lH9Q9NYifbq9n45eELf1nIDl03qsE.q', 'user', 'active'),
-(72, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$ISMg4aL9ULD5UTaeVD2cHOVx15RFFaejYKsT.NpmhrJHBZoTsLK1a', 'user', 'active'),
-(73, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$9fCalkAG9vL6Y4yb7ZYUXuO/kUzdlj5GWrWjNqcVTT.B9JSf0diQm', 'user', 'active'),
-(74, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$Dfoq30xATgRFECuO96JgBuRzmnL8uuBqqDzOg22ALmvRXQ.EpviX.', 'user', 'active'),
-(75, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$TMFw4gbVm/lKdBsH0lCawu1iwGU0sz2wiXWmkUvzoOe3YWKDniqvK', 'user', 'active'),
-(76, 'awaw', 'awaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$A8Nb6p4E/dnyWcaKEhGncuo8P0uEzstSm.fdCZ7RaiQ8zm9/Yi2VK', 'user', 'active'),
-(77, 'awaw', 'awawaw', 'ryancansanco7@gmail.com', 'tech123', '$2y$10$29UYjNbn3ld9hu2qlrKal.4klda7oyUz35SGgpb9Y6k10T7Qqk.NK', 'user', 'active'),
-(78, 'awaw', 'sawaw', 'awawaw@gmail.com', 'tech12', '$2y$10$HDrz5BH1tu2nTX6R4IaL6Ow4EA30j5L6Se66n/c6K0gGdfnYXX9fm', 'technician', 'active'),
-(79, 'awaw', 'awaw', 'awawawaw@gmail.com', 'staff1', '$2y$10$KK2jwnLqpKp0SebN7/wEtuLSHdm1G0WrgdJXaWH.23HyBEJv4Yk.y', 'staff', 'active'),
-(80, 'awawaw', 'awawaw', 'ryancansanco7@gmail.com', 'staff2', '$2y$10$Jrx3qpjSJ8mJu3UeTOSuIuC9YNqr1cZ728O0ktUR9b2t.bra9Zd2e', 'staff', 'active'),
-(81, 'awaw', 'awawaw', 'ryancansanco7@gmail.com', 'staff3', '$2y$10$IS88pctX/NIzvdyOWlxdV.APs2allGQKRqmIN15YBQ93Ib1UusUeu', 'staff', 'active');
+(64, 'Samantha', 'Holloway', 'ruvixir@mailinator.com', 'Kysecu', '$2y$10$wUkZRXsNrZoYjgFYOX.HCecyTc2xzvPuP2VqrB7cprW7M7ZVmUUz.', 'admin', 'active');
 
 --
 -- Indexes for dumped tables
 --
 
 --
+-- Indexes for table `tbl_assets`
+--
+ALTER TABLE `tbl_assets`
+  ADD PRIMARY KEY (`a_id`);
+
+--
 -- Indexes for table `tbl_borrowed`
 --
 ALTER TABLE `tbl_borrowed`
   ADD PRIMARY KEY (`b_id`);
-
---
--- Indexes for table `tbl_borrow_assets`
---
-ALTER TABLE `tbl_borrow_assets`
-  ADD PRIMARY KEY (`a_id`);
 
 --
 -- Indexes for table `tbl_customer`
@@ -435,12 +461,6 @@ ALTER TABLE `tbl_customer`
 --
 ALTER TABLE `tbl_deployed`
   ADD PRIMARY KEY (`d_id`);
-
---
--- Indexes for table `tbl_deployment_assets`
---
-ALTER TABLE `tbl_deployment_assets`
-  ADD PRIMARY KEY (`a_id`);
 
 --
 -- Indexes for table `tbl_returned`
@@ -471,22 +491,22 @@ ALTER TABLE `tbl_user`
 --
 
 --
+-- AUTO_INCREMENT for table `tbl_assets`
+--
+ALTER TABLE `tbl_assets`
+  MODIFY `a_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
 -- AUTO_INCREMENT for table `tbl_borrowed`
 --
 ALTER TABLE `tbl_borrowed`
-  MODIFY `b_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
-
---
--- AUTO_INCREMENT for table `tbl_borrow_assets`
---
-ALTER TABLE `tbl_borrow_assets`
-  MODIFY `a_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `b_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `tbl_customer`
 --
 ALTER TABLE `tbl_customer`
-  MODIFY `c_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `c_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `tbl_deployed`
@@ -495,34 +515,28 @@ ALTER TABLE `tbl_deployed`
   MODIFY `d_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT for table `tbl_deployment_assets`
---
-ALTER TABLE `tbl_deployment_assets`
-  MODIFY `a_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
 -- AUTO_INCREMENT for table `tbl_returned`
 --
 ALTER TABLE `tbl_returned`
-  MODIFY `r_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `r_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT for table `tbl_supp_tickets`
 --
 ALTER TABLE `tbl_supp_tickets`
-  MODIFY `id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `tbl_ticket`
 --
 ALTER TABLE `tbl_ticket`
-  MODIFY `t_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `t_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `tbl_user`
 --
 ALTER TABLE `tbl_user`
-  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

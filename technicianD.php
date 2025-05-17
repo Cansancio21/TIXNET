@@ -416,8 +416,7 @@ if ($conn) {
         <h2>Task Management</h2>
         <ul>
             <li><a href="technicianD.php" class="active"><img src="https://img.icons8.com/parakeet/35/dashboard.png" alt="dashboard"/><span>Dashboard</span></a></li>
-            <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
-            <li><a href="techBorrowed.php"><img src="https://img.icons8.com/cotton/35/documents--v1.png" alt="documents--v1"/><span>Borrowed Records</span></a></li>
+            <li><a href="techBorrowed.php"><img src="https://img.icons8.com/cotton/35/documents--v1.png" alt="documents--v1"/><span>Borrowed Assets</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>

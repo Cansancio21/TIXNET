@@ -28,7 +28,7 @@ $avatarPath = $_SESSION['avatarPath'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Portal</title>
+    <title>Customer Portal</title>
     <link rel="stylesheet" href="portal.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,12 +36,11 @@ $avatarPath = $_SESSION['avatarPath'];
 </head>
 <body>
 <div class="wrapper">
-<div class="sidebar glass-container">
+    <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-        <li><a href="technicianD.php" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-        <li><a href="suppT.php"><i class="fas fa-file-invoice"></i> Support tickets</a></li>
-          
+            <li><a href="portal.php" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+            <li><a href="suppT.php"><i class="fas fa-file-invoice"></i> <span>Support Tickets</span></a></li>
         </ul>
         <footer>
             <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -80,7 +79,7 @@ $avatarPath = $_SESSION['avatarPath'];
             <h2>Profile Information</h2>
             <hr class="title-line">
             <div class="flex-container">
-                <!-- First Table: ID Number -->
+                <!-- First Table: Basic Information -->
                 <div class="flex-item">
                     <h3>Basic Information</h3>
                     <table>
@@ -96,17 +95,21 @@ $avatarPath = $_SESSION['avatarPath'];
                             <th>Last Name:</th>
                             <td><?php echo htmlspecialchars($user['c_lname'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
+                        <tr>
+                            <th>Purok:</th>
+                            <td><?php echo htmlspecialchars($user['c_purok'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                        </tr>
+                        <tr>
+                            <th>Barangay:</th>
+                            <td><?php echo htmlspecialchars($user['c_barangay'], ENT_QUOTES, 'UTF-8'); ?></td>
+                        </tr>
                     </table>
                 </div>
 
-                <!-- Second Table: Address, Contact, Email, Date Applied -->
+                <!-- Second Table: Contact Details -->
                 <div class="flex-item">
                     <h3>Contact Details</h3>
                     <table>
-                        <tr>
-                            <th>Address:</th>
-                            <td><?php echo htmlspecialchars($user['c_address'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
                         <tr>
                             <th>Contact:</th>
                             <td><?php echo htmlspecialchars($user['c_contact'], ENT_QUOTES, 'UTF-8'); ?></td>
@@ -116,31 +119,39 @@ $avatarPath = $_SESSION['avatarPath'];
                             <td><?php echo htmlspecialchars($user['c_email'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
-                            <th>Date Applied:</th>
+                            <th>Subscription Date:</th>
                             <td><?php echo htmlspecialchars($user['c_date'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                     </table>
                 </div>
 
-                <!-- Third Table: Nap Name, Nap Port, Mac Address, Status -->
+                <!-- Third Table: Service Information -->
                 <div class="flex-item">
-                    <h3>Additional Information</h3>
+                    <h3>Service Information</h3>
                     <table>
                         <tr>
-                            <th>Nap Name:</th>
+                            <th>NAP Device:</th>
                             <td><?php echo htmlspecialchars($user['c_napname'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
-                            <th>Nap Port:</th>
+                            <th>NAP Port:</th>
                             <td><?php echo htmlspecialchars($user['c_napport'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
-                            <th>Mac Address:</th>
+                            <th>MAC Address:</th>
                             <td><?php echo htmlspecialchars($user['c_macaddress'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
                             <th>Status:</th>
                             <td><?php echo htmlspecialchars($user['c_status'], ENT_QUOTES, 'UTF-8'); ?></td>
+                        </tr>
+                        <tr>
+                            <th>Internet Plan:</th>
+                            <td><?php echo htmlspecialchars($user['c_plan'], ENT_QUOTES, 'UTF-8'); ?></td>
+                        </tr>
+                        <tr>
+                            <th>Equipment:</th>
+                            <td><?php echo htmlspecialchars($user['c_equipment'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                     </table>
                 </div>
@@ -151,5 +162,3 @@ $avatarPath = $_SESSION['avatarPath'];
 </div>
 </body>
 </html>
-
-

@@ -2,15 +2,6 @@
 session_start(); // Start session for login management
 include 'db.php';
 
-// Include PHPMailer classes
-require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
-require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
-require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
-
-// Use PHPMailer classes
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
 // Check if the user is logged in
 if (!isset($_SESSION['username'])) {
     header("Location: index.php");
@@ -34,24 +25,30 @@ if (file_exists($userAvatar)) {
 $avatarPath = $_SESSION['avatarPath'];
 
 // Fetch user data from the database
-if ($conn) {
-    $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
-    $stmt = $conn->prepare($sqlUser);
-    $stmt->bind_param("s", $_SESSION['username']);
-    $stmt->execute();
-    $resultUser = $stmt->get_result();
-
-    if ($resultUser->num_rows > 0) {
-        $row = $resultUser->fetch_assoc();
-        $firstName = $row['u_fname'];
-        $lastName = $row['u_lname'];
-        $userType = $row['u_type'];
-    }
-    $stmt->close();
-} else {
-    echo "Database connection failed.";
+if (!$conn) {
+    $_SESSION['error'] = "Database connection failed: " . mysqli_connect_error();
+    header("Location: addC.php");
     exit();
 }
+
+$sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
+$stmt = $conn->prepare($sqlUser);
+if (!$stmt) {
+    $_SESSION['error'] = "User query preparation failed: " . $conn->error;
+    header("Location: addC.php");
+    exit();
+}
+$stmt->bind_param("s", $_SESSION['username']);
+$stmt->execute();
+$resultUser = $stmt->get_result();
+
+if ($resultUser->num_rows > 0) {
+    $row = $resultUser->fetch_assoc();
+    $firstName = $row['u_fname'];
+    $lastName = $row['u_lname'];
+    $userType = $row['u_type'];
+}
+$stmt->close();
 
 // Initialize customer form variables
 $firstname = $lastname = $contact = $email = $dob = "";
@@ -91,14 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $lastnameErr = "Last Name should not contain numbers.";
         $hasError = true;
     }
-    if (!preg_match("/^[0-9]+$/", $napport)) {
-        $napportErr = "Nap Port must contain numbers only.";
-        $hasError = true;
-    }
-    if (!preg_match("/^[a-zA-Z]+$/", $napname)) {
-        $napnameErr = "Nap Name must contain letters only.";
-        $hasError = true;
-    }
+  
     if (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
         $macaddressErr = "Mac Address should not contain special characters.";
         $hasError = true;
@@ -136,6 +126,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             $_SESSION['error'] = "Prepare failed: " . $conn->error;
+            error_log("SQL Prepare Error: " . $conn->error); // Log to server error log
             header("Location: addC.php");
             exit();
         }
@@ -143,74 +134,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->bind_param("sssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $equipment);
 
         if ($stmt->execute()) {
-            // Get the inserted customer ID
-            $customerId = $conn->insert_id;
-
-            // Send the confirmation email using PHPMailer
-            $mail = new PHPMailer(true); // Enable exceptions
-
-            try {
-                // Server settings
-                $mail->isSMTP();
-                $mail->Host = 'smtp.gmail.com';
-                $mail->SMTPAuth = true;
-                $mail->Username = 'jonwilyammayormita@gmail.com';
-                $mail->Password = 'mqkcqkytlwurwlks';
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port = 587;
-
-                // Recipients
-                $mail->setFrom('jonwilyammayormita@gmail.com', 'Your Website');
-                $mail->addAddress($email, "$firstname $lastname");
-
-                // Content
-                $mail->isHTML(true);
-                $mail->Subject = 'Welcome to Our Platform!';
-                $mail->Body = "
-                    <html>
-                    <head>
-                        <title>Welcome to Our Platform</title>
-                    </head>
-                    <body>
-                        <p>Dear $firstname $lastname,</p>
-                        <p>Thank you for registering with us. Your account details are:</p>
-                        <p><strong>Customer ID:</strong> $customerId</p>
-                        <p><strong>Last Name:</strong> $lastname</p>
-                        <p>Please use these credentials to log in to our customer portal by clicking the link below:</p>
-                        <p><a href='http://localhost/TIMSSS/customerP.php'>Customer Portal</a></p>
-                        <p>Enter your Customer ID and Last Name to access your account.</p>
-                        <p>Best regards,<br>Your Platform Team</p>
-                    </body>
-                    </html>
-                ";
-                $mail->AltBody = "Dear $firstname $lastname,\n\nThank you for registering with us. Your account details are:\nCustomer ID: $customerId\nLast Name: $lastname\n\nPlease use these credentials to log in to our customer portal at http://localhost/TIMSSS/customerP.php\n\nBest regards,\nYour Platform Team";
-
-                // Send the email
-                $mail->send();
-                
-                // Store success message in session and redirect
-                $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent.";
-                
-                // Clear form variables
-                $firstname = $lastname = $contact = $email = $dob = "";
-                $napname = $napport = $macaddress = $status = "";
-                $purok = $barangay = $plan = $equipment = "";
-                
-                header("Location: addC.php");
-                exit();
-            } catch (Exception $e) {
-                // Store error message in session and redirect
-                $_SESSION['message'] = "Customer registered, but error sending confirmation email: " . $mail->ErrorInfo;
-                header("Location: addC.php");
-                exit();
-            }
-            
-            $stmt->close();
+            $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent.";
+            // Clear form variables
+            $firstname = $lastname = $contact = $email = $dob = "";
+            $napname = $napport = $macaddress = $status = "";
+            $purok = $barangay = $plan = $equipment = "";
+            header("Location: addC.php");
+            exit();
         } else {
             $_SESSION['error'] = "Execution failed: " . $stmt->error;
+            error_log("SQL Execution Error: " . $stmt->error); // Log to server error log
             header("Location: addC.php");
             exit();
         }
+        $stmt->close();
     }
 }
 ?>
@@ -324,13 +261,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <span class="error"><?php echo $dobErr; ?></span>
                     </div>
                     <div class="form-group">
-                        <label for="napname">NAP Name <span class="required">*</span></label>
-                        <input type="text" id="napname" name="napname" placeholder="e.g., NAP1" value="<?php echo htmlspecialchars($napname); ?>" required>
+                        <label for="napname">NAP Device <span class="required">*</span></label>
+                        <select id="napname" name="napname" required>
+                            <option value="" <?php echo ($napname === '') ? 'selected' : ''; ?>>Select NAP Device</option>
+                            <option value="Lp1 Np1" <?php echo ($napname === 'Lp1 Np1') ? 'selected' : ''; ?>>Lp1 Np1</option>
+                            <option value="Lp1 Np2" <?php echo ($napname === 'Lp1 Np2') ? 'selected' : ''; ?>>Lp1 Np2</option>
+                            <option value="Lp1 Np3" <?php echo ($napname === 'Lp1 Np3') ? 'selected' : ''; ?>>Lp1 Np3</option>
+                            <option value="Lp1 Np4" <?php echo ($napname === 'Lp1 Np4') ? 'selected' : ''; ?>>Lp1 Np4</option>
+                            <option value="Lp1 Np5" <?php echo ($napname === 'Lp1 Np5') ? 'selected' : ''; ?>>Lp1 Np5</option>
+                            <option value="Lp1 Np6" <?php echo ($napname === 'Lp1 Np6') ? 'selected' : ''; ?>>Lp1 Np6</option>
+                            <option value="Lp1 Np7" <?php echo ($napname === 'Lp1 Np7') ? 'selected' : ''; ?>>Lp1 Np7</option>
+                            <option value="Lp1 Np8" <?php echo ($napname === 'Lp1 Np8') ? 'selected' : ''; ?>>Lp1 Np8</option>
+                        </select>
                         <span class="error"><?php echo $napnameErr; ?></span>
                     </div>
                     <div class="form-group">
                         <label for="napport">NAP Port <span class="required">*</span></label>
-                        <input type="text" id="napport" name="napport" placeholder="e.g., 123" value="<?php echo htmlspecialchars($napport); ?>" required>
+                        <select id="napport" name="napport" required>
+                            <option value="" <?php echo ($napport === '') ? 'selected' : ''; ?>>Select NAP Port</option>
+                            <option value="1" <?php echo ($napport === '1') ? 'selected' : ''; ?>>1</option>
+                            <option value="2" <?php echo ($napport === '2') ? 'selected' : ''; ?>>2</option>
+                            <option value="3" <?php echo ($napport === '3') ? 'selected' : ''; ?>>3</option>
+                            <option value="4" <?php echo ($napport === '4') ? 'selected' : ''; ?>>4</option>
+                            <option value="5" <?php echo ($napport === '5') ? 'selected' : ''; ?>>5</option>
+                            <option value="6" <?php echo ($napport === '6') ? 'selected' : ''; ?>>6</option>
+                            <option value="7" <?php echo ($napport === '7') ? 'selected' : ''; ?>>7</option>
+                            <option value="8" <?php echo ($napport === '8') ? 'selected' : ''; ?>>8</option>
+                        </select>
                         <span class="error"><?php echo $napportErr; ?></span>
                     </div>
                     <div class="form-group">
@@ -356,9 +313,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label for="plan">Internet Plan <span class="required">*</span></label>
                         <select id="plan" name="plan" required>
                             <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Plan</option>
-                            <option value="100 Mbps Fiber" <?php echo ($plan === '100 Mbps Fiber') ? 'selected' : ''; ?>>100 Mbps Fiber</option>
-                            <option value="1 Gbps Fiber" <?php echo ($plan === '1 Gbps Fiber') ? 'selected' : ''; ?>>1 Gbps Fiber</option>
-                            <option value="25 Mbps DSL" <?php echo ($plan === '25 Mbps DSL') ? 'selected' : ''; ?>>25 Mbps DSL</option>
+                            <option value="25 Mbps" <?php echo ($plan === '25 Mbps') ? 'selected' : ''; ?>>25 Mbps</option>
+                            <option value="50 Mbps" <?php echo ($plan === '50 Mbps') ? 'selected' : ''; ?>>50 Mbps</option>
+                            <option value="100 Mbps" <?php echo ($plan === '100 Mbps') ? 'selected' : ''; ?>>100 Mbps</option>
+                            <option value="1 Gbps" <?php echo ($plan === '1 Gbps') ? 'selected' : ''; ?>>1 Gbps</option>
                         </select>
                         <span class="error"><?php echo $planErr; ?></span>
                     </div>

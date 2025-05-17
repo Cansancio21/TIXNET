@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 include 'db.php';
@@ -107,12 +106,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $offset = ($page - 1) * $limit;
     $output = '';
 
-    if ($tab === 'active') {
-        $statusCondition = "t_status != 'archived'";
-    } else {
-        $statusCondition = "t_status = 'archived'";
-    }
-
+if ($tab === 'active') {
+    $statusCondition = "t_details NOT LIKE 'ARCHIVED:%'";
+} else {
+    $statusCondition = "t_details LIKE 'ARCHIVED:%'";
+}
     if ($searchTerm === '') {
         // Fetch default tickets for the current page
         $countSql = "SELECT COUNT(*) as total FROM tbl_ticket WHERE $statusCondition";
@@ -457,11 +455,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $_SESSION['error'] = implode(", ", $errors);
         }
-    } elseif (isset($_POST['archive_ticket']) && $userType !== 'technician') {
-        $t_id = $_POST['t_id'];
-        $sql = "UPDATE tbl_ticket SET t_status='archived' WHERE t_id=?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $t_id);
+ } elseif (isset($_POST['archive_ticket']) && $userType !== 'technician') {
+    $t_id = $_POST['t_id'];
+    $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_id=?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $t_id);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Ticket archived successfully!";
             // Log archive action for staff
@@ -478,11 +476,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log("Error archiving ticket: " . $stmt->error);
         }
         $stmt->close();
-    } elseif (isset($_POST['restore_ticket']) && $userType !== 'technician') {
-        $t_id = $_POST['t_id'];
-        $sql = "UPDATE tbl_ticket SET t_status='open' WHERE t_id=?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $t_id);
+} elseif (isset($_POST['restore_ticket']) && $userType !== 'technician') {
+    $t_id = $_POST['t_id'];
+    $sql = "UPDATE tbl_ticket SET t_details = REGEXP_REPLACE(t_details, '^ARCHIVED:', '') WHERE t_id=?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $t_id);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Ticket restored successfully!";
             // Log restore action for staff
@@ -606,7 +604,7 @@ $limit = 10;
 // Active tickets
 $pageActive = isset($_GET['page_active']) ? max(1, (int)$_GET['page_active']) : 1;
 $offsetActive = ($pageActive - 1) * $limit;
-$totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_status != 'archived'";
+$totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%'";
 $totalActiveResult = $conn->query($totalActiveQuery);
 $totalActiveRow = $totalActiveResult->fetch_assoc();
 $totalActive = $totalActiveRow['total'];
@@ -615,7 +613,7 @@ $totalActivePages = ceil($totalActive / $limit);
 // Archived tickets
 $pageArchived = isset($_GET['page_archived']) ? max(1, (int)$_GET['page_archived']) : 1;
 $offsetArchived = ($pageArchived - 1) * $limit;
-$totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_status = 'archived'";
+$totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details  LIKE 'ARCHIVED:%'";
 $totalArchivedResult = $conn->query($totalArchivedQuery);
 $totalArchivedRow = $totalArchivedResult->fetch_assoc();
 $totalArchived = $totalArchivedRow['total'];
@@ -623,7 +621,7 @@ $totalArchivedPages = ceil($totalArchived / $limit);
 
 // Fetch active tickets
 $sqlActive = "SELECT t_id, t_aname, t_subject, t_status, t_details, t_date 
-              FROM tbl_ticket WHERE t_status != 'archived' LIMIT ?, ?";
+              FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' LIMIT ?, ?";
 $stmtActive = $conn->prepare($sqlActive);
 $stmtActive->bind_param("ii", $offsetActive, $limit);
 $stmtActive->execute();
@@ -632,7 +630,7 @@ $stmtActive->close();
 
 // Fetch archived tickets
 $sqlArchived = "SELECT t_id, t_aname, t_subject, t_status, t_details, t_date 
-                FROM tbl_ticket WHERE t_status = 'archived' LIMIT ?, ?";
+                FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%' LIMIT ?, ?";
 $stmtArchived = $conn->prepare($sqlArchived);
 $stmtArchived->bind_param("ii", $offsetArchived, $limit);
 $stmtArchived->execute();
@@ -648,7 +646,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffD.css">
+    <link rel="stylesheet" href="staffsD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -669,7 +667,7 @@ $conn->close();
             </li>
             <li>
                 <?php if ($userType !== 'technician'): ?>
-                    <a href="registerAssets.php"><img src="https://img.icons8.com/fluency/30/insert.png" alt="insert"/><span>Register Assets</span></a>
+                    <li><a href="borrowedStaff.php"><i class="fas fa-book"></i> <span>Borrowed Assets</span></a></li>
                 <?php else: ?>
                     <a href="#" class="disabled" onclick="showRestrictedMessage()"><img src="https://img.icons8.com/fluency/30/insert.png" alt="insert"/><span>Register Assets</span></a>
                 <?php endif; ?>
@@ -1374,4 +1372,3 @@ document.getElementById('editTicketForm').addEventListener('submit', function(e)
 </script>
 </body>
 </html>
-

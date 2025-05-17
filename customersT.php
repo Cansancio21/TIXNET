@@ -8,6 +8,15 @@ if (!isset($_SESSION['username'])) {
     exit();
 }
 
+// Function to escape strings for JavaScript
+function jsEscape($str) {
+    return str_replace(
+        ["\\", "'", "\"", "\n", "\r", "\t"],
+        ["\\\\", "\\'", "\\\"", "\\n", "\\r", "\\t"],
+        $str
+    );
+}
+
 $firstName = '';
 $lastName = '';
 $userType = '';
@@ -84,15 +93,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
                     <td class='action-buttons'>";
             if ($tab === 'active') {
                 echo "
-                    <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napport'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_macaddress'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_plan'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_equipment'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='edit-btn' href='editC.php?id=" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
-                    <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
-                    <a class='ticket-btn' onclick=\"showAddTicketModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Ticket'><i class='fas fa-ticket-alt'></i></a>";
+                    <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
+                    <a class='ticket-btn' onclick=\"showAddTicketModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Ticket'><i class='fas fa-ticket-alt'></i></a>";
             } else {
                 echo "
-                    <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napport'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_macaddress'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_plan'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_equipment'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                    <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                    <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
+                    <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                    <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
             }
             echo "</td></tr>";
         }
@@ -114,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pageActive = isset($_GET['page_active']) ? (int)$_GET['page_active'] : 1;
     $pageArchived = isset($_GET['page_archived']) ? (int)$_GET['page_archived'] : 1;
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'customers_active';
+    $isAjax = isset($_POST['ajax']) && $_POST['ajax'] === 'true';
 
     if (isset($_POST['archive_customer'])) {
         $id = $_POST['c_id'];
@@ -130,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "UPDATE tbl_customer SET c_status=? WHERE c_id=?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("Prepare failed for archive: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
         $stmt->bind_param("si", $new_rem, $id);
@@ -137,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer archived successfully!";
         } else {
             $_SESSION['error'] = "Error archiving customer: " . $stmt->error;
+            error_log("Error archiving customer ID $id: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
@@ -155,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "UPDATE tbl_customer SET c_status=? WHERE c_id=?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("Prepare failed for unarchive: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
         $stmt->bind_param("si", $new_rem, $id);
@@ -162,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer unarchived successfully!";
         } else {
             $_SESSION['error'] = "Error unarchiving customer: " . $stmt->error;
+            error_log("Error unarchiving customer ID $id: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_active';
@@ -170,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "DELETE FROM tbl_customer WHERE c_id=? AND c_status LIKE 'ARCHIVED:%'";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log("Prepare failed for delete: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
         $stmt->bind_param("i", $id);
@@ -177,13 +192,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer deleted permanently!";
         } else {
             $_SESSION['error'] = "Error deleting customer: " . $stmt->error;
+            error_log("Error deleting customer ID $id: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
     } elseif (isset($_POST['add_ticket'])) {
         $c_id = $_POST['c_id'];
         $account_name = $_POST['account_name'];
-        $issue_type = $_POST['issue_type'];
+        $ticket_subject = $_POST['ticket_subject'];
         $ticket_status = $_POST['ticket_status'];
         $ticket_details = $_POST['ticket_details'];
         $date = $_POST['date'];
@@ -193,8 +209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($account_name)) {
             $errors[] = "Account name is required.";
         }
-        if (empty($issue_type)) {
-            $errors[] = "Issue type is required.";
+        if (empty($ticket_subject)) {
+            $errors[] = "Subject is required.";
         }
         if (empty($ticket_status)) {
             $errors[] = "Ticket status is required.";
@@ -206,29 +222,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Date issued is required.";
         }
 
+        // Validate c_id exists in tbl_customer
+        $sql = "SELECT c_id FROM tbl_customer WHERE c_id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $c_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 0) {
+            $errors[] = "Invalid customer ID.";
+        }
+        $stmt->close();
+
         if (empty($errors)) {
-            $sql = "INSERT INTO tbl_ticket (c_id, t_accountname, t_type, t_status, t_details, t_date) 
+            // Log input values for debugging
+            error_log("Inserting ticket: c_id=$c_id, account_name=$account_name, subject=$ticket_subject, status=$ticket_status, details=$ticket_details, date=$date");
+
+            $sql = "INSERT INTO tbl_ticket (c_id, t_accountname, t_subject, t_status, t_details, t_date) 
                     VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
-                $_SESSION['error'] = "Prepare failed: " . $conn->error;
+                $error = "Prepare failed: " . $conn->error;
+                error_log($error);
+                if ($isAjax) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => false, 'error' => $error]);
+                    exit();
+                }
+                $_SESSION['error'] = $error;
             } else {
-                $stmt->bind_param("isssss", $c_id, $account_name, $issue_type, $ticket_status, $ticket_details, $date);
+                $stmt->bind_param("isssss", $c_id, $account_name, $ticket_subject, $ticket_status, $ticket_details, $date);
                 if ($stmt->execute()) {
+                    if ($isAjax) {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => true, 'message' => 'Ticket added successfully!']);
+                        exit();
+                    }
                     $_SESSION['message'] = "Ticket added successfully!";
                 } else {
-                    $_SESSION['error'] = "Error adding ticket: " . $stmt->error;
+                    $error = "Error adding ticket: " . $stmt->error;
+                    error_log($error);
+                    if ($isAjax) {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => $error]);
+                        exit();
+                    }
+                    $_SESSION['error'] = $error;
                 }
                 $stmt->close();
             }
         } else {
-            $_SESSION['error'] = implode(" ", $errors);
+            $error = implode(" ", $errors);
+            error_log("Validation errors: $error");
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $error]);
+                exit();
+            }
+            $_SESSION['error'] = $error;
         }
         $tab = 'customers_active';
     }
 
-    header("Location: customersT.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
-    exit();
+    if (!$isAjax) {
+        header("Location: customersT.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
+    }
 }
 
 if ($conn) {
@@ -402,10 +460,10 @@ if ($conn) {
                                         <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napport'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_macaddress'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_plan'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_equipment'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='edit-btn' href='editC.php?id=" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
-                                            <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
-                                            <a class='ticket-btn' onclick=\"showAddTicketModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Ticket'><i class='fas fa-ticket-alt'></i></a>
+                                            <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
+                                            <a class='ticket-btn' onclick=\"showAddTicketModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Ticket'><i class='fas fa-ticket-alt'></i></a>
                                         </td>
                                       </tr>";
                             }
@@ -469,9 +527,9 @@ if ($conn) {
                                         <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_napport'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_macaddress'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_plan'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_equipment'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                            <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . htmlspecialchars($row['c_fname'] . ' ' . $row['c_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                                            <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
                                       </tr>";
                             }
@@ -574,31 +632,39 @@ if ($conn) {
         </div>
         <form method="POST" id="addTicketForm" class="modal-form">
             <input type="hidden" name="add_ticket" value="1">
-            <input type="hidden" name="ajax" value="true">
             <input type="hidden" name="c_id" id="ticketCustomerId">
-            <label for="account_name">Account Name</label>
-            <input type="text" name="account_name" id="account_name" required readonly>
-            <span class="error" id="accountnameErr"></span>
-            <label for="issue_type">Issue Type</label>
-            <select name="issue_type" id="issue_type" required>
-                <option value="">Select Issue Type</option>
-                <option value="critical">Critical</option>
-                <option value="minor">Minor</option>
-            </select>
-            <span class="error" id="issuetypeError"></span>
-            <label for="ticket_status">Ticket Status</label>
-            <select name="ticket_status" id="ticket_status" required>
-                <option value="">Select Status</option>
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-            </select>
-            <span class="error" id="ticketstatusErr"></span>
-            <label for="ticket_details">Ticket Details</label>
-            <textarea name="ticket_details" id="ticket_details" required></textarea>
-            <span class="error" id="issuedetailsErr"></span>
-            <label for="date">Date Issued</label>
-            <input type="date" name="date" id="date" required>
-            <span class="error" id="dobErr"></span>
+            <input type="hidden" name="ajax" value="true">
+
+            <div class="form-group">
+                <label for="account_name">Account Name <span class="required"></span></label>
+                <input type="text" name="account_name" id="account_name" required>
+                <span class="error" id="account_name_error"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket_subject">Subject <span class="required"></span></label>
+                <input type="text" name="ticket_subject" id="ticket_subject" required>
+                <span class="error" id="ticket_subject_error"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket_details">Ticket Details <span class="required"></span></label>
+                <textarea name="ticket_details" id="ticket_details" required></textarea>
+                <span class="error" id="ticket_details_error"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket_status">Ticket Status <span class="required"></span></label>
+                <input type="text" name="ticket_status" id="ticket_status" value="Open" readonly>
+                <span class="error" id="ticket_status_error"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="date">Date Issued <span class="required"></span></label>
+                <input type="date" name="date" id="date" required>
+                <span class="error" id="date_error"></span>
+            </div>
+
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('addTicketModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Add Ticket</button>
@@ -769,14 +835,24 @@ function showDeleteModal(id, name) {
 }
 
 function showAddTicketModal(id, name) {
-    document.querySelectorAll('.modal-form .error').forEach(el => el.innerText = '');
-    document.getElementById('ticketCustomerId').value = id;
-    document.getElementById('account_name').value = name;
-    document.getElementById('issue_type').value = '';
-    document.getElementById('ticket_status').value = '';
-    document.getElementById('ticket_details').value = '';
-    document.getElementById('date').value = '';
-    document.getElementById('addTicketModal').style.display = 'block';
+    try {
+        // Clear previous error messages
+        document.querySelectorAll('.modal-form .error').forEach(el => el.innerText = '');
+
+        // Set form values
+        document.getElementById('ticketCustomerId').value = id;
+        document.getElementById('account_name').value = name;
+        document.getElementById('ticket_subject').value = '';
+        document.getElementById('ticket_details').value = '';
+        document.getElementById('ticket_status').value = 'Open';
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+        // Show the modal
+        document.getElementById('addTicketModal').style.display = 'block';
+    } catch (error) {
+        console.error('Error in showAddTicketModal:', error);
+        alert('Failed to open ticket modal. Please check the console for errors.');
+    }
 }
 
 // Handle form submission with AJAX
@@ -788,14 +864,21 @@ document.getElementById('addTicketForm').addEventListener('submit', function(e) 
         method: 'POST',
         body: formData
     })
-    .then(response => response.text())
+    .then(response => response.json())
     .then(data => {
         closeModal('addTicketModal');
         const alertContainer = document.querySelector('.alert-container');
-        alertContainer.innerHTML = `
-            <div class="alert alert-success">
-                ${formData.get('add_ticket') ? 'Ticket added successfully!' : 'Operation completed!'}
-            </div>`;
+        if (data.success) {
+            alertContainer.innerHTML = `
+                <div class="alert alert-success">
+                    ${data.message}
+                </div>`;
+        } else {
+            alertContainer.innerHTML = `
+                <div class="alert alert-error">
+                    Error adding ticket: ${data.error}
+                </div>`;
+        }
         setTimeout(() => {
             const alert = alertContainer.querySelector('.alert');
             if (alert) {
@@ -809,7 +892,7 @@ document.getElementById('addTicketForm').addEventListener('submit', function(e) 
         console.error('Error:', error);
         const alertContainer = document.querySelector('.alert-container');
         alertContainer.innerHTML = `
-            <div class="alert alert-error">Error adding ticket. Please try again.</div>`;
+            <div class="alert alert-error">Error adding ticket: ${error.message}. Please try again.</div>`;
         setTimeout(() => {
             const alert = alertContainer.querySelector('.alert');
             if (alert) {

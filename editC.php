@@ -4,32 +4,43 @@ include 'db.php';
 
 // Check if the user is logged in
 if (!isset($_SESSION['username'])) { 
-    header("Location: index.php"); // Redirect to login page if not logged in 
+    header("Location: index.php");
     exit(); 
 }
 
 // Check if the customer ID is provided
-if (isset($_GET['id'])) {
-    $customerId = $_GET['id'];
-
-    // Fetch customer details based on the customer ID
-    $sql = "SELECT c_id, c_fname, c_lname, c_address, c_contact, c_email, c_napname, c_napport, c_macaddress, c_status, c_date FROM tbl_customer WHERE c_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $customerId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $customer = $result->fetch_assoc();
-    } else {
-        echo "Customer not found.";
-        exit();
-    }
-} else {
-    echo "No customer ID provided.";
+if (!isset($_GET['id'])) {
+    $_SESSION['error'] = "No customer ID provided.";
+    header("Location: customersT.php");
     exit();
 }
 
+$customerId = $_GET['id'];
+
+// Fetch customer details based on the customer ID
+$sql = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
+        FROM tbl_customer WHERE c_id = ?";
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    $_SESSION['error'] = "Customer query preparation failed: " . $conn->error;
+    header("Location: customersT.php");
+    exit();
+}
+$stmt->bind_param("i", $customerId);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows == 0) {
+    $_SESSION['error'] = "Customer not found.";
+    header("Location: customersT.php");
+    exit();
+}
+$customer = $result->fetch_assoc();
+$stmt->close();
+
+// Debug: Log the c_napport and c_plan values to inspect their format
+error_log("c_napport value from database: '" . $customer['c_napport'] . "'");
+error_log("c_plan value from database: '" . $customer['c_plan'] . "'");
 
 // Initialize variables for user data
 $username = $_SESSION['username'];
@@ -37,58 +48,145 @@ $lastName = '';
 $firstName = '';
 $userType = '';
 $avatarPath = 'default-avatar.png';
-$avatarFolder = 'uploads/avatars/';
+$avatarFolder = 'Uploads/avatars/';
 $userAvatar = $avatarFolder . $username . '.png';
 
 if (file_exists($userAvatar)) {
-    $_SESSION['avatarPath'] = $userAvatar . '?' . time(); // Prevent caching issues
+    $_SESSION['avatarPath'] = $userAvatar . '?' . time();
 } else {
     $_SESSION['avatarPath'] = 'default-avatar.png';
 }
 $avatarPath = $_SESSION['avatarPath'];
 
 // Fetch user data from the database
-if ($conn) {
-    $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
-    $stmt = $conn->prepare($sqlUser);
-    $stmt->bind_param("s", $_SESSION['username']);
-    $stmt->execute();
-    $resultUser = $stmt->get_result();
-
-    if ($resultUser->num_rows > 0) {
-        $row = $resultUser->fetch_assoc();
-        $firstName = $row['u_fname'];
-        $lastName = $row['u_lname'];
-        $userType = $row['u_type'];
-    }
-    $stmt->close();
-} else {
-    echo "Database connection failed.";
+if (!$conn) {
+    $_SESSION['error'] = "Database connection failed: " . mysqli_connect_error();
+    header("Location: editC.php");
     exit();
 }
 
-// Handle form submission for updating the customer
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $firstName = $_POST['firstname'];
-    $lastName = $_POST['lastname'];
-    $address = $_POST['address'];
-    $contact = $_POST['contact'];
-    $email = $_POST['email'];
-    $date = $_POST['date'];
-    $napname = $_POST['napname'];
-    $napport = $_POST['napport'];
-    $macAddress = $_POST['macaddress'];
-    $status = $_POST['status'];
+$sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
+$stmt = $conn->prepare($sqlUser);
+if (!$stmt) {
+    $_SESSION['error'] = "User query preparation failed: " . $conn->error;
+    header("Location: editC.php");
+    exit();
+}
+$stmt->bind_param("s", $_SESSION['username']);
+$stmt->execute();
+$resultUser = $stmt->get_result();
 
-    // Update the customer in the database
-    $sqlUpdate = "UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_address = ?, c_contact = ?, c_email = ?, c_date = ?, c_napname = ?, c_napport = ?, c_macaddress = ?, c_status = ? WHERE c_id = ?";
-    $stmtUpdate = $conn->prepare($sqlUpdate);
-    $stmtUpdate->bind_param("ssssssssssi", $firstName, $lastName, $address, $contact, $email, $date, $napname, $napport, $macAddress, $status, $customerId);
-    
-    if ($stmtUpdate->execute()) {
-        echo "<script>alert('Customer updated successfully!'); window.location.href='customersT.php';</script>";
-    } else {
-        echo "<script>alert('Error updating customer.');</script>";
+if ($resultUser->num_rows > 0) {
+    $row = $resultUser->fetch_assoc();
+    $firstName = $row['u_fname'];
+    $lastName = $row['u_lname'];
+    $userType = $row['u_type'];
+}
+$stmt->close();
+
+// Initialize form variables and error messages
+$firstname = $customer['c_fname'];
+$lastname = $customer['c_lname'];
+$contact = $customer['c_contact'];
+$email = $customer['c_email'];
+$dob = $customer['c_date'];
+$napname = $customer['c_napname'];
+$napport = trim((string)$customer['c_napport']);
+$macaddress = $customer['c_macaddress'];
+$status = $customer['c_status'];
+$purok = $customer['c_purok'];
+$barangay = $customer['c_barangay'];
+// Normalize c_plan: trim whitespace and convert to string
+$plan = trim((string)$customer['c_plan']);
+$equipment = $customer['c_equipment'];
+
+$firstnameErr = $lastnameErr = $contactErr = $emailErr = $dobErr = "";
+$napnameErr = $napportErr = $macaddressErr = $statusErr = "";
+$purokErr = $barangayErr = $planErr = $equipmentErr = "";
+$hasError = false;
+
+// Handle form submission
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $firstname = trim($_POST['firstname'] ?? '');
+    $lastname = trim($_POST['lastname'] ?? '');
+    $contact = trim($_POST['contact'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $dob = trim($_POST['date'] ?? '');
+    $napname = trim($_POST['napname'] ?? '');
+    $napport = trim($_POST['napport'] ?? '');
+    $macaddress = trim($_POST['macaddress'] ?? '');
+    $status = trim($_POST['status'] ?? '');
+    $purok = trim($_POST['purok'] ?? '');
+    $barangay = trim($_POST['barangay'] ?? '');
+    $plan = trim($_POST['plan'] ?? '');
+    $equipment = trim($_POST['equipment'] ?? '');
+
+    // Validate inputs
+    if (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
+        $firstnameErr = "First Name should not contain numbers.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[0-9]+$/", $contact)) {
+        $contactErr = "Contact must contain numbers only.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
+        $lastnameErr = "Last Name should not contain numbers.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
+        $macaddressErr = "Mac Address should not contain special characters.";
+        $hasError = true;
+    }
+    if (empty($dob)) {
+        $dobErr = "Date is required.";
+        $hasError = true;
+    }
+    if (empty($status)) {
+        $statusErr = "Status is required.";
+        $hasError = true;
+    }
+    if (empty($email)) {
+        $emailErr = "Email is required.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[a-zA-Z\s]+$/", $barangay)) {
+        $barangayErr = "Barangay should contain letters only.";
+        $hasError = true;
+    }
+    if (empty($plan)) {
+        $planErr = "Internet Plan is required.";
+        $hasError = true;
+    }
+    if (empty($equipment)) {
+        $equipmentErr = "Equipment is required.";
+        $hasError = true;
+    }
+
+    // Update database if no errors
+    if (!$hasError) {
+        $sqlUpdate = "UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_purok = ?, c_barangay = ?, c_contact = ?, c_email = ?, c_date = ?, c_napname = ?, c_napport = ?, c_macaddress = ?, c_status = ?, c_plan = ?, c_equipment = ? WHERE c_id = ?";
+        $stmtUpdate = $conn->prepare($sqlUpdate);
+        if (!$stmtUpdate) {
+            $_SESSION['error'] = "Prepare failed: " . $conn->error;
+            error_log("SQL Prepare Error: " . $conn->error);
+            header("Location: editC.php?id=$customerId");
+            exit();
+        }
+
+        $stmtUpdate->bind_param("sssssssssssssi", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $equipment, $customerId);
+
+        if ($stmtUpdate->execute()) {
+            $_SESSION['message'] = "Customer updated successfully.";
+            header("Location: customersT.php");
+            exit();
+        } else {
+            $_SESSION['error'] = "Execution failed: " . $stmtUpdate->error;
+            error_log("SQL Execution Error: " . $stmtUpdate->error);
+            header("Location: editC.php?id=$customerId");
+            exit();
+        }
+        $stmtUpdate->close();
     }
 }
 ?>
@@ -99,41 +197,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Customer</title>
-    <link rel="stylesheet" href="editC.css">
+    <link rel="stylesheet" href="addsC.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-   
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="wrapper">
+<div class="wrapper">
     <div class="sidebar glass-container">
-        <h2>Task Management</h2>
+        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="staffD.php"><img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/><span>View Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
             <li><a href="customersT.php"><img src="https://img.icons8.com/color/48/conference-skin-type-7.png" alt="conference-skin-type-7"/> <span>View Customers</span></a></li>
-            <li><a href="createTickets.php"><img src="https://img.icons8.com/fluency/48/create-new.png" alt="create-new"/><span>Ticket Registration</span></a></li>
-            <li><a href="registerAssets.php"><img src="https://img.icons8.com/fluency/30/insert.png" alt="insert"/><span>Register Assets</span></a></li>
+            <li><a href="borrowedStaff.php"><i class="fas fa-book"></i> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="https://img.icons8.com/officel/40/add-user-male.png" alt="add-user-male"/><span>Add Customer</span></a></li>
         </ul>
         <footer>
-        <a href="index.php" class="back-home"><img src="https://img.icons8.com/stickers/35/exit.png" alt="exit"/></i> Logout</a>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
     <div class="container">
         <div class="upper"> 
             <h1>Edit Customer</h1>
-           
             <div class="user-profile">
                 <div class="user-icon">
-                    <?php 
-                    if (!empty($avatarPath) && file_exists(str_replace('?' . time(), '', $avatarPath))) {
-                        echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
-                    } else {
-                        echo "<i class='fas fa-user-circle'></i>";
-                    }
-                    ?>
+                    <a href="image.php">
+                        <?php 
+                        $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
+                        if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
+                            echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
+                        } else {
+                            echo "<i class='fas fa-user-circle'></i>";
+                        }
+                        ?>
+                    </a>
                 </div>
                 <div class="user-details">
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -155,83 +254,155 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <?php endif; ?>
         </div>
 
-    
-    <div class="table-box">
-    <h2>Customer Profile</h2>
-    <hr class="title-line"> <!-- Add this line -->
-
-    <form action="" method="POST">
-           <div class="row">
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="firstname">First Name:</label>
-                   <input type="text" id="firstname" name="firstname" value="<?php echo htmlspecialchars($customer['c_fname']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="lastname">Last Name:</label>
-                    <input type="text" id="lastname" name="lastname" value="<?php echo htmlspecialchars($customer['c_lname']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="address">Address:</label>
-                   <input type="text" id="address" name="address" value="<?php echo htmlspecialchars($customer['c_address']); ?>" required>
-               </div>
-           </div>
-
-           <div class="row">
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="contact">Contact:</label>
-                        <input type="text" id="contact" name="contact" value="<?php echo htmlspecialchars($customer['c_contact']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="email">Email:</label>
-                   <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($customer['c_email']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="date">Date Applied:</label>
-                   <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($customer['c_date']); ?>" required>
-               </div>
-           </div>
-
-           <h2>Advance Profile</h2>
-           <hr class="title-line"> <!-- Add this line -->
-           <div class="secondrow">
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="napname">Nap Name:</label>
-                   <input type="text" id="napname" name="napname" value="<?php echo htmlspecialchars($customer['c_napname']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="napport">Nap Port:</label>
-                   <input type="text" id="napport" name="napport" value="<?php echo htmlspecialchars($customer['c_napport']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="macaddress">Mac Address:</label>
-        <input type="text" id="macaddress" name="macaddress" value="<?php echo htmlspecialchars($customer['c_macaddress']); ?>" required>
-               </div>
-               <div class="input-box">
-                   <i class="bx bxs-user"></i>
-                   <label for="status">Customer Status:</label>
-                   <input type="text" id="status" name="status" value="<?php echo htmlspecialchars($customer['c_status']); ?>" required>
-               </div>
-           </div>
-           <div class="button-container">
-                    <button type="submit">Update Customer</button>
+        <div class="form-box glass-container">
+            <h2>Customer Profile</h2>
+            <hr class="title-line">
+            <form action="" method="POST" id="customerForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="firstname">First Name <span class="required">*</span></label>
+                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname); ?>" required>
+                        <span class="error"><?php echo $firstnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastname">Last Name <span class="required">*</span></label>
+                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname); ?>" required>
+                        <span class="error"><?php echo $lastnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="purok">Purok Name</label>
+                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok); ?>">
+                        <span class="error"><?php echo $purokErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="barangay">Barangay <span class="required">*</span></label>
+                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay); ?>" required>
+                        <span class="error"><?php echo $barangayErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact">Contact Number <span class="required">*</span></label>
+                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact); ?>" required>
+                        <span class="error"><?php echo $contactErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email); ?>" required>
+                        <span class="error"><?php echo $emailErr; ?></span>
+                    </div>
                 </div>
-           </form>
 
-           </div>
-         
-   </div>
-   
+                <h2>Advance Profile</h2>
+                <hr class="title-line">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date">Subscription Date <span class="required">*</span></label>
+                        <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($dob); ?>" required>
+                        <span class="error"><?php echo $dobErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="napname">NAP Device <span class="required">*</span></label>
+                        <select id="napname" name="napname" required>
+                            <option value="" <?php echo ($napname === '') ? 'selected' : ''; ?>>Select NAP Device</option>
+                            <option value="Lp1 Np1" <?php echo ($napname === 'Lp1 Np1') ? 'selected' : ''; ?>>Lp1 Np1</option>
+                            <option value="Lp1 Np2" <?php echo ($napname === 'Lp1 Np2') ? 'selected' : ''; ?>>Lp1 Np2</option>
+                            <option value="Lp1 Np3" <?php echo ($napname === 'Lp1 Np3') ? 'selected' : ''; ?>>Lp1 Np3</option>
+                            <option value="Lp1 Np4" <?php echo ($napname === 'Lp1 Np4') ? 'selected' : ''; ?>>Lp1 Np4</option>
+                            <option value="Lp1 Np5" <?php echo ($napname === 'Lp1 Np5') ? 'selected' : ''; ?>>Lp1 Np5</option>
+                            <option value="Lp1 Np6" <?php echo ($napname === 'Lp1 Np6') ? 'selected' : ''; ?>>Lp1 Np6</option>
+                            <option value="Lp1 Np7" <?php echo ($napname === 'Lp1 Np7') ? 'selected' : ''; ?>>Lp1 Np7</option>
+                            <option value="Lp1 Np8" <?php echo ($napname === 'Lp1 Np8') ? 'selected' : ''; ?>>Lp1 Np8</option>
+                        </select>
+                        <span class="error"><?php echo $napnameErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="napport">NAP Port <span class="required">*</span></label>
+                        <select id="napport" name="napport" required>
+                            <option value="" <?php echo ($napport === '') ? 'selected' : ''; ?>>Select NAP Port</option>
+                            <option value="1" <?php echo ($napport === '1') ? 'selected' : ''; ?>>1</option>
+                            <option value="2" <?php echo ($napport === '2') ? 'selected' : ''; ?>>2</option>
+                            <option value="3" <?php echo ($napport === '3') ? 'selected' : ''; ?>>3</option>
+                            <option value="4" <?php echo ($napport === '4') ? 'selected' : ''; ?>>4</option>
+                            <option value="5" <?php echo ($napport === '5') ? 'selected' : ''; ?>>5</option>
+                            <option value="6" <?php echo ($napport === '6') ? 'selected' : ''; ?>>6</option>
+                            <option value="7" <?php echo ($napport === '7') ? 'selected' : ''; ?>>7</option>
+                            <option value="8" <?php echo ($napport === '8') ? 'selected' : ''; ?>>8</option>
+                        </select>
+                        <span class="error"><?php echo $napportErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="macaddress">MAC Address <span class="required">*</span></label>
+                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress); ?>" required>
+                        <span class="error"><?php echo $macaddressErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Customer Status <span class="required">*</span></label>
+                        <select id="status" name="status" required>
+                            <option value="" <?php echo ($status === '') ? 'selected' : ''; ?>>Select Status</option>
+                            <option value="Active" <?php echo ($status === 'Active') ? 'selected' : ''; ?>>Active</option>
+                            <option value="Inactive" <?php echo ($status === 'Inactive') ? 'selected' : ''; ?>>Inactive</option>
+                        </select>
+                        <span class="error"><?php echo $statusErr; ?></span>
+                    </div>
+                </div>
 
+                <h2>Service Details</h2>
+                <hr class="title-line">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="plan">Internet Plan <span class="required">*</span></label>
+                        <select id="plan" name="plan" required>
+                            <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Plan</option>
+                            <option value="25 Mbps" <?php echo ($plan === '25 Mbps') ? 'selected' : ''; ?>>25 Mbps</option>
+                            <option value="50 Mbps" <?php echo ($plan === '50 Mbps') ? 'selected' : ''; ?>>50 Mbps</option>
+                            <option value="100 Mbps" <?php echo ($plan === '100 Mbps') ? 'selected' : ''; ?>>100 Mbps</option>
+                            <option value="1 Gbps" <?php echo ($plan === '1 Gbps') ? 'selected' : ''; ?>>1 Gbps</option>
+                        </select>
+                        <span class="error"><?php echo $planErr; ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="equipment">Equipment <span class="required">*</span></label>
+                        <select id="equipment" name="equipment" required>
+                            <option value="" <?php echo ($equipment === '') ? 'selected' : ''; ?>>Select Equipment</option>
+                            <option value="ISP-Provided Modem/Router" <?php echo ($equipment === 'ISP-Provided Modem/Router') ? 'selected' : ''; ?>>ISP-Provided Modem/Router</option>
+                            <option value="Customer-Owned" <?php echo ($equipment === 'Customer-Owned') ? 'selected' : ''; ?>>Customer-Owned</option>
+                        </select>
+                        <span class="error"><?php echo $equipmentErr; ?></span>
+                    </div>
+                </div>
 
+                <div class="button-container">
+                    <button type="submit" id="submitBtn">Update Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script>
+    // Prevent multiple form submissions
+    document.getElementById('customerForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Updating...';
+    });
+
+    // Fade out success message after 10 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.querySelector('.alert-success');
+        if (successAlert) {
+            setTimeout(() => {
+                successAlert.style.transition = 'opacity 1s ease-out';
+                successAlert.style.opacity = '0';
+                setTimeout(() => {
+                    successAlert.remove();
+                }, 1000);
+            }, 10000);
+        }
+    });
+</script>
 </body>
 </html>
+
+<?php
+$conn->close();
+?>

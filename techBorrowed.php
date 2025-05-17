@@ -138,7 +138,7 @@ $avatarPath = $_SESSION['avatarPath'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Borrowed Assets</title>
-    <link rel="stylesheet" href="techsB.css"> 
+    <link rel="stylesheet" href="techBorrowed.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -191,14 +191,6 @@ $avatarPath = $_SESSION['avatarPath'];
         <h2>Task Management</h2>
         <ul>
             <li><a href="technicianD.php"><img src="https://img.icons8.com/parakeet/35/dashboard.png" alt="dashboard"/><span>Dashboard</span></a></li>
-            <li><a href="staffD.php"><img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/><span>Regular Tickets</span></a></li>
-            <li><a href="javascript:void(0)" class="support-tickets-link" onclick="toggleSupportInput()"> <img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/></i><span>Support Tickets</span></a>
-                <div class="support-tickets-input" id="supportTicketInput">
-                    <input type="text" id="supportCustomerId" placeholder="Enter Customer ID" required>
-                    <button onclick="goToSupportTicket()" title="View Support Tickets"><i class="fas fa-arrow-right"></i></button>
-                </div>
-            </li>
-            <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
             <li><a href="techBorrowed.php" class="active"> <img src="https://img.icons8.com/cotton/35/documents--v1.png" alt="documents--v1"/> <span>Borrowed Assets</span></a></li>
         </ul>
         <footer>
