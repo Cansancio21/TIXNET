@@ -86,6 +86,7 @@ if ($conn) {
     }
     $stmtArchivedRegular = $conn->prepare($sqlArchivedRegular);
     if ($searchTerm) {
+        $searchLike = "%$searchTerm%";
         $stmtArchivedRegular->bind_param("sss", $searchLike, $searchLike, $searchLike);
     }
     $stmtArchivedRegular->execute();
@@ -115,7 +116,7 @@ if ($conn) {
     $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
     if ($searchTerm) {
         $searchLike = "%$searchTerm%";
-        $stmtSupportCloseduki->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
+        $stmtSupportClosed->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
     }
     $stmtSupportClosed->execute();
     $resultSupportClosed = $stmtSupportClosed->get_result();
@@ -128,6 +129,7 @@ if ($conn) {
     }
     $stmtArchivedSupport = $conn->prepare($sqlArchivedSupport);
     if ($searchTerm) {
+        $searchLike = "%$searchTerm%";
         $stmtArchivedSupport->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
     }
     $stmtArchivedSupport->execute();
@@ -180,9 +182,9 @@ if ($conn) {
                 $stmtLog->close();
 
                 $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
-                                "&regularActivePage=" . urlencode($regularActivePage) .
+                                "®ularActivePage=" . urlencode($regularActivePage) .
                                 "&supportActivePage=" . urlencode($supportActivePage) .
-                                "&regularArchivedPage=" . urlencode($regularArchivedPage) .
+                                "®ularArchivedPage=" . urlencode($regularArchivedPage) .
                                 "&supportArchivedPage=" . urlencode($supportArchivedPage) .
                                 ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                 echo json_encode(['success' => true, 'redirect' => $redirect_url]);
@@ -235,9 +237,9 @@ if ($conn) {
                 $stmtLog->close();
 
                 $redirect_url = "technicianD.php?tab=" . urlencode($targetTab) .
-                                "&regularActivePage=" . urlencode($regularActivePage) .
+                                "®ularActivePage=" . urlencode($regularActivePage) .
                                 "&supportActivePage=" . urlencode($supportActivePage) .
-                                "&regularArchivedPage=" . urlencode($regularArchivedPage) .
+                                "®ularArchivedPage=" . urlencode($regularArchivedPage) .
                                 "&supportArchivedPage=" . urlencode($supportArchivedPage) .
                                 ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
                 header("Location: $redirect_url");
@@ -273,7 +275,7 @@ if ($conn) {
     if ($searchTerm) {
         $sqlRegularActive .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
     }
-    $sqlRegularActive .= " ORDER BY t_date ASC LIMIT ? OFFSET ?";
+    $sqlRegularActive .= " ORDER BY t_date DESC LIMIT ? OFFSET ?";
     $stmtRegularActive = $conn->prepare($sqlRegularActive);
     if ($searchTerm) {
         $stmtRegularActive->bind_param("sssii", $searchLike, $searchLike, $searchLike, $limit, $regularActiveOffset);
@@ -308,7 +310,7 @@ if ($conn) {
     if ($searchTerm) {
         $sqlSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
     }
-    $sqlSupportActive .= " ORDER BY id ASC LIMIT ? OFFSET ?";
+    $sqlSupportActive .= " ORDER BY id DESC LIMIT ? OFFSET ?";
     $stmtSupportActive = $conn->prepare($sqlSupportActive);
     if ($searchTerm) {
         $stmtSupportActive->bind_param("ssssii", $searchLike, $searchLike, $searchLike, $searchLike, $limit, $supportActiveOffset);
@@ -343,7 +345,7 @@ if ($conn) {
     if ($searchTerm) {
         $sqlRegularArchived .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
     }
-    $sqlRegularArchived .= " ORDER BY t_date ASC LIMIT ? OFFSET ?";
+    $sqlRegularArchived .= " ORDER BY t_date DESC LIMIT ? OFFSET ?";
     $stmtRegularArchived = $conn->prepare($sqlRegularArchived);
     if ($searchTerm) {
         $stmtRegularArchived->bind_param("sssii", $searchLike, $searchLike, $searchLike, $limit, $regularArchivedOffset);
@@ -378,7 +380,7 @@ if ($conn) {
     if ($searchTerm) {
         $sqlSupportArchived .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
     }
-    $sqlSupportArchived .= " ORDER BY id ASC LIMIT ? OFFSET ?";
+    $sqlSupportArchived .= " ORDER BY id DESC LIMIT ? OFFSET ?";
     $stmtSupportArchived = $conn->prepare($sqlSupportArchived);
     if ($searchTerm) {
         $stmtSupportArchived->bind_param("ssssii", $searchLike, $searchLike, $searchLike, $searchLike, $limit, $supportArchivedOffset);
@@ -389,6 +391,7 @@ if ($conn) {
     $resultSupportArchived = $stmtSupportArchived->get_result();
     $stmtSupportArchived->close();
 } else {
+    die("Database connection failed: " . mysqli_connect_error());
     $firstName = '';
     $userType = '';
     $openTickets = $closedTickets = $pendingTasks = $supportOpen = $supportClosed = 0;
@@ -596,18 +599,21 @@ if ($conn) {
                         </table>
                         <div class="pagination" id="regular-active-pagination">
                             <?php
-                            $paginationParams = "&supportActivePage=" . urlencode($supportActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                            if ($regularActivePage > 1): ?>
-                                <a href="?tab=regular&regularActivePage=<?php echo $regularActivePage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                            <?php endif; ?>
-                            <span class="current-page">Page <?php echo $regularActivePage; ?> of <?php echo $totalRegularActivePages; ?></span>
-                            <?php if ($regularActivePage < $totalRegularActivePages): ?>
-                                <a href="?tab=regular&regularActivePage=<?php echo $regularActivePage + 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                            <?php endif; ?>
+                            $paginationParams = "&search=" . urlencode($searchTerm);
+                            if ($totalRegularActivePages > 1) {
+                                if ($regularActivePage > 1) {
+                                    echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                                }
+                                echo "<span class='current-page'>Page $regularActivePage of $totalRegularActivePages</span>";
+                                if ($regularActivePage < $totalRegularActivePages) {
+                                    echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                                }
+                            }
+                            ?>
                         </div>
                     </div>
 
@@ -660,18 +666,21 @@ if ($conn) {
                         </table>
                         <div class="pagination" id="regular-archived-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&supportActivePage=" . urlencode($supportActivePage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                            if ($regularArchivedPage > 1): ?>
-                                <a href="?tab=regularArchived&regularArchivedPage=<?php echo $regularArchivedPage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                            <?php endif; ?>
-                            <span class="current-page">Page <?php echo $regularArchivedPage; ?> of <?php echo $totalRegularArchivedPages; ?></span>
-                            <?php if ($regularArchivedPage < $totalRegularArchivedPages): ?>
-                                <a href="?tab=regularArchived&regularArchivedPage=<?php echo $regularArchivedPage + 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                            <?php endif; ?>
+                            $paginationParams = "&search=" . urlencode($searchTerm);
+                            if ($totalRegularArchivedPages > 1) {
+                                if ($regularArchivedPage > 1) {
+                                    echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                                }
+                                echo "<span class='current-page'>Page $regularArchivedPage of $totalRegularArchivedPages</span>";
+                                if ($regularArchivedPage < $totalRegularArchivedPages) {
+                                    echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                                }
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -710,7 +719,7 @@ if ($conn) {
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
                                             'id' => $row['t_id'],
-                                            'ref' => $row['s_ref'] ?? '',
+                                            'ref' => $row['s_ref'] ?? $row['t_id'],
                                             'aname' => $row['t_aname'] ?? '',
                                             'subject' => $row['s_subject'] ?? '',
                                             'details' => $display_details,
@@ -718,7 +727,7 @@ if ($conn) {
                                             'date' => '-'
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref'] ?? $row['t_id']) . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($display_details) . "</td>
@@ -739,18 +748,21 @@ if ($conn) {
                         </table>
                         <div class="pagination" id="support-active-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportArchivedPage=" . urlencode($supportArchivedPage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                            if ($supportActivePage > 1): ?>
-                                <a href="?tab=support&supportActivePage=<?php echo $supportActivePage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                            <?php endif; ?>
-                            <span class="current-page">Page <?php echo $supportActivePage; ?> of <?php echo $totalSupportActivePages; ?></span>
-                            <?php if ($supportActivePage < $totalSupportActivePages): ?>
-                                <a href="?tab=support&supportActivePage=<?php echo $supportActivePage + 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                            <?php endif; ?>
+                            $paginationParams = "&search=" . urlencode($searchTerm);
+                            if ($totalSupportActivePages > 1) {
+                                if ($supportActivePage > 1) {
+                                    echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                                }
+                                echo "<span class='current-page'>Page $supportActivePage of $totalSupportActivePages</span>";
+                                if ($supportActivePage < $totalSupportActivePages) {
+                                    echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                                }
+                            }
+                            ?>
                         </div>
                     </div>
 
@@ -774,7 +786,7 @@ if ($conn) {
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
                                             'id' => $row['t_id'],
-                                            'ref' => $row['s_ref'] ?? '',
+                                            'ref' => $row['s_ref'] ?? $row['t_id'],
                                             'aname' => $row['t_aname'] ?? '',
                                             'subject' => $row['s_subject'] ?? '',
                                             'details' => $display_details,
@@ -782,7 +794,7 @@ if ($conn) {
                                             'date' => '-'
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? '') . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref'] ?? $row['t_id']) . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($display_details) . "</td>
@@ -802,18 +814,21 @@ if ($conn) {
                         </table>
                         <div class="pagination" id="support-archived-pagination">
                             <?php
-                            $paginationParams = "&regularActivePage=" . urlencode($regularActivePage) . "&regularArchivedPage=" . urlencode($regularArchivedPage) . "&supportActivePage=" . urlencode($supportActivePage) . ($searchTerm ? "&search=" . urlencode($searchTerm) : '');
-                            if ($supportArchivedPage > 1): ?>
-                                <a href="?tab=supportArchived&supportArchivedPage=<?php echo $supportArchivedPage - 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                            <?php endif; ?>
-                            <span class="current-page">Page <?php echo $supportArchivedPage; ?> of <?php echo $totalSupportArchivedPages; ?></span>
-                            <?php if ($supportArchivedPage < $totalSupportArchivedPages): ?>
-                                <a href="?tab=supportArchived&supportArchivedPage=<?php echo $supportArchivedPage + 1; ?><?php echo $paginationParams; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                            <?php else: ?>
-                                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                            <?php endif; ?>
+                            $paginationParams = "&search=" . urlencode($searchTerm);
+                            if ($totalSupportArchivedPages > 1) {
+                                if ($supportArchivedPage > 1) {
+                                    echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                                }
+                                echo "<span class='current-page'>Page $supportArchivedPage of $totalSupportArchivedPages</span>";
+                                if ($supportArchivedPage < $totalSupportArchivedPages) {
+                                    echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                } else {
+                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                                }
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -824,6 +839,7 @@ if ($conn) {
 
 <script>
 function openMainTab(tabName, subTab) {
+    console.log(`Opening main tab: ${tabName}, subTab: ${subTab}`);
     const mainTabContents = document.getElementsByClassName('main-tab-content');
     for (let i = 0; i < mainTabContents.length; i++) {
         mainTabContents[i].classList.remove('active');
@@ -844,6 +860,7 @@ function openMainTab(tabName, subTab) {
 }
 
 function openSubTab(contentId, tabParam) {
+    console.log(`Opening sub-tab: ${contentId}, tabParam: ${tabParam}`);
     const mainTabId = contentId.startsWith('regular') ? 'regularTickets' : 'supportTickets';
     const mainTab = document.getElementById(mainTabId);
     const subTabContents = mainTab.getElementsByClassName('sub-tab-content');
@@ -882,10 +899,15 @@ function debounce(func, wait) {
 function searchTickets(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
     const activeTab = document.querySelector('.sub-tab-content.active');
-    if (!activeTab) return;
+    if (!activeTab) {
+        console.error('No active tab found');
+        return;
+    }
     const tab = activeTab.id.includes('regularTicketsContent') ? 'regular' :
                 activeTab.id.includes('regularArchivedTicketsContent') ? 'regularArchived' :
                 activeTab.id.includes('supportTicketsContent') ? 'support' : 'supportArchived';
+    
+    console.log(`Searching tickets for tab: ${tab}, page: ${page}, search: ${searchTerm}`);
     
     const url = new URL(window.location);
     url.searchParams.set('tab', tab);
@@ -894,6 +916,11 @@ function searchTickets(page = 1) {
     } else {
         url.searchParams.delete('search');
     }
+    url.searchParams.delete('regularActivePage');
+    url.searchParams.delete('regularArchivedPage');
+    url.searchParams.delete('supportActivePage');
+    url.searchParams.delete('supportArchivedPage');
+    
     if (tab === 'regular') {
         url.searchParams.set('regularActivePage', page);
     } else if (tab === 'regularArchived') {
@@ -903,12 +930,14 @@ function searchTickets(page = 1) {
     } else if (tab === 'supportArchived') {
         url.searchParams.set('supportArchivedPage', page);
     }
+    
     window.location.href = url.toString();
 }
 
 const debouncedSearchTickets = debounce(searchTickets, 300);
 
 function showViewModal(type, data) {
+    console.log(`Showing view modal for ${type} ticket:`, data);
     const content = document.getElementById('viewTicketContent');
     const statusClass = `status-${data.status.toLowerCase().replace(' ', '-')}`;
     if (type === 'regular') {
@@ -934,6 +963,7 @@ function showViewModal(type, data) {
 }
 
 function openModal(action, type, data) {
+    console.log(`Opening modal for action: ${action}, type: ${type}, data:`, data);
     const modal = document.getElementById('actionModal');
     const modalHeader = modal.querySelector('.modal-header');
     const modalBody = modal.querySelector('.modal-body');
@@ -956,6 +986,7 @@ function openModal(action, type, data) {
 }
 
 function openCloseModal(id, aname, type) {
+    console.log(`Opening close modal for ticket ID: ${id}, name: ${aname}, type: ${type}`);
     document.getElementById('closeTicketIdDisplay').textContent = id;
     document.getElementById('closeTicketName').textContent = aname;
     document.getElementById('technicianFirstName').value = '';
@@ -978,6 +1009,8 @@ function submitCloseAction() {
         return;
     }
 
+    console.log(`Submitting close action for ticket ID: ${id}, type: ${type}, technician: ${technicianFirstName}`);
+
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Closing...';
 
@@ -993,6 +1026,7 @@ function submitCloseAction() {
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Close action response:', data);
         if (data.success) {
             closeModal('closeModal');
             setTimeout(() => {
@@ -1006,6 +1040,7 @@ function submitCloseAction() {
         }
     })
     .catch(error => {
+        console.error('Close action error:', error);
         errorElement.textContent = 'An error occurred.';
         errorElement.style.display = 'block';
         confirmBtn.disabled = false;
@@ -1014,12 +1049,14 @@ function submitCloseAction() {
 }
 
 function closeModal(modalId) {
+    console.log(`Closing modal: ${modalId}`);
     const modal = document.getElementById(modalId);
     modal.style.display = 'none';
     document.body.classList.remove('modal-open');
 }
 
 function submitAction(action, type, id) {
+    console.log(`Submitting action: ${action}, type: ${type}, id: ${id}`);
     document.getElementById('formAction').value = action;
     document.getElementById('formId').value = id;
     document.getElementById('formType').value = type;
@@ -1030,6 +1067,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab') || 'regular';
     const mainTab = tab === 'regular' || tab === 'regularArchived' ? 'regularTickets' : 'supportTickets';
+    console.log(`Initializing page with tab: ${tab}, mainTab: ${mainTab}`);
     openMainTab(mainTab, tab);
     const subTabContentId = tab === 'regular' ? 'regularTicketsContent' :
                            tab === 'regularArchived' ? 'regularArchivedTicketsContent' :
@@ -1039,6 +1077,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
-
-
-

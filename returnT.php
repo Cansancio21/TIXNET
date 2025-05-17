@@ -248,7 +248,8 @@ if ($conn) {
         <ul>
             <li><a href="adminD.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
             <li><a href="viewU.php"><i class="fas fa-users"></i> <span>View Users</span></a></li>
-            <li><a href="view_service_record.php"><i class="fas fa-wrench"></i> <span> Service Record</span></a></li>
+            <li><a href="regular_close.php"><i class="fas fa-wrench"></i> <span>Regulars Record</span></a></li>
+             <li><a href="support_close.php"><i class="fas fa-wrench"></i> <span>Supports Record</span></a></li>
             <li><a href="logs.php"><i class="fas fa-file-alt"></i> <span>View Logs</span></a></li>
             <li><a href="borrowedT.php"><i class="fas fa-book"></i> <span>Borrowed Records</span></a></li>
             <li><a href="returnT.php" class="active"><i class="fas fa-undo"></i> <span>Returned Records</span></a></li>

@@ -555,11 +555,13 @@ tr:hover td {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-content {
     background: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -610,7 +612,6 @@ tr:hover td {
     border: 1px solid #ddd;
     border-radius: 5px;
 }
-
 /* Archive Header */
 .archive-header {
     display: flex;

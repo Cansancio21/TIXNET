@@ -29,26 +29,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username']) && !isset(
     exit;
 }
 
-// Initialize variables as empty (ensures fields are empty on initial load)
+// Initialize variables as empty
 $firstname = $lastname = $email = $username = "";
 $type = $status = ""; 
 
 $firstnameErr = $lastnameErr = $loginError = $passwordError = $usernameError = "";
+$regCodeError = ""; // Error variable for registration code
 $hasError = false;
 
 // Define the registration code
-define('REGISTRATION_CODE', 'ADMIN123');
+define('REGISTRATION_CODE', 'ADMIN1234!');
 
 // User Registration
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
     // Validate the registration code
     $submittedCode = isset($_POST['reg_code']) ? trim($_POST['reg_code']) : '';
     if ($submittedCode !== REGISTRATION_CODE) {
-        echo "<script type='text/javascript'>
-                alert('Invalid registration code.');
-                window.location.href = 'index.php';
-              </script>";
-        exit;
+        $regCodeError = "Invalid registration password.";
+        $hasError = true;
     }
 
     $firstname = trim($_POST['firstname']);
@@ -107,10 +105,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
         $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
 
         if ($stmt->execute()) {
-            echo "<script type='text/javascript'>
-                alert('Registration successful! Please log in.');
-                window.location.href = 'index.php';
-              </script>";
+            header("Location: index.php?success=Registration+successful");
+            exit();
         } else {
             die("Execution failed: " . $stmt->error);
         }
@@ -185,13 +181,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
         $loginError = "Incorrect username. Try again.";
     }
 
-    // If user doesn't exist and password was provided (not empty)
+    // If user doesn't exist and password was provided
     if (!$userExists && !empty($password)) {
         $passwordError = "Incorrect password. Try again.";
     }
 
     $stmt->close();
 }
+
+// Check for success message
+$successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -201,19 +200,123 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
     <title>User Registration & Login</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="index.css">
-    <script>
-        // Define the registration code client-side (for simplicity; ideally, validate server-side only)
-        const REGISTRATION_CODE = 'ADMIN123';
+</head>
+<body>
+    <div class="container <?php echo ($hasError) ? 'active' : ''; ?>">
+        <!-- Login Form -->
+        <div class="form-box login">
+            <form action="" method="POST">
+                <h1>Login</h1>
+                <?php if (!empty($successMessage)) { ?>
+                    <div class="success-message"><?php echo $successMessage; ?></div>
+                <?php } ?>
+                <?php if (!empty($statusMessage)) { ?>
+                    <div class="status-message <?php echo $statusClass; ?>">
+                        <?php echo htmlspecialchars($statusMessage); ?>
+                    </div>
+                <?php } ?>
+                <div class="input-box">
+                    <input type="text" name="username" placeholder="Username" required>
+                    <i class="bx bxs-user user-icon"></i>
+                    <?php if (!empty($loginError)) { ?>
+                        <p class="error-message"><?php echo $loginError; ?></p>
+                    <?php } ?>
+                </div>
+                <div class="input-box">
+                    <input type="password" id="loginPassword" name="password" placeholder="Password" required>
+                    <i class="bx bxs-lock-alt password-icon" id="toggleLoginPassword" style="cursor: pointer;"></i>
+                    <?php if (!empty($passwordError)) { ?>
+                        <p class="error-message"><?php echo $passwordError; ?></p>
+                    <?php } ?>
+                </div> 
+                <button type="submit" name="login" class="btn">Login</button>
+            </form>
+        </div>
 
+        <!-- Registration Form -->
+        <div class="form-box register">
+            <form action="" method="POST">
+                <h1>Registration</h1>
+                <?php if (!empty($regCodeError)) { ?>
+                    <div class="error-message"><?php echo $regCodeError; ?></div>
+                <?php } ?>
+                <div class="input-box">
+                    <input type="text" name="firstname" placeholder="Firstname" value="<?php echo htmlspecialchars($firstname); ?>" required>
+                    <i class="bx bxs-user firstname-icon"></i>
+                    <?php if (!empty($firstnameErr)) { ?>
+                        <span class="error"><?php echo $firstnameErr; ?></span>
+                    <?php } ?>
+                </div>
+                <div class="input-box">
+                    <input type="text" name="lastname" placeholder="Lastname" value="<?php echo htmlspecialchars($lastname); ?>" required>
+                    <i class="bx bxs-user lastname-icon"></i>
+                    <?php if (!empty($lastnameErr)) { ?>
+                        <span class="error"><?php echo $lastnameErr; ?></span>
+                    <?php } ?>
+                </div>
+                <div class="input-box">
+                    <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email); ?>" required>
+                    <i class="bx bxs-envelope email-icon"></i>
+                </div>
+                <div class="input-box">
+                    <input type="text" name="username" placeholder="Username" value="<?php echo htmlspecialchars($username); ?>" required>
+                    <i class="bx bxs-user username-icon"></i>
+                    <?php if (!empty($usernameError)) { ?>
+                        <span class="error"><?php echo $usernameError; ?></span>
+                    <?php } ?>
+                </div>            
+                <div class="input-box">
+                    <input type="password" id="password" name="password" placeholder="Password" oninput="validatePassword()" required>
+                    <span id="passwordError" class="error"><?php echo $passwordError; ?></span>
+                    <i class='bx bxs-lock-alt password-icon' id="togglePassword" style="cursor: pointer;"></i>
+                </div>
+                <div class="input-box">
+                    <select name="type" required>
+                        <option value="" disabled selected>Select Type</option>
+                        <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
+                    </select>
+                    <i class='bx bxs-user type-icon'></i>
+                </div>
+                <div class="input-box">
+                    <select name="status" required>
+                        <option value="" disabled selected>Select Status</option>
+                        <option value="pending" <?php if ($status == 'pending') echo 'selected'; ?>>Pending</option>
+                        <option value="active" <?php if ($status == 'active') echo 'selected'; ?>>Active</option>
+                    </select>
+                    <i class='bx bxs-check-circle status-icon'></i>
+                </div>
+                <button type="submit" class="btn">Register</button>
+            </form>
+        </div>
+
+        <!-- Toggle Panels -->
+        <div class="toggle-box">
+            <div class="toggle-panel toggle-left">
+                <h1>Hello Welcome!</h1>
+                <p>Don't have an account?</p>
+                <button class="btn register-btn">Register</button>
+                <div class="reg-password-container">
+                    <input type="password" class="reg-password-input" placeholder="Enter password">
+                    <span class="reg-password-arrow">></span>
+                    <div class="reg-password-error error-message"></div>
+                </div>
+            </div>
+            <div class="toggle-panel toggle-right">
+                <h1>Welcome Back!</h1>
+                <p>Already have an account?</p>
+                <button class="btn login-btn">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
         // Function to validate password strength
         function validatePassword() {
             const passwordInput = document.getElementById('password');
             const passwordError = document.getElementById('passwordError');
             const password = passwordInput.value;
 
-            // Regular expression for strong password
             const strongPasswordPattern = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
             if (strongPasswordPattern.test(password)) {
                 passwordError.textContent = "Password is strong.";
                 passwordError.style.color = "green";
@@ -223,7 +326,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
             }
         }
 
-        // Toggle password visibility and status polling
+        // Toggle password visibility and handle registration password
         document.addEventListener('DOMContentLoaded', function () {
             // Password visibility toggles
             const togglePassword = document.getElementById('togglePassword');
@@ -245,15 +348,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                 this.classList.toggle('bx-hide');
             });
 
-            // Fade out status message only for active status after 3 seconds
+            // Fade out status message for active status
             const statusMessage = document.querySelector('.status-message');
             if (statusMessage && statusMessage.classList.contains('active')) {
                 setTimeout(() => {
                     statusMessage.classList.add('fade-out');
                     setTimeout(() => {
                         statusMessage.style.display = 'none';
-                    }, 500); // Match transition duration
-                }, 3000); // 3 seconds
+                    }, 500);
+                }, 3000);
             }
 
             // Toggle between Login & Register
@@ -261,23 +364,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
             const registerBtn = document.querySelector(".register-btn");
             const loginBtn = document.querySelector(".login-btn");
             const regForm = document.querySelector(".form-box.register form");
+            const regPasswordContainer = document.querySelector(".reg-password-container");
+            const regPasswordInput = document.querySelector(".reg-password-input");
+            const regPasswordArrow = document.querySelector(".reg-password-arrow");
             const regCodeInput = document.createElement('input');
             regCodeInput.type = 'hidden';
             regCodeInput.name = 'reg_code';
             regForm.appendChild(regCodeInput);
 
+            const REGISTRATION_CODE = 'ADMIN1234!';
+
             registerBtn.addEventListener("click", () => {
-                const code = prompt("Enter the registration code:");
-                if (code === REGISTRATION_CODE) {
-                    regCodeInput.value = code; // Set the hidden input value
-                    container.classList.add("active");
+                // Toggle visibility of the password input without switching forms
+                regPasswordContainer.classList.toggle("active");
+                if (regPasswordContainer.classList.contains("active")) {
+                    regPasswordInput.focus();
                 } else {
-                    alert("Invalid registration code.");
+                    regPasswordInput.value = ""; // Clear input when hiding
+                    document.querySelector(".reg-password-error").textContent = ""; // Clear error
+                }
+            });
+
+            regPasswordArrow.addEventListener("click", () => {
+                const code = regPasswordInput.value;
+                if (code === REGISTRATION_CODE) {
+                    regCodeInput.value = code; // Set hidden input for server
+                    container.classList.add("active"); // Show registration form
+                    regPasswordContainer.classList.remove("active"); // Hide password input
+                    regPasswordInput.value = ""; // Clear input
+                    document.querySelector(".reg-password-error").textContent = ""; // Clear error
+                } else {
+                    const errorDiv = document.querySelector(".reg-password-error");
+                    errorDiv.textContent = "Invalid registration password.";
+                }
+            });
+
+            // Allow Enter key to submit password
+            regPasswordInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    regPasswordArrow.click();
                 }
             });
 
             loginBtn.addEventListener("click", () => {
                 container.classList.remove("active");
+                regPasswordContainer.classList.remove("active"); // Hide password input
+                regPasswordInput.value = ""; // Clear input
+                document.querySelector(".reg-password-error").textContent = ""; // Clear error
             });
 
             // Poll for status updates
@@ -332,98 +465,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                 }
             }
 
-            // Check status every 2 seconds if username is entered
             setInterval(checkStatus, 2000);
         });
     </script>
-</head>
-<body>
-    <div class="container <?php echo ($hasError) ? 'active' : ''; ?>">
-        <!-- Login Form -->
-        <div class="form-box login">
-            <form action="" method="POST">
-                <h1>Login</h1>
-                <?php if (!empty($statusMessage)) { ?>
-                    <div class="status-message <?php echo $statusClass; ?>">
-                        <?php echo htmlspecialchars($statusMessage); ?>
-                    </div>
-                <?php } ?>
-                <div class="input-box">
-                    <input type="text" name="username" placeholder="Username" required>
-                    <i class="bx bxs-user user-icon"></i>
-                    <?php if (!empty($loginError)) echo "<p class='error-message'>$loginError</p>"; ?>
-                </div>
-                <div class="input-box">
-                    <input type="password" id="loginPassword" name="password" placeholder="Password" required>
-                    <i class="bx bxs-lock-alt password-icon" id="toggleLoginPassword" style="cursor: pointer;"></i>
-                    <?php if (!empty($passwordError)) echo "<p class='error-message'>$passwordError</p>"; ?>
-                </div> 
-                <button type="submit" name="login" class="btn">Login</button>
-                
-            </form>
-        </div>
-
-        <!-- Registration Form -->
-        <div class="form-box register">
-            <form action="" method="POST">
-                <h1>Registration</h1>
-                <div class="input-box">
-                    <input type="text" name="firstname" placeholder="Firstname" value="<?php echo htmlspecialchars($firstname); ?>" required>
-                    <i class="bx bxs-user firstname-icon"></i>
-                    <?php if (!empty($firstnameErr)) echo "<span class='error'>$firstnameErr</span>"; ?>
-                </div>
-                <div class="input-box">
-                    <input type="text" name="lastname" placeholder="Lastname" value="<?php echo htmlspecialchars($lastname); ?>" required>
-                    <i class="bx bxs-user lastname-icon"></i>
-                    <?php if (!empty($lastnameErr)) echo "<span class='error'>$lastnameErr</span>"; ?>
-                </div>
-                <div class="input-box">
-                    <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email); ?>" required>
-                    <i class="bx bxs-envelope email-icon"></i>
-                </div>
-                <div class="input-box">
-                    <input type="text" name="username" placeholder="Username" value="<?php echo htmlspecialchars($username); ?>" required>
-                    <i class="bx bxs-user username-icon"></i>
-                    <?php if (!empty($usernameError)) echo "<span class='error'>$usernameError</span>"; ?>
-                </div>            
-                <div class="input-box">
-                    <input type="password" id="password" name="password" placeholder="Password" oninput="validatePassword()" required>
-                    <span id="passwordError" class="error"><?php echo $passwordError; ?></span>
-                    <i class='bx bxs-lock-alt password-icon' id="togglePassword" style="cursor: pointer;"></i>
-                </div>
-                <div class="input-box">
-                    <select name="type" required>
-                        <option value="" disabled selected>Select Type</option>
-                        <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
-                
-                    </select>
-                    <i class='bx bxs-user type-icon'></i>
-                </div>
-                <div class="input-box">
-                    <select name="status" required>
-                        <option value="" disabled selected>Select Status</option>
-                        <option value="pending" <?php if ($status == 'pending') echo 'selected'; ?>>Pending</option>
-                        <option value="active" <?php if ($status == 'active') echo 'selected'; ?>>Active</option>
-                    </select>
-                    <i class='bx bxs-check-circle status-icon'></i>
-                </div>
-                <button type="submit" class="btn">Register</button>
-            </form>
-        </div>
-
-        <!-- Toggle Panels -->
-        <div class="toggle-box">
-            <div class="toggle-panel toggle-left">
-                <h1>Hello Welcome!</h1>
-                <p>Don't have an account?</p>
-                <button class="btn register-btn">Register</button>
-            </div>
-            <div class="toggle-panel toggle-right">
-                <h1>Welcome Back!</h1>
-                <p>Already have an account?</p>
-                <button class="btn login-btn">Login</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>

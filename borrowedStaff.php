@@ -6,6 +6,228 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Check if user is logged in
+if (!isset($_SESSION['username'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$username = $_SESSION['username'];
+$firstName = '';
+$lastName = '';
+$userType = '';
+$avatarFolder = 'Uploads/avatars/';
+$userAvatar = $avatarFolder . $username . '.png';
+$defaultAvatar = 'default-avatar.png';
+
+// Fetch user details from database
+if ($conn) {
+    $sql = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->bind_result($firstName, $lastName, $userType);
+    $stmt->fetch();
+    $stmt->close();
+} else {
+    $_SESSION['error'] = "Database connection failed.";
+    header("Location: index.php");
+    exit();
+}
+
+// Set avatar path
+if (file_exists($userAvatar)) {
+    $_SESSION['avatarPath'] = $userAvatar . '?' . time();
+} else {
+    $_SESSION['avatarPath'] = $defaultAvatar;
+}
+$avatarPath = $_SESSION['avatarPath'];
+
+// Fetch borrowed assets for return modal dropdown
+$sqlBorrowedDropdown = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id 
+                        FROM tbl_borrowed 
+                        WHERE b_quantity > 0";
+$resultBorrowedDropdown = $conn->query($sqlBorrowedDropdown);
+
+// Handle return asset request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['return_asset'])) {
+    header('Content-Type: application/json');
+    $borrow_id = trim($_POST['borrow_id'] ?? '');
+    $return_quantity = trim($_POST['return_quantity'] ?? '');
+    $return_techname = trim($_POST['tech_name'] ?? '');
+    $return_techid = trim($_POST['tech_id'] ?? '');
+    $returndate = trim($_POST['date'] ?? '');
+    $errors = [];
+
+    // Validate inputs
+    if (empty($borrow_id)) {
+        $errors['borrow_id'] = "Please select a borrowed asset.";
+    }
+    if (empty($return_quantity) || !is_numeric($return_quantity) || $return_quantity < 1) {
+        $errors['return_quantity'] = "Please enter a valid quantity to return (positive number).";
+    }
+    if (empty($return_techname) || !preg_match("/^[a-zA-Z\s-]+$/", $return_techname)) {
+        $errors['tech_name'] = "Technician name is required and should not contain numbers.";
+    }
+    if (empty($return_techid)) {
+        $errors['tech_id'] = "Technician ID is required.";
+    }
+    if (empty($returndate)) {
+        $errors['date'] = "Return date is required.";
+    }
+
+    // Validate technician ID and name against tbl_user
+    if (empty($errors)) {
+        $sqlCheckTechnician = "SELECT u_fname, u_lname FROM tbl_user WHERE u_id = ?";
+        $stmtCheckTechnician = $conn->prepare($sqlCheckTechnician);
+        $stmtCheckTechnician->bind_param("s", $return_techid);
+        $stmtCheckTechnician->execute();
+        $resultCheckTechnician = $stmtCheckTechnician->get_result();
+
+        if ($resultCheckTechnician->num_rows > 0) {
+            $row = $resultCheckTechnician->fetch_assoc();
+            $fullName = trim($row['u_fname'] . ' ' . $row['u_lname']);
+            if (strcasecmp($fullName, $return_techname) !== 0) {
+                $errors['tech_name'] = "Technician name does not match the ID in tbl_user.";
+                error_log("tbl_user mismatch: Input Name: '$return_techname', DB Name: '$fullName'");
+            }
+        } else {
+            $errors['tech_id'] = "Technician ID does not exist in tbl_user.";
+        }
+        $stmtCheckTechnician->close();
+    }
+
+    // Validate borrowed asset and quantity
+    if (empty($errors)) {
+        $sqlCheckBorrowed = "SELECT b_assets_name, b_quantity, b_technician_name, b_technician_id 
+                             FROM tbl_borrowed 
+                             WHERE b_id = ? AND b_quantity > 0";
+        $stmtCheckBorrowed = $conn->prepare($sqlCheckBorrowed);
+        $stmtCheckBorrowed->bind_param("i", $borrow_id);
+        $stmtCheckBorrowed->execute();
+        $resultCheckBorrowed = $stmtCheckBorrowed->get_result();
+
+        if ($resultCheckBorrowed->num_rows > 0) {
+            $row = $resultCheckBorrowed->fetch_assoc();
+            $return_assetsname = trim($row['b_assets_name']);
+            $currentBorrowedQuantity = $row['b_quantity'];
+            $borrowedTechName = trim($row['b_technician_name']);
+            $borrowedTechId = trim($row['b_technician_id']);
+
+            error_log("Input Tech Name: '$return_techname', DB Tech Name: '$borrowedTechName'");
+            error_log("Input Tech ID: '$return_techid', DB Tech ID: '$borrowedTechId'");
+
+            if ($return_quantity > $currentBorrowedQuantity) {
+                $errors['return_quantity'] = "Return quantity ($return_quantity) exceeds borrowed quantity ($currentBorrowedQuantity).";
+            }
+        } else {
+            $errors['borrow_id'] = "Selected borrowed asset is not valid or has no quantity to return.";
+        }
+        $stmtCheckBorrowed->close();
+    }
+
+    // Process return if no errors
+    if (empty($errors)) {
+        $conn->begin_transaction();
+        try {
+            // Insert into tbl_returned
+            $sqlInsert = "INSERT INTO tbl_returned (r_assets_name, r_quantity, r_technician_name, r_technician_id, r_date) 
+                          VALUES (?, ?, ?, ?, ?)";
+            $stmtInsert = $conn->prepare($sqlInsert);
+            $stmtInsert->bind_param("sisis", $return_assetsname, $return_quantity, $return_techname, $return_techid, $returndate);
+            $stmtInsert->execute();
+            $stmtInsert->close();
+
+            // Update tbl_borrowed
+            $newBorrowedQuantity = $currentBorrowedQuantity - $return_quantity;
+            $sqlUpdateBorrowed = "UPDATE tbl_borrowed SET b_quantity = ? WHERE b_id = ?";
+            $stmtUpdateBorrowed = $conn->prepare($sqlUpdateBorrowed);
+            $stmtUpdateBorrowed->bind_param("ii", $newBorrowedQuantity, $borrow_id);
+            $stmtUpdateBorrowed->execute();
+            $stmtUpdateBorrowed->close();
+
+            // Update tbl_techborrowed
+            $sqlCheckTechBorrowed = "SELECT b_quantity FROM tbl_techborrowed 
+                                     WHERE LOWER(b_assets_name) = LOWER(?) AND LOWER(b_technician_name) = LOWER(?) AND b_technician_id = ? AND b_quantity > 0";
+            $stmtCheckTechBorrowed = $conn->prepare($sqlCheckTechBorrowed);
+            $stmtCheckTechBorrowed->bind_param("sss", $return_assetsname, $return_techname, $return_techid);
+            $stmtCheckTechBorrowed->execute();
+            $resultCheckTechBorrowed = $stmtCheckTechBorrowed->get_result();
+
+            if ($resultCheckTechBorrowed->num_rows > 0) {
+                $row = $resultCheckTechBorrowed->fetch_assoc();
+                $currentTechBorrowedQuantity = $row['b_quantity'];
+                $newTechBorrowedQuantity = $currentTechBorrowedQuantity - $return_quantity;
+
+                if ($newTechBorrowedQuantity < 0) {
+                    throw new Exception("Return quantity exceeds borrowed quantity in tbl_techborrowed.");
+                }
+
+                $sqlUpdateTechBorrowed = "UPDATE tbl_techborrowed SET b_quantity = ? 
+                                          WHERE LOWER(b_assets_name) = LOWER(?) AND LOWER(b_technician_name) = LOWER(?) AND b_technician_id = ?";
+                $stmtUpdateTechBorrowed = $conn->prepare($sqlUpdateTechBorrowed);
+                $stmtUpdateTechBorrowed->bind_param("isss", $newTechBorrowedQuantity, $return_assetsname, $return_techname, $return_techid);
+                $stmtUpdateTechBorrowed->execute();
+                $stmtUpdateTechBorrowed->close();
+            } else {
+                throw new Exception("No matching borrow record found in tbl_techborrowed.");
+            }
+            $stmtCheckTechBorrowed->close();
+
+            // Delete records if quantity is 0
+            if ($newBorrowedQuantity == 0) {
+                $sqlDeleteBorrowed = "DELETE FROM tbl_borrowed WHERE b_id = ?";
+                $stmtDeleteBorrowed = $conn->prepare($sqlDeleteBorrowed);
+                $stmtDeleteBorrowed->bind_param("i", $borrow_id);
+                $stmtDeleteBorrowed->execute();
+                $stmtDeleteBorrowed->close();
+            }
+
+            if ($newTechBorrowedQuantity == 0) {
+                $sqlDeleteTechBorrowed = "DELETE FROM tbl_techborrowed 
+                                          WHERE LOWER(b_assets_name) = LOWER(?) AND LOWER(b_technician_name) = LOWER(?) AND b_technician_id = ?";
+                $stmtDeleteTechBorrowed = $conn->prepare($sqlDeleteTechBorrowed);
+                $stmtDeleteTechBorrowed->bind_param("sss", $return_assetsname, $return_techname, $return_techid);
+                $stmtDeleteTechBorrowed->execute();
+                $stmtDeleteTechBorrowed->close();
+            }
+
+            // Update tbl_assets
+            $sqlCheckAssets = "SELECT a_quantity FROM tbl_assets WHERE LOWER(a_name) = LOWER(?)";
+            $stmtCheckAssets = $conn->prepare($sqlCheckAssets);
+            $stmtCheckAssets->bind_param("s", $return_assetsname);
+            $stmtCheckAssets->execute();
+            $resultCheckAssets = $stmtCheckAssets->get_result();
+
+            if ($resultCheckAssets->num_rows > 0) {
+                $row = $resultCheckAssets->fetch_assoc();
+                $currentAssetsQuantity = $row['a_quantity'];
+                $updatedAssetsQuantity = $currentAssetsQuantity + $return_quantity;
+
+                $sqlUpdateAssets = "UPDATE tbl_assets SET a_quantity = ? WHERE LOWER(a_name) = LOWER(?)";
+                $stmtUpdateAssets = $conn->prepare($sqlUpdateAssets);
+                $stmtUpdateAssets->bind_param("is", $updatedAssetsQuantity, $return_assetsname);
+                $stmtUpdateAssets->execute();
+                $stmtUpdateAssets->close();
+            } else {
+                throw new Exception("Asset not found in tbl_assets.");
+            }
+            $stmtCheckAssets->close();
+
+            // Commit transaction
+            $conn->commit();
+            echo json_encode(['success' => true, 'message' => 'Asset returned successfully!']);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'errors' => ['general' => "Error returning asset: " . $e->getMessage()]]);
+            error_log("Return error: " . $e->getMessage());
+        }
+    } else {
+        echo json_encode(['success' => false, 'errors' => $errors]);
+    }
+    exit();
+}
+
 // Handle delete request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && isset($_POST['b_id'])) {
     $id = (int)$_POST['b_id'];
@@ -21,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && is
     }
     
     $stmt->close();
-    header("Location: borrowedT.php");
+    header("Location: borrowedStaff.php");
     exit();
 }
 
@@ -188,16 +410,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $output .= "<tr> 
-                          <td>{$row['b_id']}</td> 
+                          <td>" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td>" . (isset($row['b_assets_name']) ? htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') : 'N/A') . "</td>  
-                          <td>{$row['b_quantity']}</td>
-                          <td>{$row['b_technician_name']}</td>
-                          <td>{$row['b_technician_id']}</td>    
-                          <td>{$row['b_date']}</td> 
+                          <td>" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
+                          <td>" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                          <td>" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
+                          <td>" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td class='action-buttons'>
-                              <a class='view-btn' onclick=\"showViewModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['b_quantity']}', '{$row['b_technician_name']}', '{$row['b_technician_id']}', '{$row['b_date']}')\" title='View'><i class='fas fa-eye'></i></a>
-                              <a class='edit-btn' onclick=\"showEditModal('{$row['b_id']}')\" title='Edit'><i class='fas fa-edit'></i></a>
-                              <a class='delete-btn' onclick=\"showDeleteModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                              <a class='view-btn' onclick=\"showViewModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                              <a class='edit-btn' onclick=\"showEditModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                              <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                           </td>
                         </tr>";
         }
@@ -215,60 +437,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     exit();
 }
 
-$username = $_SESSION['username'] ?? '';
-$lastName = '';
-$firstName = '';
-$userType = '';
-$avatarFolder = 'Uploads/avatars/';
-$userAvatar = $avatarFolder . $username . '.png';
-$defaultAvatar = 'default-avatar.png';
+// Pagination setup
+$limit = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
 
-if (!$username) {
-    echo "Session username not set.";
-    exit();
-}
+// Fetch total number of borrowed assets
+$countQuery = "SELECT COUNT(*) as total FROM tbl_borrowed";
+$countResult = $conn->query($countQuery);
+$totalRecords = $countResult->fetch_assoc()['total'];
+$totalPages = ceil($totalRecords / $limit);
 
-// Fetch user details from database
-if ($conn) {
-    $sql = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->bind_result($firstName, $lastName, $userType);
-    $stmt->fetch();
-    $stmt->close();
-
-    // Pagination setup
-    $limit = 10;
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $offset = ($page - 1) * $limit;
-
-    // Fetch total number of borrowed assets
-    $countQuery = "SELECT COUNT(*) as total FROM tbl_borrowed";
-    $countResult = $conn->query($countQuery);
-    $totalRecords = $countResult->fetch_assoc()['total'];
-    $totalPages = ceil($totalRecords / $limit);
-
-    // Fetch borrowed assets with pagination
-    $sqlBorrowed = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date 
-                    FROM tbl_borrowed 
-                    LIMIT ?, ?";
-    $stmt = $conn->prepare($sqlBorrowed);
-    $stmt->bind_param("ii", $offset, $limit);
-    $stmt->execute();
-    $resultBorrowed = $stmt->get_result();
-} else {
-    echo "Database connection failed.";
-    exit();
-}
-
-// Set avatar path
-if (file_exists($userAvatar)) {
-    $_SESSION['avatarPath'] = $userAvatar . '?' . time();
-} else {
-    $_SESSION['avatarPath'] = $defaultAvatar;
-}
-$avatarPath = $_SESSION['avatarPath'];
+// Fetch borrowed assets with pagination
+$sqlBorrowed = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date 
+                FROM tbl_borrowed 
+                LIMIT ?, ?";
+$stmt = $conn->prepare($sqlBorrowed);
+$stmt->bind_param("ii", $offset, $limit);
+$stmt->execute();
+$resultBorrowed = $stmt->get_result();
 
 // Check for deletion or update success
 if (isset($_GET['deleted']) && $_GET['deleted'] == 'true') {
@@ -284,7 +471,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Borrowed Assets</title>
-    <link rel="stylesheet" href="borrowedTT.css"> 
+    <link rel="stylesheet" href="borrowedsT.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -298,11 +485,11 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
             <li><a href="staffD.php"><img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/><span>View Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
             <li><a href="customersT.php"><img src="https://img.icons8.com/color/48/conference-skin-type-7.png" alt="conference-skin-type-7"/> <span>View Customers</span></a></li>
-            <li><a href="borrowedT.php"class="active"><i class="fas fa-book"></i> <span>Borrowed Assets</span></a></li>
+            <li><a href="borrowedStaff.php" class="active"><i class="fas fa-book"></i> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="https://img.icons8.com/officel/40/add-user-male.png" alt="add-user-male"/><span>Add Customer</span></a></li>
         </ul>
         <footer>
-        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
@@ -339,24 +526,24 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
           
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
             <?php endif; ?>
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
         </div>
 
         <div class="table-box glass-container">
             <?php if ($userType === 'admin'): ?>
                 <div class="username">
-                    Welcome, <?php echo htmlspecialchars($firstName); ?>!
+                    Welcome, <?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>!
                     <i class="fas fa-user-shield admin-icon"></i>
                 </div>
             <?php endif; ?>
 
             <div class="borrowed">
                 <div class="button-container">
-                    <a href="return.php" class="return-btn"><i class="fas fa-undo"></i> Return</a>
+                    <a href="#" class="return-btn" onclick="showReturnAssetModal()"><i class="fas fa-undo"></i> Return</a>
                     <a href="createTickets.php" class="export-btn"><i class="fas fa-download"></i> Export</a>
                 </div>
                 <table id="borrowedTable">
@@ -373,26 +560,26 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                     </thead>
                     <tbody id="tableBody">
                     <?php 
-if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
-    while ($row = $resultBorrowed->fetch_assoc()) { 
-        echo "<tr> 
-                <td>{$row['b_id']}</td> 
-                <td>" . (isset($row['b_assets_name']) ? htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') : 'N/A') . "</td>  
-                <td>{$row['b_quantity']}</td>
-                <td>{$row['b_technician_name']}</td>
-                <td>{$row['b_technician_id']}</td>    
-                <td>{$row['b_date']}</td> 
-                <td class='action-buttons'>
-                    <a class='view-btn' onclick=\"showViewModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['b_quantity']}', '{$row['b_technician_name']}', '{$row['b_technician_id']}', '{$row['b_date']}')\" title='View'><i class='fas fa-eye'></i></a>
-                    <a class='edit-btn' onclick=\"showEditModal('{$row['b_id']}')\" title='Edit'><i class='fas fa-edit'></i></a>
-                    <a class='delete-btn' onclick=\"showDeleteModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
-                </td>
-              </tr>"; 
-    } 
-} else { 
-    echo "<tr><td colspan='7'>No borrowed assets found.</td></tr>"; 
-} 
-?>
+                    if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
+                        while ($row = $resultBorrowed->fetch_assoc()) { 
+                            echo "<tr> 
+                                    <td>" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . (isset($row['b_assets_name']) ? htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') : 'N/A') . "</td>  
+                                    <td>" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
+                                    <td>" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td class='action-buttons'>
+                                        <a class='view-btn' onclick=\"showViewModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                        <a class='edit-btn' onclick=\"showEditModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                        <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                                    </td>
+                                  </tr>"; 
+                        } 
+                    } else { 
+                        echo "<tr><td colspan='7'>No borrowed assets found.</td></tr>"; 
+                    } 
+                    ?>
                     </tbody>
                 </table>
 
@@ -413,86 +600,137 @@ if ($resultBorrowed && $resultBorrowed->num_rows > 0) {
                 </div>
             </div>       
         </div>
-    </div>
-</div>
 
-<!-- View Modal -->
-<div id="viewModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>View Borrowed Asset</h2>
+        <!-- View Modal -->
+        <div id="viewModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>View Borrowed Asset</h2>
+                </div>
+                <div id="viewModalContent" style="margin-top: 20px;"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
+                </div>
+            </div>
         </div>
-        <div id="viewModalContent" style="margin-top: 20px;"></div>
-        <div class="modal-footer">
-            <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
-        </div>
-    </div>
-</div>
 
-<!-- Edit Modal -->
-<div id="editBorrowedModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Edit Borrowed Asset</h2>
+        <!-- Edit Modal -->
+        <div id="editBorrowedModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit Borrowed Asset</h2>
+                </div>
+                <form method="POST" id="editBorrowedForm" class="modal-form">
+                    <input type="hidden" name="edit_asset" value="1">
+                    <input type="hidden" name="ajax" value="true">
+                    <input type="hidden" name="b_id" id="edit_b_id">
+                    
+                    <div class="form-group">
+                        <label for="edit_b_assets_name">Asset Name</label>
+                        <input type="text" name="b_assets_name" id="edit_b_assets_name" required>
+                        <span class="error-message" id="error_b_assets_name"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_b_quantity">Asset Quantity</label>
+                        <input type="number" name="b_quantity" id="edit_b_quantity" min="1" required>
+                        <span class="error-message" id="error_b_quantity"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_b_technician_name">Technician Name</label>
+                        <input type="text" name="b_technician_name" id="edit_b_technician_name" required>
+                        <span class="error-message" id="error_b_technician_name"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_b_technician_id">Technician ID</label>
+                        <input type="text" name="b_technician_id" id="edit_b_technician_id" required>
+                        <span class="error-message" id="error_b_technician_id"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_b_date">Borrowed Date</label>
+                        <input type="date" name="b_date" id="edit_b_date" required>
+                        <span class="error-message" id="error_b_date"></span>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('editBorrowedModal')">Cancel</button>
+                        <button type="submit" class="modal-btn confirm">Update Asset</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        <form method="POST" id="editBorrowedForm" class="modal-form">
-            <input type="hidden" name="edit_asset" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <input type="hidden" name="b_id" id="edit_b_id">
-            
-            <div class="form-group">
-                <label for="edit_b_assets_name">Asset Name</label>
-                <input type="text" name="b_assets_name" id="edit_b_assets_name" required>
-                <span class="error-message" id="error_b_assets_name"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="edit_b_quantity">Asset Quantity</label>
-                <input type="number" name="b_quantity" id="edit_b_quantity" min="1" required>
-                <span class="error-message" id="error_b_quantity"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="edit_b_technician_name">Technician Name</label>
-                <input type="text" name="b_technician_name" id="edit_b_technician_name" required>
-                <span class="error-message" id="error_b_technician_name"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="edit_b_technician_id">Technician ID</label>
-                <input type="text" name="b_technician_id" id="edit_b_technician_id" required>
-                <span class="error-message" id="error_b_technician_id"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="edit_b_date">Borrowed Date</label>
-                <input type="date" name="b_date" id="edit_b_date" required>
-                <span class="error-message" id="error_b_date"></span>
-            </div>
-            
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('editBorrowedModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Update Asset</button>
-            </div>
-        </form>
-    </div>
-</div>
 
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Delete Asset</h2>
-        </div>
-        <p>Are you sure you want to delete <span id="deleteAssetName"></span> from the borrowed records? This action cannot be undone.</p>
-        <form method="POST" id="deleteForm">
-            <input type="hidden" name="b_id" id="deleteAssetId">
-            <input type="hidden" name="delete_asset" value="1">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Delete</button>
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Delete Asset</h2>
+                </div>
+                <p>Are you sure you want to delete <span id="deleteAssetName"></span> from the borrowed records? This action cannot be undone.</p>
+                <form method="POST" id="deleteForm">
+                    <input type="hidden" name="b_id" id="deleteAssetId">
+                    <input type="hidden" name="delete_asset" value="1">
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
+                        <button type="submit" class="modal-btn confirm">Delete</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
+
+        <!-- Return Asset Modal -->
+        <div id="returnAssetModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Return Borrowed Asset</h2>
+                </div>
+                <form method="POST" id="returnAssetForm" class="modal-form">
+                    <input type="hidden" name="return_asset" value="1">
+                    <input type="hidden" name="ajax" value="true">
+                    <div class="form-group">
+                        <label for="borrow_id">Borrowed Asset</label>
+                        <select id="borrow_id" name="borrow_id" required>
+                            <option value="">Select Borrowed Asset</option>
+                            <?php 
+                            $resultBorrowedDropdown->data_seek(0);
+                            while ($row = $resultBorrowedDropdown->fetch_assoc()): ?>
+                                <option value="<?php echo htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . " (Qty: " . $row['b_quantity'] . ", Tech: " . $row['b_technician_name'] . ", ID: " . $row['b_technician_id'] . ")"; ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                        <span class="error-message" id="error_borrow_id"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="return_quantity">Quantity to Return</label>
+                        <input type="number" id="return_quantity" name="return_quantity" min="1" placeholder="Quantity" required>
+                        <span class="error-message" id="error_return_quantity"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="tech_name">Technician Name</label>
+                        <input type="text" id="tech_name" name="tech_name" placeholder="Technician Name" required>
+                        <span class="error-message" id="error_tech_name"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="tech_id">Technician ID</label>
+                        <input type="text" id="tech_id" name="tech_id" placeholder="Technician ID" required>
+                        <span class="error-message" id="error_tech_id"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date Returned</label>
+                        <input type="date" id="date" name="date" value="<?php echo date('Y-m-d'); ?>" required>
+                        <span class="error-message" id="error_date"></span>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('returnAssetModal')">Cancel</button>
+                        <button type="submit" class="modal-btn confirm">Return Asset</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -525,9 +763,16 @@ function searchBorrowed(page = 1) {
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
             tbody.innerHTML = xhr.responseText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const scripts = xhr.responseText.match(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi);
+            if (scripts) {
+                scripts.forEach(script => {
+                    const scriptContent = script.replace(/<\/?script>/g, '');
+                    eval(scriptContent);
+                });
+            }
         }
     };
-    xhr.open('GET', `borrowedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}`, true);
+    xhr.open('GET', `borrowedStaff.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}`, true);
     xhr.send();
 }
 
@@ -556,7 +801,7 @@ const debouncedSearchBorrowed = debounce(searchBorrowed, 300);
 
 function showViewModal(id, assetName, quantity, technicianName, technicianId, date) {
     const modalContent = `
-        <p><strong>Asset Name:</strong> ${assetName}</p>
+        <p><strong>Asset Name:</strong> ${assetName || 'N/A'}</p>
         <p><strong>Asset Quantity:</strong> ${quantity}</p>
         <p><strong>Technician Name:</strong> ${technicianName}</p>
         <p><strong>Technician ID:</strong> ${technicianId}</p>
@@ -567,7 +812,7 @@ function showViewModal(id, assetName, quantity, technicianName, technicianId, da
 }
 
 function showEditModal(id) {
-    fetch(`borrowedT.php?edit=true&id=${id}`)
+    fetch(`borrowedStaff.php?edit=true&id=${id}`)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
@@ -597,19 +842,29 @@ function showDeleteModal(id, assetName) {
     document.getElementById('deleteModal').style.display = 'flex';
 }
 
+function showReturnAssetModal() {
+    // Clear previous error messages and reset form
+    document.querySelectorAll('#returnAssetForm .error-message').forEach(span => span.textContent = '');
+    document.getElementById('returnAssetForm').reset();
+    document.getElementById('date').value = '<?php echo date('Y-m-d'); ?>';
+    document.getElementById('returnAssetModal').style.display = 'flex';
+}
+
 function updateTable() {
     const searchTerm = document.getElementById('searchInput').value;
     if (searchTerm) {
         searchBorrowed(currentSearchPage);
     } else {
-        fetch(`borrowedT.php?page=${defaultPage}`)
+        fetch(`borrowedStaff.php?page=${defaultPage}`)
             .then(response => response.text())
             .then(data => {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data, 'text/html');
                 const newTableBody = doc.querySelector('#tableBody');
                 const currentTableBody = document.querySelector('#tableBody');
-                currentTableBody.innerHTML = newTableBody.innerHTML;
+                if (newTableBody) {
+                    currentTableBody.innerHTML = newTableBody.innerHTML;
+                }
             })
             .catch(error => console.error('Error updating table:', error));
     }
@@ -617,9 +872,9 @@ function updateTable() {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
-    // Clear error messages when closing edit modal
-    if (modalId === 'editBorrowedModal') {
-        document.querySelectorAll('.error-message').forEach(span => span.textContent = '');
+    // Clear error messages when closing edit or return modal
+    if (modalId === 'editBorrowedModal' || modalId === 'returnAssetModal') {
+        document.querySelectorAll(`#${modalId} .error-message`).forEach(span => span.textContent = '');
     }
 }
 
@@ -634,14 +889,14 @@ document.getElementById('editBorrowedForm').addEventListener('submit', function(
     e.preventDefault();
     const formData = new FormData(this);
     
-    fetch('borrowedT.php', {
+    fetch('borrowedStaff.php', {
         method: 'POST',
         body: formData
     })
     .then(response => response.json())
     .then(data => {
         // Clear previous error messages
-        document.querySelectorAll('.error-message').forEach(span => span.textContent = '');
+        document.querySelectorAll('#editBorrowedForm .error-message').forEach(span => span.textContent = '');
         
         if (data.success) {
             closeModal('editBorrowedModal');
@@ -674,6 +929,54 @@ document.getElementById('editBorrowedForm').addEventListener('submit', function(
     .catch(error => {
         console.error('Error submitting form:', error);
         alert('Failed to update asset.');
+    });
+});
+
+// Handle return form submission
+document.getElementById('returnAssetForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch('borrowedStaff.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Clear previous error messages
+        document.querySelectorAll('#returnAssetForm .error-message').forEach(span => span.textContent = '');
+        
+        if (data.success) {
+            closeModal('returnAssetModal');
+            updateTable();
+            // Show success message
+            const alertContainer = document.querySelector('.alert-container');
+            alertContainer.innerHTML = '<div class="alert alert-success">' + data.message + '</div>';
+            setTimeout(() => {
+                const alert = alertContainer.querySelector('.alert');
+                if (alert) {
+                    alert.classList.add('alert-hidden');
+                    setTimeout(() => alert.remove(), 500);
+                }
+            }, 2000);
+        } else {
+            // Display validation errors
+            if (data.errors) {
+                for (const [field, error] of Object.entries(data.errors)) {
+                    const errorSpan = document.getElementById(`error_${field}`);
+                    if (errorSpan) {
+                        errorSpan.textContent = error;
+                    }
+                }
+            }
+            if (data.errors?.general) {
+                alert(data.errors.general);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error submitting return form:', error);
+        alert('Failed to return asset.');
     });
 });
 

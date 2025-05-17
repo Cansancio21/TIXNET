@@ -421,3 +421,46 @@ form {
 .status-message.fade-out {
     opacity: 0;
 }
+
+.reg-password-container input[type="password"] {
+            padding: 10px 30px 10px 10px;
+            width: 200px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .reg-password-container input[type="password"]:focus {
+            border-color: #007bff;
+        }
+        .reg-password-arrow {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: #fff;
+            cursor: pointer;
+            user-select: none;
+            background-color: #372fa7;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 24px;
+        }
+        .reg-password-arrow:hover {
+            background-color: #87ceeb;
+        }
+        .reg-password-container {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            position: relative;
+        }
+        .reg-password-container.active {
+            display: block;
+        }

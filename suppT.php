@@ -106,18 +106,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket']) && $
     $s_subject = trim($_POST['subject'] ?? '');
     $s_message = trim($_POST['message'] ?? '');
     $s_status = $_POST['s_status'] ?? 'Open';
+    $s_date = $_POST['s_date'] ?? '';
 
-    if (empty($s_subject) || empty($s_message)) {
+    // Validate date
+    $today = date('Y-m-d');
+    if (empty($s_date) || !strtotime($s_date) || $s_date > $today) {
+        $_SESSION['error'] = "Please select a valid date that is not in the future.";
+    } elseif (empty($s_subject) || empty($s_message)) {
         $_SESSION['error'] = "Subject and message are required.";
     } elseif ($s_status !== 'Open') {
         $_SESSION['error'] = "Invalid ticket status. Only 'Open' is allowed.";
     } else {
-        $sql = "INSERT INTO tbl_supp_tickets (c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO tbl_supp_tickets (c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status, s_date) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("issssss", $c_id, $c_fname, $c_lname, $s_ref, $s_subject, $s_message, $s_status);
+        $stmt->bind_param("isssssss", $c_id, $c_fname, $c_lname, $s_ref, $s_subject, $s_message, $s_status, $s_date);
         if ($stmt->execute()) {
-            error_log("Ticket created with ID: " . $stmt->insert_id . ", Status: $s_status");
+            error_log("Ticket created with ID: " . $stmt->insert_id . ", Status: $s_status, Date: $s_date");
             $_SESSION['message'] = "Ticket created successfully!";
         } else {
             error_log("Error creating ticket: " . $stmt->error);
@@ -140,8 +145,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket']) && $is
     $s_subject = trim($_POST['s_subject'] ?? '');
     $s_message = trim($_POST['s_message'] ?? '');
     $s_status = $_POST['s_status'] ?? '';
+    $s_date = $_POST['s_date'] ?? '';
 
-    if (empty($s_subject) || empty($s_message)) {
+    // Validate date
+    $today = date('Y-m-d');
+    if (empty($s_date) || !strtotime($s_date) || $s_date > $today) {
+        $_SESSION['error'] = "Please select a valid date that is not in the future.";
+        header("Location: suppT.php?tab=$tab&active_page=$activePage&archived_page=$archivedPage" . ($filterCid ? "&c_id=$filterCid" : ""));
+        exit();
+    } elseif (empty($s_subject) || empty($s_message)) {
         $_SESSION['error'] = "Subject and message are required.";
         header("Location: suppT.php?tab=$tab&active_page=$activePage&archived_page=$archivedPage" . ($filterCid ? "&c_id=$filterCid" : ""));
         exit();
@@ -167,10 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket']) && $is
     }
     $stmtFetch->close();
 
-    $sql = "UPDATE tbl_supp_tickets SET c_fname = ?, c_lname = ?, s_ref = ?, s_subject = ?, s_message = ?, s_status = ? 
+    $sql = "UPDATE tbl_supp_tickets SET c_fname = ?, c_lname = ?, s_ref = ?, s_subject = ?, s_message = ?, s_status = ?, s_date = ? 
             WHERE id = ? AND c_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssssssii", $c_fname, $c_lname, $s_ref, $s_subject, $s_message, $s_status, $ticketId, $filterCid);
+    $stmt->bind_param("sssssssii", $c_fname, $c_lname, $s_ref, $s_subject, $s_message, $s_status, $s_date, $ticketId, $filterCid);
     if ($stmt->execute()) {
         error_log("Ticket ID $ticketId updated successfully");
         $_SESSION['message'] = "Ticket updated successfully!";
@@ -284,7 +296,7 @@ $archivedOffset = ($archivedPage - 1) * $ticketsPerPage;
 if ($filterCid != 0) {
     if (isset($_GET['id']) && is_numeric($_GET['id']) && $_GET['id'] > 0) {
         $ticketId = (int)$_GET['id'];
-        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
+        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status, s_date 
                 FROM tbl_supp_tickets 
                 WHERE id = ? AND c_id = ?";
         $stmt = $conn->prepare($sql);
@@ -299,7 +311,7 @@ if ($filterCid != 0) {
         $stmt->close();
     } else {
         // Active tickets (Open and Closed)
-        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
+        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status, s_date 
                 FROM tbl_supp_tickets 
                 WHERE s_status IN ('Open', 'Closed') AND c_id = ? 
                 ORDER BY id DESC LIMIT ? OFFSET ?";
@@ -322,7 +334,7 @@ if ($filterCid != 0) {
         }
 
         // Archived tickets
-        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
+        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status, s_date 
                 FROM tbl_supp_tickets 
                 WHERE s_status = 'Archived' AND c_id = ? 
                 ORDER BY id DESC LIMIT ? OFFSET ?";
@@ -403,6 +415,10 @@ $conn->close();
     <div class="container">
         <div class="upper glass-container">
             <h1>Support Tickets</h1>
+               <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search customers..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <?php
@@ -457,6 +473,7 @@ $conn->close();
                                 <th>Customer Name</th>
                                 <th>Subject</th>
                                 <th>Message</th>
+                                <th>Date</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
@@ -468,12 +485,13 @@ $conn->close();
                                 <td><?php echo htmlspecialchars(($ticket['c_fname'] . ' ' . $ticket['c_lname']) ?: 'Unknown'); ?></td>
                                 <td><?php echo htmlspecialchars($ticket['s_subject'] ?: '-'); ?></td>
                                 <td><?php echo htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $ticket['s_message'] ?: '-')); ?></td>
+                                <td><?php echo htmlspecialchars($ticket['s_date'] ?: '-'); ?></td>
                                 <td class="status-<?php echo strtolower($ticket['status'] ?: 'unknown'); ?> status-clickable" 
                                     onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$ticket['id']}', '" . htmlspecialchars(($ticket['c_fname'] . ' ' . $ticket['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
                                     <?php echo htmlspecialchars($ticket['status'] ?: 'Unknown'); ?>
                                 </td>
                                 <td class="action-buttons">
-                                    <a class="view-btn" onclick="showViewModal('<?php echo $ticket['id']; ?>', '<?php echo $ticket['c_id']; ?>', '<?php echo addslashes($ticket['c_fname']); ?>', '<?php echo addslashes($ticket['c_lname']); ?>', '<?php echo addslashes($ticket['s_ref']); ?>', '<?php echo addslashes($ticket['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $ticket['s_message'])); ?>', '<?php echo $ticket['status']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
+                                    <a class="view-btn" onclick="showViewModal('<?php echo $ticket['id']; ?>', '<?php echo $ticket['c_id']; ?>', '<?php echo addslashes($ticket['c_fname']); ?>', '<?php echo addslashes($ticket['c_lname']); ?>', '<?php echo addslashes($ticket['s_ref']); ?>', '<?php echo addslashes($ticket['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $ticket['s_message'])); ?>', '<?php echo $ticket['status']; ?>', '<?php echo $ticket['s_date']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
                                     <a class="edit-btn" onclick="<?php echo $isTechnician ? 'showRestrictedMessage()' : 'openEditModal(' . htmlspecialchars(json_encode($ticket), ENT_QUOTES, 'UTF-8') . ')'; ?>" title="Edit"><i class="fas fa-edit"></i></a>
                                     <a class="<?php echo $ticket['status'] === 'Archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
                                        onclick="<?php echo $isTechnician ? 'showRestrictedMessage()' : 'open' . ($ticket['status'] === 'Archived' ? 'Unarchive' : 'Archive') . 'Modal(\'' . $ticket['id'] . '\', \'' . htmlspecialchars(($ticket['c_fname'] . ' ' . $ticket['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . '\')'; ?>" 
@@ -496,6 +514,7 @@ $conn->close();
                                 <th>Customer Name</th>
                                 <th>Subject</th>
                                 <th>Message</th>
+                                <th>Date</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -509,12 +528,13 @@ $conn->close();
                                         <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
                                         <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
                                         <td><?php echo htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['s_message'] ?: '-')); ?></td>
+                                        <td><?php echo htmlspecialchars($row['s_date'] ?: '-'); ?></td>
                                         <td class="status-<?php echo strtolower($row['status'] ?: 'unknown'); ?> status-clickable" 
                                             onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
                                             <?php echo htmlspecialchars($row['status'] ?: 'Unknown'); ?>
                                         </td>
                                         <td class="action-buttons">
-                                            <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $row['s_message'])); ?>', '<?php echo $row['status']; ?>', 'active')" title="View"><i class="fas fa-eye"></i></a>
+                                            <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $row['s_message'])); ?>', '<?php echo $row['status']; ?>', '<?php echo $row['s_date']; ?>', 'active')" title="View"><i class="fas fa-eye"></i></a>
                                             <a class="edit-btn" onclick="<?php echo $isTechnician ? 'showRestrictedMessage()' : 'openEditModal(' . htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8') . ')'; ?>" title="Edit"><i class="fas fa-edit"></i></a>
                                             <a class="archive-btn" 
                                                onclick="<?php echo $isTechnician ? 'showRestrictedMessage()' : 'openArchiveModal(\'' . $row['id'] . '\', \'' . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . '\')'; ?>" 
@@ -526,7 +546,7 @@ $conn->close();
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="empty-state">No active tickets found.</td>
+                                    <td colspan="8" class="empty-state">No active tickets found.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -558,6 +578,7 @@ $conn->close();
                                 <th>Customer Name</th>
                                 <th>Subject</th>
                                 <th>Message</th>
+                                <th>Date</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -572,12 +593,13 @@ $conn->close();
                                         <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
                                         <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
                                         <td><?php echo htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['s_message'] ?: '-')); ?></td>
+                                        <td><?php echo htmlspecialchars($row['s_date'] ?: '-'); ?></td>
                                         <td class="status-<?php echo strtolower($displayStatus ?: 'unknown'); ?>">
                                             <?php echo ucfirst(strtolower($displayStatus ?: 'Unknown')); ?>
                                         </td>
                                         <td class="action-buttons">
                                             <?php if ($isCustomer): ?>
-                                                <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $row['s_message'])); ?>', '<?php echo $row['status']; ?>', 'archived')" title="View"><i class="fas fa-eye"></i></a>
+                                                <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes(preg_replace('/^ARCHIVED:/', '', $row['s_message'])); ?>', '<?php echo $row['status']; ?>', '<?php echo $row['s_date']; ?>', 'archived')" title="View"><i class="fas fa-eye"></i></a>
                                                 <a class="unarchive-btn" onclick="openUnarchiveModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Unarchive"><i class="fas fa-box-open"></i></a>
                                                 <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
                                             <?php else: ?>
@@ -590,7 +612,7 @@ $conn->close();
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="empty-state">No archived tickets found.</td>
+                                    <td colspan="8" class="empty-state">No archived tickets found.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -635,6 +657,9 @@ $conn->close();
                         <label for="ticket_details">Message</label>
                         <textarea name="message" id="ticket_details" required></textarea>
                         <span class="error" id="ticket_details_error"></span>
+                        <label for="ticket_date">Date</label>
+                        <input type="date" name="s_date" id="ticket_date" required>
+                        <span class="error" id="ticket_date_error"></span>
                         <label for="ticket_status">Status</label>
                         <input type="text" name="s_status" id="ticket_status" value="Open" readonly>
                         <span class="error" id="ticket_status_error"></span>
@@ -667,6 +692,9 @@ $conn->close();
                         <label for="edit_ticket_details">Message</label>
                         <textarea name="s_message" id="edit_ticket_details" required></textarea>
                         <span class="error" id="edit_ticket_details_error"></span>
+                        <label for="edit_date">Date</label>
+                        <input type="date" name="s_date" id="edit_date" required>
+                        <span class="error" id="edit_ticket_date_error"></span>
                         <label for="edit_ticket_status">Ticket Status</label>
                         <input type="text" name="s_status" id="edit_ticket_status" readonly>
                         <span class="error" id="edit_ticket_status_error"></span>
@@ -830,6 +858,7 @@ function openModal() {
     document.getElementById('ticket_ref').value = ref;
     document.getElementById('ticket_subject').value = '';
     document.getElementById('ticket_details').value = '';
+    document.getElementById('ticket_date').value = '';
     document.getElementById('addTicketModal').style.display = 'block';
     document.getElementById('modalBackground').style.display = 'block';
 }
@@ -845,6 +874,7 @@ function openEditModal(ticket) {
     document.getElementById('edit_ticket_ref').value = ticket.s_ref || '';
     document.getElementById('edit_ticket_subject').value = ticket.s_subject || '';
     document.getElementById('edit_ticket_details').value = ticket.s_message || '';
+    document.getElementById('edit_date').value = ticket.s_date || '';
     document.getElementById('edit_ticket_status').value = ticket.status || 'Open';
     document.getElementById('editTicketModal').style.display = 'block';
     document.getElementById('modalBackground').style.display = 'block';
@@ -882,7 +912,7 @@ function openCloseModal(id, name) {
     document.getElementById('modalBackground').style.display = 'block';
 }
 
-function showViewModal(id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status, tab) {
+function showViewModal(id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status, s_date, tab) {
     const displayStatus = tab === 'archived' ? 'Open' : (s_status || 'Unknown');
     document.getElementById('viewContent').innerHTML = `
         <p><strong>Reference No:</strong> ${s_ref || '-'}</p>
@@ -890,6 +920,7 @@ function showViewModal(id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, 
         <p><strong>Customer Name:</strong> ${c_fname} ${c_lname}</p>
         <p><strong>Subject:</strong> ${s_subject || '-'}</p>
         <p><strong>Message:</strong> ${s_message || '-'}</p>
+        <p><strong>Date:</strong> ${s_date || '-'}</p>
         <p><strong>Status:</strong> <span class="status-${displayStatus.toLowerCase()}">${displayStatus}</span></p>
     `;
     document.getElementById('viewModal').style.display = 'block';
