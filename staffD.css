@@ -269,7 +269,10 @@ footer {
     margin-left: -300px;
 }
 
-
+.username {
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
 
 .admin-icon {
     color: var(--warning);

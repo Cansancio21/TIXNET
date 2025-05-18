@@ -60,6 +60,23 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
+// Fetch customers for dropdown
+$sqlCustomers = "SELECT c_fname, c_lname FROM tbl_customer ORDER BY c_fname, c_lname";
+$resultCustomers = $conn->query($sqlCustomers);
+$customers = [];
+if ($resultCustomers->num_rows > 0) {
+    while ($row = $resultCustomers->fetch_assoc()) {
+        $customers[] = [
+            'full_name' => $row['c_fname'] . ' ' . $row['c_lname'],
+            'first_name' => $row['c_fname'],
+            'last_name' => $row['c_lname']
+        ];
+    }
+} else {
+    error_log("No customers found in tbl_customer");
+    $accountnameErr = "No customers available in the database. Please add customers first.";
+}
+
 // Initialize variables for add ticket validation
 $accountname = $subject = $issuedetails = $dob = $issuetype = $ticketstatus = "";
 $accountnameErr = $subjectErr = $issuedetailsErr = $dobErr = $issuetypeError = $ticketstatusErr = "";
@@ -68,31 +85,41 @@ $hasError = false;
 // Check for pre-filled account name from query parameter
 if (isset($_GET['aname']) && !empty($_GET['aname'])) {
     $accountname = urldecode(trim($_GET['aname']));
-    // Validate account name against tbl_customer
-    $nameParts = explode(" ", $accountname);
-    if (count($nameParts) >= 2) {
-        $firstNameCustomer = $nameParts[0];
-        $lastNameCustomer = implode(" ", array_slice($nameParts, 1)); // Handle multi-word last names
-
-        $sql = "SELECT COUNT(*) FROM tbl_customer WHERE c_fname = ? AND c_lname = ?";
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("ss", $firstNameCustomer, $lastNameCustomer);
-            $stmt->execute();
-            $stmt->bind_result($count);
-            $stmt->fetch();
-            $stmt->close();
-            if ($count == 0) {
-                $accountnameErr = "Account Name does not exist in customer database.";
-                $accountname = ""; // Clear invalid account name
-            }
-        } else {
-            $accountnameErr = "Database error: Unable to validate account name.";
-            $accountname = "";
-        }
-    } else {
-        $accountnameErr = "Account Name must consist of first and last name.";
+    // Basic input sanitization
+    if (!preg_match("/^[a-zA-Z\s-]+$/", $accountname)) {
+        $accountnameErr = "Account Name contains invalid characters.";
         $accountname = "";
+        // Log suspicious input
+        $logDescription = "Invalid account name attempt: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+        $stmtLog = $conn->prepare($sqlLog);
+        $stmtLog->bind_param("s", $logDescription);
+        $stmtLog->execute();
+        $stmtLog->close();
+    } elseif (empty($customers)) {
+        $accountnameErr = "No customers available in the database.";
+        $accountname = "";
+    } else {
+        // Validate account name against customers list (case-insensitive)
+        $validCustomer = false;
+        foreach ($customers as $customer) {
+            if (strcasecmp($customer['full_name'], $accountname) === 0) {
+                $validCustomer = true;
+                $accountname = $customer['full_name']; // Normalize to stored format
+                break;
+            }
+        }
+        if (!$validCustomer) {
+            $accountnameErr = "Account Name does not exist in customer database.";
+            $accountname = "";
+            // Log invalid customer attempt
+            $logDescription = "Attempted to pre-fill invalid customer name: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+            $stmtLog = $conn->prepare($sqlLog);
+            $stmtLog->bind_param("s", $logDescription);
+            $stmtLog->execute();
+            $stmtLog->close();
+        }
     }
 }
 
@@ -210,125 +237,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pageArchived = isset($_GET['page_archived']) ? (int)$_GET['page_archived'] : 1;
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'active';
 
-    if (isset($_POST['add_ticket']) && $userType !== 'technician') {
-        $accountname = trim($_POST['account_name']);
-        $subject = trim($_POST['ticket_subject']);
-        $issuedetails = trim($_POST['ticket_details']);
-        $ticketstatus = 'Open'; // Hardcode as Open for new tickets
-        $dob = trim($_POST['date']);
+   if (isset($_POST['add_ticket']) && $userType !== 'technician') {
+    $accountname = trim($_POST['account_name']);
+    $subject = trim($_POST['ticket_subject']);
+    $issuedetails = trim($_POST['ticket_details']);
+    $ticketstatus = 'Open'; // Hardcode as Open for new tickets
+    $dob = trim($_POST['date']);
 
-        // Validate account name (no numbers, must have first and last name)
-        if (empty($accountname)) {
-            $accountnameErr = "Account Name is required.";
-            $hasError = true;
-        } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $accountname)) {
-            $accountnameErr = "Account Name should not contain numbers or special characters.";
-            $hasError = true;
-        } else {
-            $nameParts = explode(" ", $accountname);
-            if (count($nameParts) < 2) {
-                $accountnameErr = "Account Name must consist of first and last name.";
-                $hasError = true;
-            } else {
-                $firstNameCustomer = $nameParts[0];
-                $lastNameCustomer = implode(" ", array_slice($nameParts, 1));
-
-                $sql = "SELECT COUNT(*) FROM tbl_customer WHERE c_fname = ? AND c_lname = ?";
-                $stmt = $conn->prepare($sql);
-                if (!$stmt) {
-                    if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                        header('Content-Type: application/json');
-                        echo json_encode(['success' => false, 'errors' => ['general' => 'Prepare failed: ' . $conn->error]]);
-                        exit();
-                    }
-                    die("Prepare failed: " . $conn->error);
-                }
-                $stmt->bind_param("ss", $firstNameCustomer, $lastNameCustomer);
-                $stmt->execute();
-                $stmt->bind_result($count);
-                $stmt->fetch();
-                $stmt->close();
-
-                if ($count == 0) {
-                    $accountnameErr = "Account Name does not exist in customer database.";
-                    $hasError = true;
-                }
+    // Validate account name
+    if (empty($accountname)) {
+        $accountnameErr = "Account Name is required.";
+        $hasError = true;
+    } elseif (empty($customers)) {
+        $accountnameErr = "No customers available in the database.";
+        $hasError = true;
+    } else {
+        // Check if account name exists in customers list
+        $validCustomer = false;
+        foreach ($customers as $customer) {
+            if ($customer['full_name'] === $accountname) {
+                $validCustomer = true;
+                break;
             }
         }
-
-        // Validate subject (no numbers)
-        if (empty($subject)) {
-            $subjectErr = "Subject is required.";
-            $hasError = true;
-        } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $subject)) {
-            $subjectErr = "Subject should not contain numbers or special characters.";
+        if (!$validCustomer) {
+            $accountnameErr = "Selected Account Name is invalid.";
             $hasError = true;
         }
+    }
 
-        // Validate other required fields
-        if (empty($issuedetails)) {
-            $issuedetailsErr = "Ticket Details are required.";
-            $hasError = true;
-        }
-        if (empty($dob)) {
-            $dobErr = "Date Issued is required.";
-            $hasError = true;
-        }
+    // Validate subject (no numbers)
+    if (empty($subject)) {
+        $subjectErr = "Subject is required.";
+        $hasError = true;
+    } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $subject)) {
+        $subjectErr = "Subject should not contain numbers or special characters.";
+        $hasError = true;
+    }
 
-        // Insert into database if no errors
-        if (!$hasError) {
-            $sql = "INSERT INTO tbl_ticket (t_aname, t_details, t_subject, t_status, t_date) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            if (!$stmt) {
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => false, 'errors' => ['general' => 'Prepare failed: ' . $conn->error]]);
-                    exit();
-                }
-                die("Prepare failed: " . $conn->error);
+    // Validate other required fields
+    if (empty($issuedetails)) {
+        $issuedetailsErr = "Ticket Details are required.";
+        $hasError = true;
+    }
+    if (empty($dob)) {
+        $dobErr = "Date Issued is required.";
+        $hasError = true;
+    }
+
+    // Insert into database if no errors
+    if (!$hasError) {
+        $sql = "INSERT INTO tbl_ticket (t_aname, t_details, t_subject, t_status, t_date) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'errors' => ['general' => 'Prepare failed: ' . $conn->error]]);
+                exit();
             }
-            $stmt->bind_param("sssss", $accountname, $issuedetails, $subject, $ticketstatus, $dob);
-            if ($stmt->execute()) {
-                // Log add action for staff
-                if ($userType === 'staff') {
-                    $logDescription = "Staff $firstName added ticket for $accountname";
-                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-                    $stmtLog = $conn->prepare($sqlLog);
-                    $stmtLog->bind_param("s", $logDescription);
-                    $stmtLog->execute();
-                    $stmtLog->close();
-                }
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'message' => 'Ticket has been registered successfully.']);
-                    exit();
-                }
-                $_SESSION['message'] = "Ticket has been registered successfully.";
-            } else {
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => false, 'errors' => ['general' => 'Execution failed: ' . $stmt->error]]);
-                    exit();
-                }
-                die("Execution failed: " . $stmt->error);
+            die("Prepare failed: " . $conn->error);
+        }
+        $stmt->bind_param("sssss", $accountname, $issuedetails, $subject, $ticketstatus, $dob);
+        if ($stmt->execute()) {
+            // Log add action for staff
+            if ($userType === 'staff') {
+                $logDescription = "Staff $firstName added ticket for $accountname";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $stmtLog = $conn->prepare($sqlLog);
+                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->execute();
+                $stmtLog->close();
             }
-            $stmt->close();
+            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Ticket has been registered successfully.']);
+                exit();
+            }
+            $_SESSION['message'] = "Ticket has been registered successfully.";
+            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+            exit();
         } else {
             if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
                 header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => false,
-                    'errors' => [
-                        'account_name' => $accountnameErr,
-                        'ticket_subject' => $subjectErr,
-                        'ticket_details' => $issuedetailsErr,
-                        'date' => $dobErr
-                    ]
-                ]);
+                echo json_encode(['success' => false, 'errors' => ['general' => 'Execution failed: ' . $stmt->error]]);
                 exit();
             }
+            die("Execution failed: " . $stmt->error);
         }
-    } elseif (isset($_POST['edit_ticket']) && $userType !== 'technician') {
+        $stmt->close();
+    } else {
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'errors' => [
+                    'account_name' => $accountnameErr,
+                    'ticket_subject' => $subjectErr,
+                    'ticket_details' => $issuedetailsErr,
+                    'date' => $dobErr
+                ]
+            ]);
+            exit();
+        }
+    }
+}
+elseif (isset($_POST['edit_ticket']) && $userType !== 'technician') {
         $ticketId = (int)$_POST['t_id'];
         $accountName = trim($_POST['account_name']);
         $subject = trim($_POST['ticket_subject']);
@@ -422,6 +435,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmtUpdate->bind_param("sssssi", $accountName, $subject, $ticketStatus, $ticketDetails, $dateIssued, $ticketId);
 
+           
             if ($stmtUpdate->execute()) {
                 // Log changes if any, only for staff
                 if ($userType === 'staff' && !empty($logParts)) {
@@ -462,6 +476,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("i", $t_id);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Ticket archived successfully!";
+
             // Log archive action for staff
             if ($userType === 'staff') {
                 $logDescription = "Staff $firstName archived ticket ID $t_id";
@@ -500,6 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tab = 'active';
     } elseif (isset($_POST['close_ticket']) && $userType === 'technician') {
         $t_id = $_POST['t_id'];
+
         // Fetch ticket details to get t_aname
         $sqlTicket = "SELECT t_aname FROM tbl_ticket WHERE t_id = ?";
         $stmtTicket = $conn->prepare($sqlTicket);
@@ -710,7 +726,7 @@ $conn->close();
         <div class="table-box glass-container">
             <?php if ($userType === 'staff' || $userType === 'technician'): ?>
                 <div class="username">
-                    Welcome to TIMS, <?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>!
+                    Welcome to TIXNET, <?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>!
                     <i class="fas fa-user-shield admin-icon"></i>
                 </div>
             <?php endif; ?>
@@ -959,28 +975,43 @@ $conn->close();
             <input type="hidden" name="ajax" value="true">
 
             <label for="account_name">Account Name</label>
-            <input type="text" name="account_name" id="account_name" value="<?php echo htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8'); ?>" required>
-            <span class="error" id="account_name_error"><?php echo $accountnameErr; ?></span>
+            <?php if (empty($customers)): ?>
+                <p class="error">No customers available. Please add customers in the Customers section.</p>
+                <select name="account_name" id="account_name" disabled>
+                    <option value="" selected>No customers available</option>
+                </select>
+            <?php else: ?>
+                <select name="account_name" id="account_name" required>
+                    <option value="" disabled <?php echo empty($accountname) ? 'selected' : ''; ?>>Select a customer</option>
+                    <?php foreach ($customers as $customer): ?>
+                        <option value="<?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>" 
+                                <?php echo $accountname === $customer['full_name'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
+            <span class="error" id="account_name_error"><?php echo htmlspecialchars($accountnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
             <label for="ticket_subject">Subject</label>
             <input type="text" name="ticket_subject" id="ticket_subject" value="<?php echo htmlspecialchars($subject, ENT_QUOTES, 'UTF-8'); ?>" required>
-            <span class="error" id="ticket_subject_error"><?php echo $subjectErr; ?></span>
+            <span class="error" id="ticket_subject_error"><?php echo htmlspecialchars($subjectErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
             <label for="ticket_details">Ticket Details</label>
             <textarea name="ticket_details" id="ticket_details" required><?php echo htmlspecialchars($issuedetails, ENT_QUOTES, 'UTF-8'); ?></textarea>
-            <span class="error" id="ticket_details_error"><?php echo $issuedetailsErr; ?></span>
+            <span class="error" id="ticket_details_error"><?php echo htmlspecialchars($issuedetailsErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
             <label for="ticket_status">Ticket Status</label>
             <input type="text" name="ticket_status" id="ticket_status" value="Open" readonly>
-            <span class="error" id="ticket_status_error"></span>
+            <span class="error" id="ticket_status_error"><?php echo htmlspecialchars($ticketstatusErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
             <label for="date">Date Issued</label>
             <input type="date" name="date" id="date" value="<?php echo htmlspecialchars($dob, ENT_QUOTES, 'UTF-8'); ?>" required>
-            <span class="error" id="date_error"><?php echo $dobErr; ?></span>
+            <span class="error" id="date_error"><?php echo htmlspecialchars($dobErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('addTicketModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Add Ticket</button>
+                <button type="submit" class="modal-btn confirm" <?php echo empty($customers) ? 'disabled' : ''; ?>>Add Ticket</button>
             </div>
         </form>
     </div>
@@ -1238,12 +1269,6 @@ function showCloseModal(id, aname, status) {
     document.getElementById('closeModal').style.display = 'block';
 }
 
-function showAddTicketModal() {
-    document.getElementById('addTicketForm').reset();
-    document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
-    document.getElementById('addTicketModal').style.display = 'block';
-}
-
 function showEditTicketModal(id, aname, subject, status, details, date) {
     document.getElementById('edit_t_id').value = id;
     document.getElementById('edit_account_name').value = aname;
@@ -1282,35 +1307,71 @@ document.addEventListener('click', function(event) {
     }
 });
 
+function showAddTicketModal() {
+    console.log('Opening Add Ticket Modal');
+    const form = document.getElementById('addTicketForm');
+    form.reset();
+    document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
+    // Ensure dropdown is reset to placeholder
+    const accountNameSelect = document.getElementById('account_name');
+    if (accountNameSelect) {
+        accountNameSelect.value = '';
+    }
+    document.getElementById('addTicketModal').style.display = 'block';
+}
+
 document.getElementById('addTicketForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    console.log('Submitting Add Ticket Form');
     const formData = new FormData(this);
     const xhr = new XMLHttpRequest();
     xhr.open('POST', 'staffD.php', true);
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            const alertContainer = document.querySelector('.alert-container');
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    const alertContainer = document.querySelector('.alert-container');
 
-            document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
+                    document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
 
-            if (response.success) {
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success';
-                alert.textContent = response.message;
-                alertContainer.appendChild(alert);
-                setTimeout(() => {
-                    alert.classList.add('alert-hidden');
-                    setTimeout(() => alert.remove(), 500);
-                }, 2000);
-                closeModal('addTicketModal');
-                searchTickets(defaultPageActive, 'active');
-            } else if (response.errors) {
-                for (const [field, error] of Object.entries(response.errors)) {
-                    if (error) {
-                        document.getElementById(`${field}_error`).textContent = error;
+                    if (response.success) {
+                        console.log('Ticket added successfully:', response.message);
+                        const alert = document.createElement('div');
+                        alert.className = 'alert alert-success';
+                        alert.textContent = response.message;
+                        alertContainer.appendChild(alert);
+                        setTimeout(() => {
+                            alert.classList.add('alert-hidden');
+                            setTimeout(() => alert.remove(), 500);
+                        }, 2000);
+                        closeModal('addTicketModal');
+                        searchTickets(defaultPageActive, 'active');
+                    } else if (response.errors) {
+                        console.warn('Validation errors:', response.errors);
+                        for (const [field, error] of Object.entries(response.errors)) {
+                            if (error) {
+                                const errorSpan = document.getElementById(`${field}_error`);
+                                if (errorSpan) {
+                                    errorSpan.textContent = error;
+                                }
+                            }
+                        }
                     }
+                } catch (err) {
+                    console.error('Error parsing JSON response:', err, xhr.responseText);
+                    const alertContainer = document.querySelector('.alert-container');
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-error';
+                    alert.textContent = 'An error occurred while processing the request.';
+                    alertContainer.appendChild(alert);
+                    setTimeout(() => {
+                        alert.classList.add('alert-hidden');
+                        setTimeout(() => alert.remove(), 500);
+                    }, 2000);
                 }
+            } else {
+                console.error('HTTP error:', xhr.status, xhr.statusText);
             }
         }
     };
@@ -1354,3 +1415,4 @@ document.getElementById('editTicketForm').addEventListener('submit', function(e)
 </script>
 </body>
 </html>
+

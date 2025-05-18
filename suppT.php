@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include 'db.php';
@@ -95,6 +96,129 @@ if ($filterCid == 0 && $isTechnician) {
         $filterCid = 0;
     }
     $stmt->close();
+}
+
+// Handle AJAX search request
+if (isset($_GET['action']) && $_GET['action'] === 'search') {
+    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $tab = isset($_GET['tab']) ? $_GET['tab'] : 'active';
+    $searchPage = isset($_GET['search_page']) ? max(1, (int)$_GET['search_page']) : 1;
+    $offset = ($searchPage - 1) * $ticketsPerPage;
+    $searchLike = $searchTerm ? "%$searchTerm%" : null;
+
+    // Count total tickets for pagination
+    $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND ";
+    if ($tab === 'active') {
+        $sqlCount .= "s_status IN ('Open', 'Closed')";
+    } else {
+        $sqlCount .= "s_status = 'Archived'";
+    }
+    if ($searchTerm) {
+        $sqlCount .= " AND (s_ref LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR CONCAT(c_fname, ' ', c_lname) LIKE ?)";
+    }
+    $stmtCount = $conn->prepare($sqlCount);
+    if ($searchTerm) {
+        $stmtCount->bind_param("issss", $filterCid, $searchLike, $searchLike, $searchLike, $searchLike);
+    } else {
+        $stmtCount->bind_param("i", $filterCid);
+    }
+    $stmtCount->execute();
+    $resultCount = $stmtCount->get_result();
+    $totalTickets = $resultCount->fetch_assoc()['count'] ?? 0;
+    $stmtCount->close();
+    $totalPages = max(1, ceil($totalTickets / $ticketsPerPage));
+
+    // Fetch tickets
+    $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status, s_date 
+            FROM tbl_supp_tickets 
+            WHERE c_id = ? AND ";
+    if ($tab === 'active') {
+        $sql .= "s_status IN ('Open', 'Closed')";
+    } else {
+        $sql .= "s_status = 'Archived'";
+    }
+    if ($searchTerm) {
+        $sql .= " AND (s_ref LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR CONCAT(c_fname, ' ', c_lname) LIKE ?)";
+    }
+    $sql .= " ORDER BY id DESC LIMIT ? OFFSET ?";
+    $stmt = $conn->prepare($sql);
+    if ($searchTerm) {
+        $stmt->bind_param("issssii", $filterCid, $searchLike, $searchLike, $searchLike, $searchLike, $ticketsPerPage, $offset);
+    } else {
+        $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $offset);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $tickets = [];
+    while ($row = $result->fetch_assoc()) {
+        $tickets[] = $row;
+    }
+    $stmt->close();
+
+    // Generate HTML for table body
+    ob_start();
+    if ($tickets) {
+        foreach ($tickets as $row) {
+            $displayMessage = preg_replace('/^ARCHIVED:/', '', $row['s_message'] ?: '-');
+            $displayStatus = ($tab === 'archived' && $row['status'] === 'Archived') ? 'Open' : $row['status'];
+            ?>
+            <tr>
+                <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
+                <td><?php echo htmlspecialchars($row['c_id'] ?: '-'); ?></td>
+                <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
+                <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
+                <td><?php echo htmlspecialchars($displayMessage); ?></td>
+                <td><?php echo htmlspecialchars($row['s_date'] ?: '-'); ?></td>
+                <td class="status-<?php echo strtolower($displayStatus ?: 'unknown'); ?> status-clickable" 
+                    onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
+                    <?php echo htmlspecialchars($displayStatus ?: 'Unknown'); ?>
+                </td>
+                <td class="action-buttons">
+                    <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($displayMessage); ?>', '<?php echo $row['status']; ?>', '<?php echo $row['s_date']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
+                    <?php if ($isCustomer): ?>
+                        <a class="edit-btn" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>)" title="Edit"><i class="fas fa-edit"></i></a>
+                        <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
+                           onclick="open<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>Modal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" 
+                           title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
+                            <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
+                        </a>
+                        <?php if ($tab === 'archived'): ?>
+                            <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <a class="edit-btn" onclick="showRestrictedMessage()" title="Edit"><i class="fas fa-edit"></i></a>
+                        <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
+                           onclick="showRestrictedMessage()" 
+                           title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
+                            <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
+                        </a>
+                        <?php if ($tab === 'archived'): ?>
+                            <a class="delete-btn" onclick="showRestrictedMessage()" title="Delete"><i class="fas fa-trash"></i></a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php
+        }
+    } else {
+        ?>
+        <tr>
+            <td colspan="8" class="empty-state">No <?php echo $tab === 'active' ? 'active' : 'archived'; ?> tickets found.</td>
+        </tr>
+        <?php
+    }
+    $html = ob_get_clean();
+
+    // Return JSON response
+    header('Content-Type: application/json');
+    echo json_encode([
+        'html' => $html,
+        'currentPage' => $searchPage,
+        'totalPages' => $totalPages,
+        'searchTerm' => $searchTerm
+    ]);
+    $conn->close();
+    exit();
 }
 
 // Handle create ticket (only for customers)
@@ -415,8 +539,8 @@ $conn->close();
     <div class="container">
         <div class="upper glass-container">
             <h1>Support Tickets</h1>
-               <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search customers..." onkeyup="debouncedSearchUsers()">
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
             <div class="user-profile">
@@ -519,7 +643,7 @@ $conn->close();
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="active-table-body">
                             <?php if ($activeTickets): ?>
                                 <?php foreach ($activeTickets as $row): ?>
                                     <tr>
@@ -551,7 +675,7 @@ $conn->close();
                             <?php endif; ?>
                         </tbody>
                     </table>
-                    <div class="pagination">
+                    <div class="pagination" id="active-pagination">
                         <?php if ($activePage > 1): ?>
                             <a href="?active_page=<?php echo $activePage - 1; ?>&archived_page=<?php echo $archivedPage; ?>&tab=active<?php echo $filterCid ? '&c_id=' . $filterCid : ''; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                         <?php else: ?>
@@ -583,7 +707,7 @@ $conn->close();
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="archived-table-body">
                             <?php if ($archivedTickets): ?>
                                 <?php foreach ($archivedTickets as $row): ?>
                                     <?php $displayStatus = ($row['status'] === 'Archived') ? 'Open' : $row['status']; ?>
@@ -617,7 +741,7 @@ $conn->close();
                             <?php endif; ?>
                         </tbody>
                     </table>
-                    <div class="pagination">
+                    <div class="pagination" id="archived-pagination">
                         <?php if ($archivedPage > 1): ?>
                             <a href="?active_page=<?php echo $activePage; ?>&archived_page=<?php echo $archivedPage - 1; ?>&tab=archived<?php echo $filterCid ? '&c_id=' . $filterCid : ''; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                         <?php else: ?>
@@ -694,7 +818,7 @@ $conn->close();
                         <span class="error" id="edit_ticket_details_error"></span>
                         <label for="edit_date">Date</label>
                         <input type="date" name="s_date" id="edit_date" required>
-                        <span class="error" id="edit_ticket_date_error"></span>
+                        <span class="error" id="edit_date_error"></span>
                         <label for="edit_ticket_status">Ticket Status</label>
                         <input type="text" name="s_status" id="edit_ticket_status" readonly>
                         <span class="error" id="edit_ticket_status_error"></span>
@@ -844,6 +968,9 @@ function showTab(tab, forceRefresh = true) {
         currentActivePage !== '<?php echo $activePage; ?>' || currentArchivedPage !== '<?php echo $archivedPage; ?>')) {
         const newUrl = `suppT.php?tab=${tab}&c_id=<?php echo $filterCid; ?>&active_page=${currentActivePage}&archived_page=${currentArchivedPage}`;
         window.location.href = newUrl;
+    } else {
+        // Trigger search to refresh table content when switching tabs
+        searchTickets(1, tab);
     }
 }
 
@@ -934,6 +1061,85 @@ function showRestrictedMessage() {
 function showStatusRestrictedMessage() {
     alert('Only technicians can close tickets.');
 }
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+let defaultPageActive = <?php echo $activePage; ?>;
+let defaultPageArchived = <?php echo $archivedPage; ?>;
+let currentSearchPage = 1;
+
+function searchTickets(page = 1, tab = null) {
+    const searchTerm = document.getElementById('searchInput').value;
+    const activeTable = document.getElementById('activeTable');
+    const currentTab = tab || (activeTable.classList.contains('active') ? 'active' : 'archived');
+    const tbody = currentTab === 'active' ? document.getElementById('active-table-body') : document.getElementById('archived-table-body');
+    const paginationContainer = currentTab === 'active' ? document.getElementById('active-pagination') : document.getElementById('archived-pagination');
+    const defaultPage = currentTab === 'active' ? defaultPageActive : defaultPageArchived;
+
+    currentSearchPage = page;
+
+    console.log(`Searching tickets: tab=${currentTab}, page=${page}, searchTerm=${searchTerm}, c_id=<?php echo $filterCid; ?>`);
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    tbody.innerHTML = response.html;
+                    updatePagination(response.currentPage, response.totalPages, response.searchTerm, currentTab);
+                    // Update default page variables
+                    if (currentTab === 'active') {
+                        defaultPageActive = response.currentPage;
+                    } else {
+                        defaultPageArchived = response.currentPage;
+                    }
+                } catch (e) {
+                    console.error('Error parsing JSON:', e, xhr.responseText);
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading tickets.</td></tr>';
+                }
+            } else {
+                console.error('Search request failed:', xhr.status, xhr.statusText);
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading tickets.</td></tr>';
+            }
+        }
+    };
+    xhr.open('GET', `suppT.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&c_id=<?php echo $filterCid; ?>`, true);
+    xhr.send();
+}
+
+function updatePagination(currentPage, totalPages, searchTerm, tab) {
+    const paginationContainer = document.getElementById(tab === 'active' ? 'active-pagination' : 'archived-pagination');
+    let paginationHtml = '';
+
+    if (currentPage > 1) {
+        paginationHtml += `<a href="javascript:searchTickets(${currentPage - 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+    }
+
+    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
+
+    if (currentPage < totalPages) {
+        paginationHtml += `<a href="javascript:searchTickets(${currentPage + 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+    }
+
+    paginationContainer.innerHTML = paginationHtml;
+}
+
+const debouncedSearchTickets = debounce((page, tab) => searchTickets(page, tab), 300);
 </script>
 </body>
 </html>

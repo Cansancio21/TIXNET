@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include 'db.php';
@@ -440,7 +441,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     $searchTerm = trim($_GET['search'] ?? '');
     $tab = $_GET['tab'] === 'archive' ? 'archive' : 'active';
     $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
-    $limit = 5;
+    $limit = 10;
     $offset = ($page - 1) * $limit;
     $output = '';
 
@@ -455,7 +456,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
         $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
                 FROM tbl_assets 
                 WHERE $statusCondition 
-                ORDER BY a_date DESC 
+                ORDER BY a_id ASC 
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("ii", $offset, $limit);
@@ -475,7 +476,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
         $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
                 FROM tbl_assets 
                 WHERE $statusCondition AND (a_name LIKE ? OR a_status LIKE ? OR a_quantity LIKE ? OR a_date LIKE ?)
-                ORDER BY a_date DESC 
+                ORDER BY a_id ASC 
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("ssssii", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $offset, $limit);
@@ -483,7 +484,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
 
     $stmt->execute();
     $result = $stmt->get_result();
-
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $output .= "<tr> 
@@ -522,7 +522,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
 }
 
 // Pagination settings
-$limit = 5;
+$limit = 10;
 
 // Active Assets Pagination
 $activePage = isset($_GET['active_page']) ? (int)$_GET['active_page'] : 1;
@@ -543,7 +543,7 @@ if ($conn) {
     $totalActive = $activeCountResult ? $activeCountResult->fetch_assoc()['total'] : 0;
     $totalActivePages = ceil($totalActive / $limit);
 
-    $sqlActive = "SELECT a_id, a_name, a_status, a_quantity, a_date FROM tbl_assets WHERE a_status != 'Archived' ORDER BY a_date DESC LIMIT ?, ?";
+    $sqlActive = "SELECT a_id, a_name, a_status, a_quantity, a_date FROM tbl_assets WHERE a_status != 'Archived' ORDER BY a_id ASC LIMIT ?, ?";
     $stmtActive = $conn->prepare($sqlActive);
     $stmtActive->bind_param("ii", $activeOffset, $limit);
     $stmtActive->execute();
@@ -556,7 +556,7 @@ if ($conn) {
     $totalArchived = $archivedCountResult ? $archivedCountResult->fetch_assoc()['total'] : 0;
     $totalArchivedPages = ceil($totalArchived / $limit);
 
-    $sqlArchived = "SELECT a_id, a_name, a_status, a_quantity, a_date FROM tbl_assets WHERE a_status = 'Archived' ORDER BY a_date DESC LIMIT ?, ?";
+    $sqlArchived = "SELECT a_id, a_name, a_status, a_quantity, a_date FROM tbl_assets WHERE a_status = 'Archived' ORDER BY a_id ASC LIMIT ?, ?";
     $stmtArchived = $conn->prepare($sqlArchived);
     $stmtArchived->bind_param("ii", $archivedOffset, $limit);
     $stmtArchived->execute();
@@ -695,13 +695,13 @@ if ($conn) {
                     </table>
                     <div class="pagination" id="active-pagination">
                         <?php if ($activePage > 1): ?>
-                            <a href="?active_page=<?php echo $activePage - 1; ?>&archived_page=<?php echo $archivedPage; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+                            <a href="javascript:searchAssets(<?php echo $activePage - 1; ?>, 'active')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                         <?php else: ?>
                             <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
                         <?php endif; ?>
                         <span class="current-page">Page <?php echo $activePage; ?> of <?php echo $totalActivePages; ?></span>
                         <?php if ($activePage < $totalActivePages): ?>
-                            <a href="?active_page=<?php echo $activePage + 1; ?>&archived_page=<?php echo $archivedPage; ?>" class="pagination-link"><i class='fas fa-chevron-right'></i></a>
+                            <a href="javascript:searchAssets(<?php echo $activePage + 1; ?>, 'active')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
                         <?php else: ?>
                             <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                         <?php endif; ?>
@@ -749,13 +749,13 @@ if ($conn) {
                     </table>
                     <div class="pagination" id="archived-pagination">
                         <?php if ($archivedPage > 1): ?>
-                            <a href="?active_page=<?php echo $activePage; ?>&archived_page=<?php echo $archivedPage - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+                            <a href="javascript:searchAssets(<?php echo $archivedPage - 1; ?>, 'archive')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                         <?php else: ?>
                             <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
                         <?php endif; ?>
                         <span class="current-page">Page <?php echo $archivedPage; ?> of <?php echo $totalArchivedPages; ?></span>
                         <?php if ($archivedPage < $totalArchivedPages): ?>
-                            <a href="?active_page=<?php echo $activePage; ?>&archived_page=<?php echo $archivedPage + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+                            <a href="javascript:searchAssets(<?php echo $archivedPage + 1; ?>, 'archive')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
                         <?php else: ?>
                             <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                         <?php endif; ?>
@@ -849,12 +849,12 @@ if ($conn) {
                         <select id="edit_asset_status" name="asset_status" required>
                             <option value="Borrowing">Borrowing</option>
                             <option value="Deployment">Deployment</option>
-                         
+                            <option value="Archived">Archived</option>
                         </select>
                         <span class="error" id="edit_asset_status_error"></span>
                     </div>
                     <div class="form-group">
-                        <label for="edit_date">Date:</label>
+                        <label for="date">Date Registered:</label>
                         <input type="date" id="edit_date" name="date" required>
                         <span class="error" id="edit_date_error"></span>
                     </div>
@@ -1027,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value) {
-        searchAssets();
+        searchAssets(1);
     }
 });
 
@@ -1050,7 +1050,7 @@ function showAssetTab(tab) {
             button.classList.add('active');
         }
     });
-    searchAssets();
+    searchAssets(1, tab);
 }
 
 function showRestrictionMessage() {
@@ -1077,22 +1077,14 @@ function showAddAssetModal() {
 }
 
 function showEditAssetModal(id, name, status, quantity, date) {
-    // Set the form values
     document.getElementById('edit_a_id').value = id;
     document.getElementById('edit_asset_name').value = name;
     document.getElementById('edit_asset_quantity').value = quantity;
     document.getElementById('edit_date').value = date;
-    
-    // Set the status - Validate and ensure it matches dropdown options
     const statusSelect = document.getElementById('edit_asset_status');
     const validStatuses = ['Borrowing', 'Deployment', 'Archived'];
-    const cleanedStatus = validStatuses.includes(status) ? status : 'Borrowing';
-    statusSelect.value = cleanedStatus;
-    
-    // Clear any error messages
+    statusSelect.value = validStatuses.includes(status) ? status : 'Borrowing';
     document.querySelectorAll('#editAssetForm .error').forEach(el => el.textContent = '');
-    
-    // Show the modal
     document.getElementById('editAssetModal').style.display = 'block';
 }
 
@@ -1132,19 +1124,10 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-const defaultActivePage = <?php echo $activePage; ?>;
-const defaultArchivedPage = <?php echo $archivedPage; ?>;
-let currentSearchPage = 1;
-
-function searchAssets(page = 1) {
+function searchAssets(page = 1, tab = null) {
     const searchTerm = document.getElementById('searchInput').value;
-    const activeTab = document.getElementById('assets-active').style.display !== 'none';
-    const tab = activeTab ? 'active' : 'archive';
-    const tbody = document.getElementById(activeTab ? 'assets-table-body' : 'archived-assets-table-body');
-    const paginationContainer = document.getElementById(activeTab ? 'active-pagination' : 'archived-pagination');
-    const defaultPageToUse = activeTab ? defaultActivePage : defaultArchivedPage;
-
-    currentSearchPage = page;
+    const activeTab = tab || (document.getElementById('assets-active').style.display !== 'none' ? 'active' : 'archive');
+    const tbody = document.getElementById(activeTab === 'active' ? 'assets-table-body' : 'archived-assets-table-body');
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -1159,7 +1142,7 @@ function searchAssets(page = 1) {
             }
         }
     };
-    xhr.open('GET', `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPageToUse}`, true);
+    xhr.open('GET', `assetsT.php?action=search&tab=${activeTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}`, true);
     xhr.send();
 }
 
@@ -1168,7 +1151,7 @@ function updatePagination(currentPage, totalPages, tab, searchTerm, paginationId
     let paginationHtml = '';
 
     if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchAssets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+        paginationHtml += `<a href="javascript:searchAssets(${currentPage - 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     }
@@ -1176,7 +1159,7 @@ function updatePagination(currentPage, totalPages, tab, searchTerm, paginationId
     paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
     if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchAssets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+        paginationHtml += `<a href="javascript:searchAssets(${currentPage + 1}, '${tab}')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     }
@@ -1196,7 +1179,7 @@ function debounce(func, wait) {
     };
 }
 
-const debouncedSearchAssets = debounce(searchAssets, 300);
+const debouncedSearchAssets = debounce((page) => searchAssets(page), 300);
 
 // Handle Add/Edit/Borrow/Deploy Asset Form Submissions
 document.getElementById('addAssetForm')?.addEventListener('submit', function(e) {
@@ -1211,7 +1194,7 @@ document.getElementById('addAssetForm')?.addEventListener('submit', function(e) 
         if (data.success) {
             showAlert('alert-success', data.message);
             closeModal('addAssetModal');
-            searchAssets();
+            searchAssets(1);
         } else {
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {
@@ -1240,7 +1223,7 @@ document.getElementById('editAssetForm')?.addEventListener('submit', function(e)
         if (data.success) {
             showAlert('alert-success', data.message);
             closeModal('editAssetModal');
-            searchAssets();
+            searchAssets(1);
         } else {
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {
@@ -1269,7 +1252,7 @@ document.getElementById('borrowAssetForm')?.addEventListener('submit', function(
         if (data.success) {
             showAlert('alert-success', data.message);
             closeModal('borrowAssetModal');
-            searchAssets();
+            searchAssets(1);
         } else {
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {
@@ -1298,7 +1281,7 @@ document.getElementById('deployAssetForm')?.addEventListener('submit', function(
         if (data.success) {
             showAlert('alert-success', data.message);
             closeModal('deployAssetModal');
-            searchAssets();
+            searchAssets(1);
         } else {
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {

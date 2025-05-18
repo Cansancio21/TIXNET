@@ -1,0 +1,5 @@
+Raw c_fname: Latifah, Raw c_lname: Sims
+Log Type: Customer Latifah_Sims
+Raw c_fname: 'Latifah', Raw c_lname: 'Sims'
+Sanitized c_fname: 'Latifah', Sanitized c_lname: 'Sims'
+Log Type: 'Customer Latifah_Sims'
