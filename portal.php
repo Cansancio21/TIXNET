@@ -29,7 +29,7 @@ $avatarPath = $_SESSION['avatarPath'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Portal</title>
-    <link rel="stylesheet" href="portal.css">
+    <link rel="stylesheet" href="portall.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -39,8 +39,8 @@ $avatarPath = $_SESSION['avatarPath'];
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-            <li><a href="portal.php" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-            <li><a href="suppT.php"><i class="fas fa-file-invoice"></i> <span>Support Tickets</span></a></li>
+            <li><a href="portal.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+            <li><a href="suppT.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
         </ul>
         <footer>
             <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>

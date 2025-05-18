@@ -35,7 +35,6 @@ body {
     min-height: 100vh;
 }
 
-/* Sidebar */
 .sidebar {
     width: 200px;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -60,24 +59,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 650;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
+    font-size: 1.6rem; /* Slightly larger for impact */
+    font-weight: 650; /* Bold weight for emphasis */
+    letter-spacing: 1px; /* Slight spacing for readability */
+    text-transform: uppercase; /* Makes it more striking */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px;
+    width: 45px; /* Adjust size as needed */
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px;
-    vertical-align: middle;
+    margin-right: -10px; /* Space between icon and text */
+    vertical-align: middle; /* Aligns icon with text */
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px); /* Slight lift effect */
 }
 
 .sidebar ul {
@@ -121,6 +120,17 @@ body {
 .sidebar ul li a span {
     font-size: 14px;
     display: inline;
+}
+
+.sidebar ul li a img {
+    width: 35px;
+    height: 30px;
+    margin-right: 10px;
+}
+
+footer .back-home img {
+    width: 35px;
+    height: 35px;
 }
 
 footer {
@@ -384,5 +394,3 @@ thead {
     border-radius: 8px;
     margin-top: 10px;
 }
-
-

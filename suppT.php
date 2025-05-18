@@ -370,7 +370,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppT.css">
+    <link rel="stylesheet" href="suppsT.css">
     <style>
         /* Status colors for view modal and tables */
         .status-open {
@@ -404,8 +404,8 @@ $conn->close();
                 <li><a href="assetsT.php"><i class="fas fa-box"></i> <span>View Assets</span></a></li>
                 <li><a href="techBorrowed.php"><i class="fas fa-box-open"></i> <span>Borrowed Records</span></a></li>
             <?php else: ?>
-                <li><a href="portal.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                <li><a href="suppT.php?c_id=<?php echo htmlspecialchars($userId); ?>" class="active"><i class="fas fa-file-archive"></i> <span>Support Tickets</span></a></li>
+                <li><a href="portal.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+                <li><a href="suppT.php" class="active"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
             <?php endif; ?>
         </ul>
         <footer>

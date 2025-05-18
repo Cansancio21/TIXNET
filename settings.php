@@ -145,9 +145,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings</title>
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="setting.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="settings.css">
     <style>
         .table-box {
             display: grid;
@@ -291,7 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
 <body>  
     <div class="wrapper">
         <div class="sidebar glass-container">
-            <h2>Task Management</h2>
+            <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
             <ul>
                 <?php if ($userType === 'customer'): ?>
                     <li><a href="portal.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
@@ -345,17 +346,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
                 <?php endif; ?>
             </ul>
             <footer>
-                <a href="index.php" class="back-home"><i class="fas fa-home"></i> <span>Back to Home</span></a>
+                <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </footer>
         </div>
 
         <div class="container">
             <div class="upper"> 
                 <h1>Account Settings</h1>
-                <div class="search-container">
-                    <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
-                    <span class="search-icon"><i class="fas fa-search"></i></span>
-                </div>
+               
                 <div class="user-profile">
                     <div class="user-icon">
                         <a href="image.php">
