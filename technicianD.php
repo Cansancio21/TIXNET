@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 include 'db.php'; // Include your database connection file
@@ -12,11 +11,21 @@ if (!isset($_SESSION['username']) || !isset($_SESSION['userId'])) {
 $username = $_SESSION['username'];
 $userId = $_SESSION['userId'];
 
-// Initialize variables
+// Initialize variables to prevent undefined errors
 $firstName = $lastName = $userType = '';
 $avatarPath = 'default-avatar.png';
 $avatarFolder = 'Uploads/avatars/';
 $userAvatar = $avatarFolder . $username . '.png';
+$openTickets = $closedTickets = $supportOpen = $supportClosed = 0;
+$archivedRegular = $archivedSupport = 0;
+$pendingTasks = 0;
+$totalRegularActive = $totalRegularArchived = 0;
+$totalSupportActive = $totalSupportArchived = 0;
+$totalRegularActivePages = $totalRegularArchivedPages = 1;
+$totalSupportActivePages = $totalSupportArchivedPages = 1;
+$resultRegularActive = $resultRegularArchived = null;
+$resultSupportActive = $resultSupportArchived = null;
+$errorMessage = '';
 
 // Set avatar path
 if (file_exists($userAvatar)) {
@@ -35,48 +44,63 @@ $supportArchivedPage = isset($_GET['supportArchivedPage']) ? max(1, (int)$_GET['
 $tab = $_GET['tab'] ?? 'regular';
 $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Initialize counts
-$openTickets = $closedTickets = $supportOpen = $supportClosed = 0;
-$archivedRegular = $archivedSupport = 0;
-$pendingTasks = 0;
-
 // Generate CSRF token
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrfToken = $_SESSION['csrf_token'];
 
-if ($conn) {
+// Check database connection
+if (!$conn || $conn->connect_error) {
+    error_log("Database connection failed: " . ($conn ? $conn->connect_error : "No connection object"));
+    die("Database connection failed. Please check your database settings.");
+}
+
+// Enable error logging
+ini_set('log_errors', 1);
+ini_set('error_log', 'C:\xampp\htdocs\TIXNET\php_errors.log');
+
+try {
+    // Fetch user details
     try {
-        // Fetch user details
         $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
         $stmt = $conn->prepare($sqlUser);
+        if (!$stmt) {
+            throw new Exception("Prepare failed for user query: " . $conn->error);
+        }
         $stmt->bind_param("s", $username);
         $stmt->execute();
         $resultUser = $stmt->get_result();
-        
         if ($resultUser->num_rows > 0) {
             $row = $resultUser->fetch_assoc();
             $firstName = $row['u_fname'] ?? '';
             $lastName = $row['u_lname'] ?? '';
             $userType = $row['u_type'] ?? '';
+        } else {
+            error_log("No user found for username: $username");
         }
         $stmt->close();
+    } catch (Exception $e) {
+        error_log("User query error: " . $e->getMessage());
+        $errorMessage .= "Failed to fetch user details. ";
+    }
 
-        // Prepare search term if exists
-        $searchLike = $searchTerm ? "%$searchTerm%" : null;
+    // Prepare search term
+    $searchLike = $searchTerm ? "%$searchTerm%" : null;
 
-        // Count regular open tickets
+    // Count regular open tickets
+    try {
         $sqlOpenTickets = "SELECT COUNT(*) AS openTickets FROM tbl_ticket 
                           WHERE t_status = 'open' 
                           AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) 
                           AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlOpenTickets .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
         $stmtOpenTickets = $conn->prepare($sqlOpenTickets);
+        if (!$stmtOpenTickets) {
+            throw new Exception("Prepare failed for open tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtOpenTickets->bind_param("sss", $searchLike, $searchLike, $searchLike);
         }
@@ -84,18 +108,24 @@ if ($conn) {
         $resultOpenTickets = $stmtOpenTickets->get_result();
         $openTickets = $resultOpenTickets->fetch_assoc()['openTickets'] ?? 0;
         $stmtOpenTickets->close();
+    } catch (Exception $e) {
+        error_log("Open tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count open tickets. ";
+    }
 
-        // Count regular closed tickets
+    // Count regular closed tickets
+    try {
         $sqlClosedTickets = "SELECT COUNT(*) AS closedTickets FROM tbl_ticket 
                             WHERE t_status = 'closed' 
                             AND (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) 
                             AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlClosedTickets .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
         $stmtClosedTickets = $conn->prepare($sqlClosedTickets);
+        if (!$stmtClosedTickets) {
+            throw new Exception("Prepare failed for closed tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtClosedTickets->bind_param("sss", $searchLike, $searchLike, $searchLike);
         }
@@ -103,17 +133,23 @@ if ($conn) {
         $resultClosedTickets = $stmtClosedTickets->get_result();
         $closedTickets = $resultClosedTickets->fetch_assoc()['closedTickets'] ?? 0;
         $stmtClosedTickets->close();
+    } catch (Exception $e) {
+        error_log("Closed tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count closed tickets. ";
+    }
 
-        // Count archived regular tickets
+    // Count archived regular tickets
+    try {
         $sqlArchivedRegular = "SELECT COUNT(*) AS archivedTickets FROM tbl_ticket 
                               WHERE t_details LIKE 'ARCHIVED:%' 
                               AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlArchivedRegular .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
         $stmtArchivedRegular = $conn->prepare($sqlArchivedRegular);
+        if (!$stmtArchivedRegular) {
+            throw new Exception("Prepare failed for archived regular tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtArchivedRegular->bind_param("sss", $searchLike, $searchLike, $searchLike);
         }
@@ -121,17 +157,23 @@ if ($conn) {
         $resultArchivedRegular = $stmtArchivedRegular->get_result();
         $archivedRegular = $resultArchivedRegular->fetch_assoc()['archivedTickets'] ?? 0;
         $stmtArchivedRegular->close();
+    } catch (Exception $e) {
+        error_log("Archived regular tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count archived regular tickets. ";
+    }
 
-        // Count support open tickets
+    // Count support open tickets
+    try {
         $sqlSupportOpen = "SELECT COUNT(*) AS supportOpen FROM tbl_supp_tickets 
                           WHERE s_status = 'Open' 
                           AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
-        
         if ($searchTerm) {
             $sqlSupportOpen .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $stmtSupportOpen = $conn->prepare($sqlSupportOpen);
+        if (!$stmtSupportOpen) {
+            throw new Exception("Prepare failed for support open tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtSupportOpen->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
         }
@@ -139,17 +181,23 @@ if ($conn) {
         $resultSupportOpen = $stmtSupportOpen->get_result();
         $supportOpen = $resultSupportOpen->fetch_assoc()['supportOpen'] ?? 0;
         $stmtSupportOpen->close();
+    } catch (Exception $e) {
+        error_log("Support open tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count support open tickets. ";
+    }
 
-        // Count support closed tickets
+    // Count support closed tickets
+    try {
         $sqlSupportClosed = "SELECT COUNT(*) AS supportClosed FROM tbl_supp_tickets 
                             WHERE s_status = 'Closed' 
                             AND (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL)";
-        
         if ($searchTerm) {
             $sqlSupportClosed .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
+        if (!$stmtSupportClosed) {
+            throw new Exception("Prepare failed for support closed tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtSupportClosed->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
         }
@@ -157,16 +205,22 @@ if ($conn) {
         $resultSupportClosed = $stmtSupportClosed->get_result();
         $supportClosed = $resultSupportClosed->fetch_assoc()['supportClosed'] ?? 0;
         $stmtSupportClosed->close();
+    } catch (Exception $e) {
+        error_log("Support closed tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count support closed tickets. ";
+    }
 
-        // Count archived support tickets
+    // Count archived support tickets
+    try {
         $sqlArchivedSupport = "SELECT COUNT(*) AS archivedSupport FROM tbl_supp_tickets 
                               WHERE s_message LIKE 'ARCHIVED:%'";
-        
         if ($searchTerm) {
             $sqlArchivedSupport .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $stmtArchivedSupport = $conn->prepare($sqlArchivedSupport);
+        if (!$stmtArchivedSupport) {
+            throw new Exception("Prepare failed for archived support tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtArchivedSupport->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
         }
@@ -174,12 +228,17 @@ if ($conn) {
         $resultArchivedSupport = $stmtArchivedSupport->get_result();
         $archivedSupport = $resultArchivedSupport->fetch_assoc()['archivedSupport'] ?? 0;
         $stmtArchivedSupport->close();
+    } catch (Exception $e) {
+        error_log("Archived support tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to count archived support tickets. ";
+    }
 
-        // Calculate pending tasks
-        $pendingTasks = $openTickets + $supportOpen;
+    // Calculate pending tasks
+    $pendingTasks = $openTickets + $supportOpen;
 
-        // Handle POST actions
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Handle POST actions
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        try {
             if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
                 throw new Exception('Invalid CSRF token');
             }
@@ -204,6 +263,9 @@ if ($conn) {
                     // Validate technician's full name
                     $sql = "SELECT u_fname, u_lname FROM tbl_user WHERE u_username = ? AND u_type = 'technician'";
                     $stmt = $conn->prepare($sql);
+                    if (!$stmt) {
+                        throw new Exception("Prepare failed for technician validation: " . $conn->error);
+                    }
                     $stmt->bind_param("s", $username);
                     $stmt->execute();
                     $result = $stmt->get_result();
@@ -224,6 +286,9 @@ if ($conn) {
                         $sql = "SELECT t_id, t_aname, t_subject, t_details, t_date FROM tbl_ticket 
                                WHERE t_id = ? AND t_status = 'open' AND t_status != 'archived'";
                         $stmt = $conn->prepare($sql);
+                        if (!$stmt) {
+                            throw new Exception("Prepare failed for regular ticket fetch: " . $conn->error);
+                        }
                         $stmt->bind_param("i", $id);
                         $stmt->execute();
                         $result = $stmt->get_result();
@@ -232,10 +297,13 @@ if ($conn) {
                             $ticket = $result->fetch_assoc();
                             $stmt->close();
                             
-                            // Insert into closed tickets table with te_id
+                            // Insert into closed tickets table
                             $sqlInsert = "INSERT INTO tbl_close_regular (te_id, t_aname, te_technician, t_subject, t_status, t_details, t_date) 
                                          VALUES (?, ?, ?, ?, 'Closed', ?, ?)";
                             $stmtInsert = $conn->prepare($sqlInsert);
+                            if (!$stmtInsert) {
+                                throw new Exception("Prepare failed for insert closed regular: " . $conn->error);
+                            }
                             $stmtInsert->bind_param("isssss", $ticket['t_id'], $ticket['t_aname'], $technicianFullName, 
                                                   $ticket['t_subject'], $ticket['t_details'], $ticket['t_date']);
                             $stmtInsert->execute();
@@ -244,6 +312,9 @@ if ($conn) {
                             // Delete from open tickets
                             $sqlDelete = "DELETE FROM tbl_ticket WHERE t_id = ?";
                             $stmtDelete = $conn->prepare($sqlDelete);
+                            if (!$stmtDelete) {
+                                throw new Exception("Prepare failed for delete regular ticket: " . $conn->error);
+                            }
                             $stmtDelete->bind_param("i", $id);
                             $stmtDelete->execute();
                             $stmtDelete->close();
@@ -252,6 +323,9 @@ if ($conn) {
                             $logDescription = "Technician $technicianFullName closed regular ticket ID $id";
                             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
                             $stmtLog = $conn->prepare($sqlLog);
+                            if (!$stmtLog) {
+                                throw new Exception("Prepare failed for log: " . $conn->error);
+                            }
                             $stmtLog->bind_param("s", $logDescription);
                             $stmtLog->execute();
                             $stmtLog->close();
@@ -280,6 +354,9 @@ if ($conn) {
                                 FROM tbl_supp_tickets 
                                 WHERE id = ? AND s_status = 'Open'";
                         $stmt = $conn->prepare($sql);
+                        if (!$stmt) {
+                            throw new Exception("Prepare failed for support ticket fetch: " . $conn->error);
+                        }
                         $stmt->bind_param("i", $id);
                         $stmt->execute();
                         $result = $stmt->get_result();
@@ -292,6 +369,9 @@ if ($conn) {
                             $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date) 
                                          VALUES (?, ?, ?, ?, ?, ?, ?, 'Closed', ?)";
                             $stmtInsert = $conn->prepare($sqlInsert);
+                            if (!$stmtInsert) {
+                                throw new Exception("Prepare failed for insert closed support: " . $conn->error);
+                            }
                             $stmtInsert->bind_param("sissssss", $ticket['s_ref'], $ticket['c_id'], $ticket['c_fname'], 
                                                   $ticket['c_lname'], $technicianFullName, $ticket['s_subject'], 
                                                   $ticket['s_message'], $ticket['s_date']);
@@ -301,6 +381,9 @@ if ($conn) {
                             // Delete from open support tickets
                             $sqlDelete = "DELETE FROM tbl_supp_tickets WHERE id = ?";
                             $stmtDelete = $conn->prepare($sqlDelete);
+                            if (!$stmtDelete) {
+                                throw new Exception("Prepare failed for delete support ticket: " . $conn->error);
+                            }
                             $stmtDelete->bind_param("i", $id);
                             $stmtDelete->execute();
                             $stmtDelete->close();
@@ -309,6 +392,9 @@ if ($conn) {
                             $logDescription = "Technician $technicianFullName closed support ticket ID $id";
                             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
                             $stmtLog = $conn->prepare($sqlLog);
+                            if (!$stmtLog) {
+                                throw new Exception("Prepare failed for log: " . $conn->error);
+                            }
                             $stmtLog->bind_param("s", $logDescription);
                             $stmtLog->execute();
                             $stmtLog->close();
@@ -334,7 +420,7 @@ if ($conn) {
                     }
                 } elseif (in_array($action, ['archive', 'unarchive', 'delete'])) {
                     // Stay on current tab for archive and unarchive actions
-                    $targetTab = $tab; // Keep current tab (regular, regularArchived, support, supportArchived)
+                    $targetTab = $tab;
                     
                     if ($action === 'archive') {
                         if ($type === 'regular') {
@@ -349,7 +435,7 @@ if ($conn) {
                             $sql = "UPDATE tbl_supp_tickets SET s_message = REPLACE(s_message, 'ARCHIVED:', '') WHERE id = ?";
                         }
                     } elseif ($action === 'delete') {
-                        $targetTab = $type === 'regular' ? 'regularArchived' : 'supportArchived'; // Delete only from Archived tab
+                        $targetTab = $type === 'regular' ? 'regularArchived' : 'supportArchived';
                         if ($type === 'regular') {
                             $sql = "DELETE FROM tbl_ticket WHERE t_id = ? AND t_details LIKE 'ARCHIVED:%'";
                         } else {
@@ -358,12 +444,18 @@ if ($conn) {
                     }
                     
                     $stmt = $conn->prepare($sql);
+                    if (!$stmt) {
+                        throw new Exception("Prepare failed for $action: " . $conn->error);
+                    }
                     $stmt->bind_param("i", $id);
                     
                     if ($stmt->execute() && $stmt->affected_rows > 0) {
                         $logDescription = "Technician $firstName $lastName performed $action on $type ticket ID $id";
                         $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
                         $stmtLog = $conn->prepare($sqlLog);
+                        if (!$stmtLog) {
+                            throw new Exception("Prepare failed for log: " . $conn->error);
+                        }
                         $stmtLog->bind_param("s", $logDescription);
                         $stmtLog->execute();
                         $stmtLog->close();
@@ -392,19 +484,25 @@ if ($conn) {
             } else {
                 throw new Exception('No action specified.');
             }
+        } catch (Exception $e) {
+            $errorMessage .= "POST action failed: " . $e->getMessage();
+            error_log("POST action error: " . $e->getMessage());
         }
+    }
 
-        // Fetch ticket data for display
-        // Regular Active Tickets
+    // Fetch ticket data for display
+    // Regular Active Tickets
+    try {
         $sqlTotalRegularActive = "SELECT COUNT(*) AS total FROM tbl_ticket 
                                 WHERE (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) 
                                 AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlTotalRegularActive .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
         $stmtTotalRegularActive = $conn->prepare($sqlTotalRegularActive);
+        if (!$stmtTotalRegularActive) {
+            throw new Exception("Prepare failed for total regular active: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtTotalRegularActive->bind_param("sss", $searchLike, $searchLike, $searchLike);
         }
@@ -421,34 +519,39 @@ if ($conn) {
                             FROM tbl_ticket 
                             WHERE (t_details NOT LIKE 'ARCHIVED:%' OR t_details IS NULL) 
                             AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlRegularActive .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
-        $sqlRegularActive .= " ORDER BY t_date DESC LIMIT ? OFFSET ?";
+        $sqlRegularActive .= " ORDER BY t_id ASC LIMIT ? OFFSET ?";
         $stmtRegularActive = $conn->prepare($sqlRegularActive);
-        
+        if (!$stmtRegularActive) {
+            throw new Exception("Prepare failed for regular active tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtRegularActive->bind_param("sssii", $searchLike, $searchLike, $searchLike, $limit, $regularActiveOffset);
         } else {
             $stmtRegularActive->bind_param("ii", $limit, $regularActiveOffset);
         }
-        
         $stmtRegularActive->execute();
         $resultRegularActive = $stmtRegularActive->get_result();
         $stmtRegularActive->close();
+    } catch (Exception $e) {
+        error_log("Regular active tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to fetch regular active tickets. ";
+    }
 
-        // Support Active Tickets
+    // Support Active Tickets
+    try {
         $sqlTotalSupportActive = "SELECT COUNT(*) AS total FROM tbl_supp_tickets 
                                 WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL) 
                                 AND s_status IN ('Open', 'Closed')";
-        
         if ($searchTerm) {
             $sqlTotalSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $stmtTotalSupportActive = $conn->prepare($sqlTotalSupportActive);
+        if (!$stmtTotalSupportActive) {
+            throw new Exception("Prepare failed for total support active: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtTotalSupportActive->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
         }
@@ -465,34 +568,39 @@ if ($conn) {
                             FROM tbl_supp_tickets 
                             WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL) 
                             AND s_status IN ('Open', 'Closed')";
-        
         if ($searchTerm) {
             $sqlSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $sqlSupportActive .= " ORDER BY id DESC LIMIT ? OFFSET ?";
         $stmtSupportActive = $conn->prepare($sqlSupportActive);
-        
+        if (!$stmtSupportActive) {
+            throw new Exception("Prepare failed for support active tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtSupportActive->bind_param("ssssii", $searchLike, $searchLike, $searchLike, $searchLike, $limit, $supportActiveOffset);
         } else {
             $stmtSupportActive->bind_param("ii", $limit, $supportActiveOffset);
         }
-        
         $stmtSupportActive->execute();
         $resultSupportActive = $stmtSupportActive->get_result();
         $stmtSupportActive->close();
+    } catch (Exception $e) {
+        error_log("Support active tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to fetch support active tickets. ";
+    }
 
-        // Regular Archived Tickets
+    // Regular Archived Tickets
+    try {
         $sqlTotalRegularArchived = "SELECT COUNT(*) AS total FROM tbl_ticket 
                                   WHERE t_details LIKE 'ARCHIVED:%' 
                                   AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlTotalRegularArchived .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
         $stmtTotalRegularArchived = $conn->prepare($sqlTotalRegularArchived);
+        if (!$stmtTotalRegularArchived) {
+            throw new Exception("Prepare failed for total regular archived: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtTotalRegularArchived->bind_param("sss", $searchLike, $searchLike, $searchLike);
         }
@@ -509,33 +617,38 @@ if ($conn) {
                              FROM tbl_ticket 
                              WHERE t_details LIKE 'ARCHIVED:%' 
                              AND t_status != 'archived'";
-        
         if ($searchTerm) {
             $sqlRegularArchived .= " AND (t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
         }
-        
-        $sqlRegularArchived .= " ORDER BY t_date DESC LIMIT ? OFFSET ?";
+        $sqlRegularArchived .= " ORDER BY t_id ASC LIMIT ? OFFSET ?";
         $stmtRegularArchived = $conn->prepare($sqlRegularArchived);
-        
+        if (!$stmtRegularArchived) {
+            throw new Exception("Prepare failed for regular archived tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtRegularArchived->bind_param("sssii", $searchLike, $searchLike, $searchLike, $limit, $regularArchivedOffset);
         } else {
             $stmtRegularArchived->bind_param("ii", $limit, $regularArchivedOffset);
         }
-        
         $stmtRegularArchived->execute();
         $resultRegularArchived = $stmtRegularArchived->get_result();
         $stmtRegularArchived->close();
+    } catch (Exception $e) {
+        error_log("Regular archived tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to fetch regular archived tickets. ";
+    }
 
-        // Support Archived Tickets
+    // Support Archived Tickets
+    try {
         $sqlTotalSupportArchived = "SELECT COUNT(*) AS total FROM tbl_supp_tickets 
                                   WHERE s_message LIKE 'ARCHIVED:%'";
-        
         if ($searchTerm) {
             $sqlTotalSupportArchived .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $stmtTotalSupportArchived = $conn->prepare($sqlTotalSupportArchived);
+        if (!$stmtTotalSupportArchived) {
+            throw new Exception("Prepare failed for total support archived: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtTotalSupportArchived->bind_param("ssss", $searchLike, $searchLike, $searchLike, $searchLike);
         }
@@ -551,30 +664,30 @@ if ($conn) {
         $sqlSupportArchived = "SELECT id AS t_id, s_ref, c_id, c_fname, c_lname, s_subject, s_message AS t_details, s_status AS t_status, s_date 
                              FROM tbl_supp_tickets 
                              WHERE s_message LIKE 'ARCHIVED:%'";
-        
         if ($searchTerm) {
             $sqlSupportArchived .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        
         $sqlSupportArchived .= " ORDER BY id DESC LIMIT ? OFFSET ?";
         $stmtSupportArchived = $conn->prepare($sqlSupportArchived);
-        
+        if (!$stmtSupportArchived) {
+            throw new Exception("Prepare failed for support archived tickets: " . $conn->error);
+        }
         if ($searchTerm) {
             $stmtSupportArchived->bind_param("ssssii", $searchLike, $searchLike, $searchLike, $searchLike, $limit, $supportArchivedOffset);
         } else {
             $stmtSupportArchived->bind_param("ii", $limit, $supportArchivedOffset);
         }
-        
         $stmtSupportArchived->execute();
         $resultSupportArchived = $stmtSupportArchived->get_result();
         $stmtSupportArchived->close();
-
     } catch (Exception $e) {
-        $errorMessage = htmlspecialchars($e->getMessage());
-        echo "<script>alert('Error: $errorMessage');</script>";
+        error_log("Support archived tickets query error: " . $e->getMessage());
+        $errorMessage .= "Failed to fetch support archived tickets. ";
     }
-} else {
-    die("Database connection failed.");
+
+} catch (Exception $e) {
+    $errorMessage .= "Main query block failed: " . $e->getMessage();
+    error_log("Main query block error: " . $e->getMessage());
 }
 ?>
 
@@ -631,6 +744,13 @@ if ($conn) {
                 </a>
             </div>
         </div>
+
+        <!-- Display errors if any -->
+        <?php if ($errorMessage): ?>
+            <div class="error-message" style="color: red; margin: 10px 0;">
+                <?php echo htmlspecialchars($errorMessage); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Dashboard Cards -->
         <div class="dashboard-cards">
@@ -779,13 +899,13 @@ if ($conn) {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($regularActivePage > 1) {
-                                echo "<a href='?tab=regular®ularActivePage=" . ($regularActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $regularActivePage of $totalRegularActivePages</span>";
                             if ($regularActivePage < $totalRegularActivePages) {
-                                echo "<a href='?tab=regular®ularActivePage=" . ($regularActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -844,13 +964,13 @@ if ($conn) {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($regularArchivedPage > 1) {
-                                echo "<a href='?tab=regularArchived®ularArchivedPage=" . ($regularArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $regularArchivedPage of $totalRegularArchivedPages</span>";
                             if ($regularArchivedPage < $totalRegularArchivedPages) {
-                                echo "<a href='?tab=regularArchived®ularArchivedPage=" . ($regularArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }

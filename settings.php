@@ -2,6 +2,12 @@
 session_start();
 include 'db.php';
 
+// Check database connection
+if ($conn->connect_error) {
+    error_log("Database connection failed: " . $conn->connect_error);
+    die("Connection failed: " . $conn->connect_error);
+}
+
 // Check if the user is logged in
 if (!isset($_SESSION['username']) || !isset($_SESSION['user_type'])) { 
     header("Location: index.php");
@@ -12,22 +18,42 @@ $username = $_SESSION['username'];
 $userType = $_SESSION['user_type'];
 $userId = isset($_SESSION['userId']) ? $_SESSION['userId'] : null;
 
+// Log session data for debugging
+error_log("Session data: userId=$userId, username=$username, userType=$userType");
+
+// Check if c_password column exists for customers
+if ($userType === 'customer') {
+    $result = $conn->query("SHOW COLUMNS FROM tbl_customer LIKE 'c_password'");
+    if ($result->num_rows == 0) {
+        error_log("c_password column missing in tbl_customer");
+        echo "<script>alert('Database error: c_password column is missing in tbl_customer. Please contact the administrator.');</script>";
+        exit();
+    }
+} else {
+    $result = $conn->query("SHOW COLUMNS FROM tbl_user LIKE 'u_password'");
+    if ($result->num_rows == 0) {
+        error_log("u_password column missing in tbl_user");
+        echo "<script>alert('Database error: u_password column is missing in tbl_user. Please contact the administrator.');</script>";
+        exit();
+    }
+}
+
 // Fetch user details from database
 if ($userType === 'customer') {
-    // For customers, query tbl_customer using c_id
     $stmt = $conn->prepare("SELECT c_fname, c_lname, c_address, c_contact, c_email, c_status FROM tbl_customer WHERE c_id = ?");
     $stmt->bind_param("s", $userId);
     $stmt->execute();
     $stmt->bind_result($firstName, $lastName, $address, $contact, $email, $status);
-    $stmt->fetch();
+    $fetched = $stmt->fetch();
+    error_log("Customer fetch: " . ($fetched ? "Success, c_id=$userId" : "Failed, c_id=$userId not found"));
     $stmt->close();
 } else {
-    // For admin, staff, technician, query tbl_user using u_username
     $stmt = $conn->prepare("SELECT u_fname, u_lname, u_email, u_type, u_status FROM tbl_user WHERE u_username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $stmt->bind_result($firstName, $lastName, $email, $userTypeDb, $status);
-    $stmt->fetch();
+    $fetched = $stmt->fetch();
+    error_log("User fetch: " . ($fetched ? "Success, username=$username" : "Failed, username=$username not found"));
     $stmt->close();
 }
 
@@ -40,7 +66,7 @@ if (!is_dir($avatarFolder)) {
     mkdir($avatarFolder, 0777, true);
 }
 
-// Check if user has a custom avatar (use userId for customers, username for others)
+// Check if user has a custom avatar
 $avatarId = $userType === 'customer' ? $userId : $username;
 $userAvatar = $avatarFolder . $avatarId . '.png';
 if (file_exists($userAvatar)) {
@@ -56,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
     if (in_array($imageFileType, ['jpg', 'jpeg', 'png', 'gif', 'jfif'])) {
         if (move_uploaded_file($uploadFile['tmp_name'], $targetFile)) {
             $_SESSION['avatarPath'] = 'Uploads/avatars/' . $avatarId . '.png' . '?' . time();
-            echo "<script>alert('Avatar uploaded successfully!'); window.location.href='settings.php';</script>";
+            header("Location: settings.php");
             exit();
         } else {
             echo "<script>alert('Error uploading avatar.');</script>";
@@ -67,30 +93,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
 }
 
 // Handle account information and password change
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST['last_name'], $_POST['email'])) {
-    $newFirstName = $_POST['first_name'];
-    $newLastName = $_POST['last_name'];
-    $newEmail = $_POST['email'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("POST data: " . print_r($_POST, true));
 
-    if ($userType === 'customer') {
-        $newAddress = $_POST['address'];
-        $newContact = $_POST['contact'];
-        // Update customer information in tbl_customer
-        $stmt = $conn->prepare("UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_address = ?, c_contact = ?, c_email = ? WHERE c_id = ?");
-        $stmt->bind_param("ssssss", $newFirstName, $newLastName, $newAddress, $newContact, $newEmail, $userId);
-    } else {
-        // Update user information in tbl_user
-        $stmt = $conn->prepare("UPDATE tbl_user SET u_fname = ?, u_lname = ?, u_email = ? WHERE u_username = ?");
-        $stmt->bind_param("ssss", $newFirstName, $newLastName, $newEmail, $username);
-    }
+    $errors = [];
+    $success = false;
 
-    if ($stmt->execute()) {
-        echo "<script>alert('Account information updated successfully!'); window.location.href='settings.php';</script>";
-        exit();
-    } else {
-        echo "<script>alert('Error updating account information.');</script>";
+    // Handle account information update
+    if (isset($_POST['first_name'], $_POST['last_name'], $_POST['email'])) {
+        $newFirstName = $_POST['first_name'];
+        $newLastName = $_POST['last_name'];
+        $newEmail = $_POST['email'];
+
+        if ($userType === 'customer') {
+            $newAddress = $_POST['address'] ?? '';
+            $newContact = $_POST['contact'] ?? '';
+            $stmt = $conn->prepare("UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_address = ?, c_contact = ?, c_email = ? WHERE c_id = ?");
+            $stmt->bind_param("ssssss", $newFirstName, $newLastName, $newAddress, $newContact, $newEmail, $userId);
+        } else {
+            $stmt = $conn->prepare("UPDATE tbl_user SET u_fname = ?, u_lname = ?, u_email = ? WHERE u_username = ?");
+            $stmt->bind_param("ssss", $newFirstName, $newLastName, $newEmail, $username);
+        }
+
+        if ($stmt->execute()) {
+            error_log("Account information updated for user: " . ($userType === 'customer' ? $userId : $username) . ", rows affected: " . $stmt->affected_rows);
+            $success = true;
+        } else {
+            error_log("Account update failed: " . $stmt->error);
+            $errors[] = "Error updating account information: " . $stmt->error;
+        }
+        $stmt->close();
     }
-    $stmt->close();
 
     // Handle password change
     if (isset($_POST['old_password'], $_POST['new_password'], $_POST['confirm_password']) && !empty($_POST['old_password']) && !empty($_POST['new_password']) && !empty($_POST['confirm_password'])) {
@@ -106,35 +139,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
             $stmt = $conn->prepare("SELECT u_password FROM tbl_user WHERE u_username = ?");
             $stmt->bind_param("s", $username);
         }
-        $stmt->execute();
-        $stmt->bind_result($storedPassword);
-        $stmt->fetch();
-        $stmt->close();
+        $result = $stmt->execute();
+        error_log("Password fetch query executed: " . ($result ? 'Success' : 'Failed'));
 
-        if (password_verify($oldPassword, $storedPassword)) {
-            if ($newPassword === $confirmPassword) {
-                $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-                if ($userType === 'customer') {
-                    $stmt = $conn->prepare("UPDATE tbl_customer SET c_password = ? WHERE c_id = ?");
-                    $stmt->bind_param("ss", $hashedPassword, $userId);
+        if ($result) {
+            $stmt->bind_result($storedPassword);
+            $fetched = $stmt->fetch();
+            error_log("Stored password: " . ($fetched ? ($storedPassword ? 'Retrieved' : 'Empty') : 'Not fetched'));
+            $stmt->close();
+
+            if ($fetched && $storedPassword) {
+                if (password_verify($oldPassword, $storedPassword)) {
+                    if ($newPassword === $confirmPassword) {
+                        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+                        error_log("New hashed password: " . $hashedPassword);
+                        if ($userType === 'customer') {
+                            $stmt = $conn->prepare("UPDATE tbl_customer SET c_password = ? WHERE c_id = ?");
+                            $stmt->bind_param("ss", $hashedPassword, $userId);
+                        } else {
+                            $stmt = $conn->prepare("UPDATE tbl_user SET u_password = ? WHERE u_username = ?");
+                            $stmt->bind_param("ss", $hashedPassword, $username);
+                        }
+                        $result = $stmt->execute();
+                        $affectedRows = $stmt->affected_rows;
+                        error_log("Password update query executed: " . ($result ? "Success, rows affected: $affectedRows" : "Failed"));
+                        if ($result && $affectedRows > 0) {
+                            $_SESSION['password_updated'] = true;
+                            error_log("Password updated successfully for user: " . ($userType === 'customer' ? $userId : $username));
+                            $success = true;
+                        } else {
+                            error_log("Password update failed: " . $stmt->error . ", rows affected: $affectedRows");
+                            $errors[] = "Error updating password: " . ($stmt->error ?: "No rows updated, check user ID or username.");
+                        }
+                        $stmt->close();
+                    } else {
+                        $errors[] = "New passwords do not match.";
+                    }
                 } else {
-                    $stmt = $conn->prepare("UPDATE tbl_user SET u_password = ? WHERE u_username = ?");
-                    $stmt->bind_param("ss", $hashedPassword, $username);
+                    error_log("Password verification failed for user: " . ($userType === 'customer' ? $userId : $username));
+                    $errors[] = "Incorrect old password.";
                 }
-                if ($stmt->execute()) {
-                    $_SESSION['password_updated'] = true;
-                    echo "<script>alert('Password changed successfully!'); window.location.href='index.php';</script>";
-                    exit();
-                } else {
-                    echo "<script>alert('Error updating password.');</script>";
-                }
-                $stmt->close();
             } else {
-                echo "<script>alert('New passwords do not match.');</script>";
+                error_log("No password found for user: " . ($userType === 'customer' ? $userId : $username));
+                $errors[] = "No password found for this user.";
             }
         } else {
-            echo "<script>alert('Incorrect old password.');</script>";
+            error_log("Password fetch query failed: " . $stmt->error);
+            $errors[] = "Error fetching password: " . $stmt->error;
+            $stmt->close();
         }
+    }
+
+    // Handle errors and success
+    if (!empty($errors)) {
+        echo "<script>alert('" . addslashes(implode("\\n", $errors)) . "');</script>";
+    }
+    if ($success) {
+        header("Location: index.php");
+        exit();
     }
 }
 ?>
@@ -295,54 +357,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
             <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
             <ul>
                 <?php if ($userType === 'customer'): ?>
-                    <li><a href="portal.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                    <li><a href="suppT.php"><i class="fas fa-file-archive"></i> <span>Support Tickets</span></a></li>
+                    <li><a href="portal.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+                    <li><a href="suppT.php" class="active"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
                 <?php elseif ($userType === 'admin'): ?>
-                    <li><a href="adminD.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                    <li><a href="viewU.php"><i class="fas fa-users"></i> View Users</a></li>
-                    <li><a href="view_service_record.php"><i class="fas fa-file-alt"></i> View Service Record</a></li>
-                    <li><a href="logs.php"><i class="fas fa-file-archive"></i> View Logs</a></li>
-                    <li><a href="borrowedT.php"><i class="fas fa-box-open"></i>Borrowed Records</a></li>
-                    <li><a href="returnT.php"><i class="fas fa-undo-alt"></i> Return Records</a></li>
+                    <li><a href="adminD.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+                    <li><a href="viewU.php"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
+                    <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
+                    <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
+                    <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
+                    <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
+                    <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
                 <?php elseif ($userType === 'staff'): ?>
-                    <li><a href="staffD.php" class="active"><img src="https://img.icons8.com/plasticine/100/ticket.png" alt="ticket"/><span>View Tickets</span></a></li>
-                    <li><a href="assetsT.php"><img src="https://img.icons8.com/matisse/100/view.png" alt="view"/><span>View Assets</span></a></li>
-                    <li>
-                        <?php if ($userType !== 'technician'): ?>
-                            <a href="customersT.php"><img src="https://img.icons8.com/color/48/conference-skin-type-7.png" alt="conference-skin-type-7"/><span>View Customers</span></a>
-                        <?php else: ?>
-                            <a href="#" class="disabled" onclick="showRestrictedMessage()"><img src="https://img.icons8.com/color/48/conference-skin-type-7.png" alt="conference-skin-type-7"/><span>View Customers</span></a>
-                        <?php endif; ?>
-                    </li>
-                    <li>
-                        <?php if ($userType !== 'technician'): ?>
-                            <a href="registerAssets.php"><img src="https://img.icons8.com/fluency/30/insert.png" alt="insert"/><span>Register Assets</span></a>
-                        <?php else: ?>
-                            <a href="#" class="disabled" onclick="showRestrictedMessage()"><img src="https://img.icons8.com/fluency/30/insert.png" alt="insert"/><span>Register Assets</span></a>
-                        <?php endif; ?>
-                    </li>
-                    <li>
-                        <?php if ($userType !== 'technician'): ?>
-                            <a href="addC.php"><img src="https://img.icons8.com/officel/40/add-user-male.png" alt="add-user-male"/><span>Add Customer</span></a>
-                        <?php else: ?>
-                            <a href="#" class="disabled" onclick="showRestrictedMessage()"><img src="https://img.icons8.com/officel/40/add-user-male.png" alt="add-user-male"/><span>Add Customer</span></a>
-                        <?php endif; ?>
-                    </li>
+                    <li><a href="staffD.php" class="active"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
+                    <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
+                    <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
+                    <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
+                    <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
                 <?php elseif ($userType === 'technician'): ?>
-                    <li><a href="technicianD.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                    <li><a href="staffD.php"><i class="fas fa-users"></i> Regular Tickets</a></li>
-                    <li>
-                        <a href="javascript:void(0)" class="support-tickets-link" onclick="toggleSupportInput()">
-                            <i class="fas fa-file-archive"></i>
-                            <span>Support Tickets</span>
-                        </a>
-                        <div class="support-tickets-input" id="supportTicketInput" style="display: none;">
-                            <input type="text" id="supportCustomerId" placeholder="Enter Customer ID" required>
-                            <button onclick="goToSupportTicket()" title="View Support Tickets"><i class="fas fa-arrow-right"></i></button>
-                        </div>
-                    </li>
-                    <li><a href="assetsT.php"><i class="fas fa-box"></i> View Assets</a></li>
-                    <li><a href="techBorrowed.php"><i class="fas fa-box-open"></i> Borrowed Records</a></li>
+                    <li><a href="technicianD.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+                     <li><a href="techBorrowed.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
+
                 <?php endif; ?>
             </ul>
             <footer>
@@ -353,7 +387,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST[
         <div class="container">
             <div class="upper"> 
                 <h1>Account Settings</h1>
-               
                 <div class="user-profile">
                     <div class="user-icon">
                         <a href="image.php">

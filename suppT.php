@@ -521,16 +521,10 @@ $conn->close();
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-            <?php if ($isTechnician): ?>
-                <li><a href="technicianD.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
-                <li><a href="staffD.php"><i class="fas fa-users"></i> <span>Regular Tickets</span></a></li>
-                <li><a href="technicianD.php"><i class="fas fa-file-archive"></i> <span>Support Tickets</span></a></li>
-                <li><a href="assetsT.php"><i class="fas fa-box"></i> <span>View Assets</span></a></li>
-                <li><a href="techBorrowed.php"><i class="fas fa-box-open"></i> <span>Borrowed Records</span></a></li>
-            <?php else: ?>
+
                 <li><a href="portal.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
                 <li><a href="suppT.php" class="active"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
-            <?php endif; ?>
+          
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>

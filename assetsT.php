@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 include 'db.php';
@@ -61,6 +60,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
         if (!preg_match("/^[a-zA-Z\s-]+$/", $assetname)) {
             $assetnameErr = "Asset Name should not contain numbers.";
             $hasError = true;
+        }
+        // Check for duplicate asset name
+        if (empty($assetnameErr)) {
+            $sqlCheck = "SELECT a_id FROM tbl_assets WHERE a_name = ?";
+            $stmtCheck = $conn->prepare($sqlCheck);
+            if ($stmtCheck) {
+                $stmtCheck->bind_param("s", $assetname);
+                $stmtCheck->execute();
+                $resultCheck = $stmtCheck->get_result();
+                if ($resultCheck->num_rows > 0) {
+                    $assetnameErr = "Asset name already exists.";
+                    $hasError = true;
+                }
+                $stmtCheck->close();
+            } else {
+                $assetnameErr = "Database error while checking asset name.";
+                $hasError = true;
+            }
         }
         if (!in_array($assetstatus, ['Borrowing', 'Deployment'])) {
             $assetstatusErr = "Invalid asset status.";
@@ -286,15 +303,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
     // Deploy Asset
     if (isset($_POST['deploy_asset'])) {
         $errors = [];
-        $borrow_assetsname = trim($_POST['asset_name'] ?? '');
+        $asset_id = trim($_POST['asset_id'] ?? '');
         $borrowquantity = trim($_POST['borrow_quantity'] ?? '');
         $borrow_techname = trim($_POST['tech_name'] ?? '');
         $borrow_techid = trim($_POST['tech_id'] ?? '');
         $borrowdate = trim($_POST['date'] ?? '');
 
         // Validate inputs
-        if (empty($borrow_assetsname) || !preg_match("/^[a-zA-Z\s-]+$/", $borrow_assetsname)) {
-            $errors['asset_name'] = "Asset Name is required and should not contain numbers.";
+        if (empty($asset_id)) {
+            $errors['asset_id'] = "Please select an asset.";
         }
         if (empty($borrowquantity) || !is_numeric($borrowquantity) || $borrowquantity <= 0) {
             $errors['borrow_quantity'] = "Please enter a valid quantity (greater than 0).";
@@ -331,21 +348,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
 
         // Check if asset exists and has sufficient quantity
         if (empty($errors)) {
-            $sqlCheckAsset = "SELECT a_quantity FROM tbl_deployment_assets WHERE a_name = ?";
+            $sqlCheckAsset = "SELECT a_name, a_quantity FROM tbl_assets WHERE a_id = ? AND a_status = 'Deployment'";
             $stmtCheckAsset = $conn->prepare($sqlCheckAsset);
-            $stmtCheckAsset->bind_param("s", $borrow_assetsname);
+            $stmtCheckAsset->bind_param("i", $asset_id);
             $stmtCheckAsset->execute();
             $resultCheckAsset = $stmtCheckAsset->get_result();
 
             if ($resultCheckAsset->num_rows > 0) {
                 $row = $resultCheckAsset->fetch_assoc();
+                $borrow_assetsname = $row['a_name'];
                 $availableQuantity = $row['a_quantity'];
 
                 if ($borrowquantity > $availableQuantity) {
                     $errors['borrow_quantity'] = "Requested quantity ($borrowquantity) exceeds available stock ($availableQuantity).";
                 }
             } else {
-                $errors['asset_name'] = "Asset not found in the deployment inventory.";
+                $errors['asset_id'] = "Selected asset is not available or not a deployment asset.";
             }
             $stmtCheckAsset->close();
         }
@@ -363,9 +381,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
 
                 // Update asset quantity
                 $newQuantity = $availableQuantity - $borrowquantity;
-                $sqlUpdate = "UPDATE tbl_deployment_assets SET a_quantity = ? WHERE a_name = ?";
+                $sqlUpdate = "UPDATE tbl_assets SET a_quantity = ? WHERE a_id = ?";
                 $stmtUpdate = $conn->prepare($sqlUpdate);
-                $stmtUpdate->bind_param("is", $newQuantity, $borrow_assetsname);
+                $stmtUpdate->bind_param("ii", $newQuantity, $asset_id);
                 $stmtUpdate->execute();
                 $stmtUpdate->close();
 
@@ -535,6 +553,10 @@ $archivedOffset = ($archivedPage - 1) * $limit;
 // Fetch available assets for borrow modal
 $sqlAssets = "SELECT a_id, a_name, a_quantity FROM tbl_assets WHERE a_status != 'Archived' AND a_quantity > 0";
 $resultAssets = $conn->query($sqlAssets);
+
+// Fetch available deployment assets for deploy modal
+$sqlDeployAssets = "SELECT a_id, a_name, a_quantity FROM tbl_assets WHERE a_status = 'Deployment' AND a_quantity > 0";
+$resultDeployAssets = $conn->query($sqlDeployAssets);
 
 if ($conn) {
     // Active Assets
@@ -849,7 +871,6 @@ if ($conn) {
                         <select id="edit_asset_status" name="asset_status" required>
                             <option value="Borrowing">Borrowing</option>
                             <option value="Deployment">Deployment</option>
-                            <option value="Archived">Archived</option>
                         </select>
                         <span class="error" id="edit_asset_status_error"></span>
                     </div>
@@ -927,9 +948,22 @@ if ($conn) {
                     <input type="hidden" name="deploy_asset" value="1">
                     <input type="hidden" name="ajax" value="true">
                     <div class="form-group">
-                        <label for="asset_name">Asset Name</label>
-                        <input type="text" id="asset_name" name="asset_name" placeholder="Asset Name" required>
-                        <span class="error" id="deploy_asset_name_error"></span>
+                        <label for="asset_id">Asset Name</label>
+                        <select id="asset_id" name="asset_id" required>
+                            <option value="">Select Asset</option>
+                            <?php 
+                            if ($resultDeployAssets && $resultDeployAssets->num_rows > 0) {
+                                $resultDeployAssets->data_seek(0); // Reset result pointer
+                                while ($row = $resultDeployAssets->fetch_assoc()): ?>
+                                    <option value="<?php echo htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . " (Available: " . $row['a_quantity'] . ")"; ?>
+                                    </option>
+                                <?php endwhile; 
+                            } else { ?>
+                                <option value="" disabled>No deployment assets available</option>
+                            <?php } ?>
+                        </select>
+                        <span class="error" id="deploy_asset_id_error"></span>
                     </div>
                     <div class="form-group">
                         <label for="borrow_quantity">Quantity to Deploy</label>
@@ -1314,3 +1348,5 @@ function showAlert(type, message) {
 </html>
 
 <?php $conn->close(); ?>
+
+

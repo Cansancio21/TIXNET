@@ -73,42 +73,60 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
+    $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
+    $typeFilter = isset($_GET['type']) ? trim($_GET['type']) : '';
     $output = '';
     $response = ['html' => '', 'currentPage' => $page, 'totalPages' => 0, 'tab' => $tab, 'searchTerm' => $searchTerm];
 
     if ($tab === 'active') {
-        if ($searchTerm === '') {
-            $countSql = "SELECT COUNT(*) as total FROM tbl_user WHERE u_status IN ('active', 'pending')";
-            $countResult = $conn->query($countSql);
-            $totalUsers = $countResult->fetch_assoc()['total'];
-            $totalPages = ceil($totalUsers / $limit);
+        // Build the WHERE clause dynamically
+        $whereClauses = ["u_status IN ('active', 'pending')"];
+        $params = [];
+        $paramTypes = '';
 
-            $sql = "SELECT u_id, u_fname, u_lname, u_email, u_username, u_type, u_status FROM tbl_user 
-                    WHERE u_status IN ('active', 'pending') 
-                    LIMIT ?, ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ii", $offset, $limit);
-        } else {
-            $countSql = "SELECT COUNT(*) as total FROM tbl_user 
-                        WHERE u_status IN ('active', 'pending') 
-                        AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ? OR u_username LIKE ?)";
-            $countStmt = $conn->prepare($countSql);
+        if ($searchTerm !== '') {
+            $whereClauses[] = "(u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ? OR u_username LIKE ?)";
             $searchWildcard = "%$searchTerm%";
-            $countStmt->bind_param("ssss", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard);
-            $countStmt->execute();
-            $countResult = $countStmt->get_result();
-            $totalUsers = $countResult->fetch_assoc()['total'];
-            $countStmt->close();
-
-            $totalPages = ceil($totalUsers / $limit);
-
-            $sql = "SELECT u_id, u_fname, u_lname, u_email, u_username, u_type, u_status FROM tbl_user 
-                    WHERE u_status IN ('active', 'pending') 
-                    AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ? OR u_username LIKE ?)
-                    LIMIT ?, ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssii", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $offset, $limit);
+            $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+            $paramTypes .= 'ssss';
         }
+
+        if ($statusFilter !== '' && in_array($statusFilter, ['active', 'pending'])) {
+            $whereClauses[] = "u_status = ?";
+            $params[] = $statusFilter;
+            $paramTypes .= 's';
+        }
+
+        if ($typeFilter !== '' && in_array($typeFilter, ['admin', 'staff', 'technician'])) {
+            $whereClauses[] = "u_type = ?";
+            $params[] = $typeFilter;
+            $paramTypes .= 's';
+        }
+
+        $whereClause = implode(' AND ', $whereClauses);
+
+        // Count total users for pagination
+        $countSql = "SELECT COUNT(*) as total FROM tbl_user WHERE $whereClause";
+        $countStmt = $conn->prepare($countSql);
+        if ($paramTypes !== '') {
+            $countStmt->bind_param($paramTypes, ...$params);
+        }
+        $countStmt->execute();
+        $countResult = $countStmt->get_result();
+        $totalUsers = $countResult->fetch_assoc()['total'];
+        $countStmt->close();
+
+        $totalPages = ceil($totalUsers / $limit);
+
+        // Fetch users with filters
+        $sql = "SELECT u_id, u_fname, u_lname, u_email, u_username, u_type, u_status FROM tbl_user 
+                WHERE $whereClause 
+                LIMIT ?, ?";
+        $stmt = $conn->prepare($sql);
+        $params[] = $offset;
+        $params[] = $limit;
+        $paramTypes .= 'ii';
+        $stmt->bind_param($paramTypes, ...$params);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -123,8 +141,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
                             <td>" . ucfirst(strtolower($row['u_type'])) . "</td> 
                             <td class='status-" . strtolower($row['u_status']) . "'>" . ucfirst(strtolower($row['u_status'])) . "</td>
                             <td class='action-buttons'>
-                                <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='View'><i class='fas fa-eye'></i></a>
-                                <a class='edit-btn' onclick=\"showEditUserModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                <a class='edit-btn' onclick=\"showEditUserModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                 <a class='archive-btn' onclick=\"showArchiveModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                             </td>
                             </tr>";
@@ -137,6 +155,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         $response['html'] = $output;
         $response['totalPages'] = $totalPages;
     } else {
+        // Archived users
         if ($searchTerm === '') {
             $countSql = "SELECT COUNT(*) as total FROM tbl_archive";
             $countResult = $conn->query($countSql);
@@ -172,7 +191,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         if ($result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
                 $output .= "<tr> 
-                            <td>{$row['u_id']}</	td> 
+                            <td>{$row['u_id']}</td> 
                             <td>" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "</td> 
                             <td>" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "</td> 
                             <td>" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "</td> 
@@ -180,7 +199,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
                             <td>" . ucfirst(strtolower($row['u_type'])) . "</td> 
                             <td class='status-" . strtolower($row['u_status']) . "'>" . ucfirst(strtolower($row['u_status'])) . "</td>
                             <td class='action-buttons'>
-                                <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='View'><i class='fas fa-eye'></i></a>
+                                <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                 <a class='unarchive-btn' onclick=\"showRestoreModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                 <a class='delete-btn' onclick=\"showDeleteModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                             </td>
@@ -239,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors['status'] = "Account status must be Active or Pending.";
         }
 
-        // Check for duplicate username only
+        // Check for duplicate username
         $checkSql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
         $checkStmt = $conn->prepare($checkSql);
         $checkStmt->bind_param("s", $username);
@@ -278,7 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit();
     } elseif (isset($_POST['edit_user'])) {
-        $user_id = $_POST['u_id'];
+        $user_id = (int)$_POST['u_id'];
         $firstname = trim($_POST['firstname']);
         $lastname = trim($_POST['lastname']);
         $email = trim($_POST['email']);
@@ -300,8 +319,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($username)) {
             $errors['username'] = "Username is required.";
         }
-        if (empty($type) || !in_array($type, ['staff', 'technician'])) {
-            $errors['type'] = "Account type must be Staff or Technician.";
+        if (empty($type) || !in_array($type, ['admin', 'staff', 'technician'])) {
+            $errors['type'] = "Account type must be Admin, Staff, or Technician.";
         }
         if (empty($status) || !in_array($status, ['active', 'pending'])) {
             $errors['status'] = "Account status must be Active or Pending.";
@@ -322,6 +341,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_sql = "UPDATE tbl_user SET u_fname=?, u_lname=?, u_email=?, u_username=?, u_type=?, u_status=? WHERE u_id=?";
             $update_stmt = $conn->prepare($update_sql);
             if (!$update_stmt) {
+                error_log("Prepare failed for update: " . $conn->error);
                 header('Content-Type: application/json');
                 echo json_encode(['success' => false, 'message' => 'Prepare failed: ' . $conn->error]);
                 exit();
@@ -332,8 +352,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true, 'message' => 'User updated successfully!']);
             } else {
+                error_log("Update execution failed: " . $update_stmt->error);
                 header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Error updating user: ' . $conn->error]);
+                echo json_encode(['success' => false, 'message' => 'Error updating user: ' . $update_stmt->error]);
             }
             $update_stmt->close();
         } else {
@@ -478,10 +499,11 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | User Management</title>
-    <link rel="stylesheet" href="viewU.css"> 
+    <link rel="stylesheet" href="view.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .password-container {
             position: relative;
@@ -502,6 +524,17 @@ $stmt->close();
             font-size: 12px;
             display: block;
         }
+        .filter-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--primary);
+            margin-left: 10px;
+        }
+        .filter-btn:hover {
+            color: var(--primary-dark);
+        }
     </style>
 </head>
 <body>
@@ -509,13 +542,13 @@ $stmt->close();
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-           <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
-           <li><a href="viewU.php" class="active"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
-           <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
-           <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
-           <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
-           <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
-           <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
+            <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+            <li><a href="viewU.php" class="active"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
+            <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
+            <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
+            <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
+            <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
+            <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -571,6 +604,7 @@ $stmt->close();
                         <span class="tab-badge"><?php echo $totalArchived; ?></span>
                     <?php endif; ?>
                 </button>
+                <button class="filter-btn" onclick="showFilterModal()" title="Filter Users"><i class='bx bx-filter'></i></button>
             </div>
             
             <div id="active-users-tab" class="active">
@@ -603,8 +637,8 @@ $stmt->close();
                                         <td>" . ucfirst(strtolower($row['u_type'])) . "</td> 
                                         <td class='status-" . strtolower($row['u_status']) . "'>" . ucfirst(strtolower($row['u_status'])) . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' onclick=\"showEditUserModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                            <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='edit-btn' onclick=\"showEditUserModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                             <a class='archive-btn' onclick=\"showArchiveModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                         </td>
                                     </tr>"; 
@@ -665,7 +699,7 @@ $stmt->close();
                                         <td>" . ucfirst(strtolower($row['u_type'])) . "</td> 
                                         <td class='status-" . strtolower($row['u_status']) . "'>" . ucfirst(strtolower($row['u_status'])) . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '{$row['u_type']}', '{$row['u_status']}')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' onclick=\"showViewModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='unarchive-btn' onclick=\"showRestoreModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                             <a class='delete-btn' onclick=\"showDeleteModal('{$row['u_id']}', '" . htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
@@ -698,479 +732,636 @@ $stmt->close();
             </div>
         </div>
     </div>
-</div>
 
-<!-- View User Modal -->
-<div id="viewModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>User Details</h2>
-        </div>
-        <div id="viewContent"></div>
-        <div class="modal-footer">
-            <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
-        </div>
-    </div>
-</div>
-
-<!-- Archive User Modal -->
-<div id="archiveModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Archive User</h2>
-        </div>
-        <p>Are you sure you want to archive <span id="archiveUserName"></span>?</p>
-        <form method="POST" id="archiveForm">
-            <input type="hidden" name="u_id" id="archiveUserId">
-            <input type="hidden" name="archive_user" value="1">
-            <input type="hidden" name="ajax" value="true">
+    <!-- View User Modal -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>User Details</h2>
+            </div>
+            <div id="viewContent"></div>
             <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('archiveModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Archive</button>
+                <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
             </div>
-        </form>
-    </div>
-</div>
-
-<!-- Restore User Modal -->
-<div id="restoreModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Unarchive User</h2>
         </div>
-        <p>Are you sure you want to unarchive <span id="restoreUserName"></span>?</p>
-        <form method="POST" id="restoreForm">
-            <input type="hidden" name="u_id" id="restoreUserId">
-            <input type="hidden" name="restore_user" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('restoreModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Unarchive</button>
-            </div>
-        </form>
     </div>
-</div>
 
-<!-- Delete User Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Delete User</h2>
-        </div>
-        <p>Are you sure you want to delete <span id="deleteUserName"></span> from the archive? This action cannot be undone.</p>
-        <form method="POST" id="deleteForm">
-            <input type="hidden" name="u_id" id="deleteUserId">
-            <input type="hidden" name="delete_user" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Delete</button>
+    <!-- Archive User Modal -->
+    <div id="archiveModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Archive User</h2>
             </div>
-        </form>
-    </div>
-</div>
-
-<!-- Restore All Users Modal -->
-<div id="restoreAllModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Restore All Users</h2>
-        </div>
-        <p>Are you sure you want to restore all archived users?</p>
-        <form method="POST" id="restoreAllForm">
-            <input type="hidden" name="restore_all_users" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('restoreAllModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Restore All</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Add User Modal -->
-<div id="addUserModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Add New User</h2>
-        </div>
-        <form method="POST" id="addUserForm" class="modal-form">
-            <input type="hidden" name="add_user" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <div class="form-group">
-                <label for="add_firstname">First Name</label>
-                <input type="text" name="firstname" id="add_firstname" required>
-                <span class="error" id="add_firstname_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_lastname">Last Name</label>
-                <input type="text" name="lastname" id="add_lastname" required>
-                <span class="error" id="add_lastname_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_email">Email</label>
-                <input type="email" name="email" id="add_email" required>
-                <span class="error" id="add_email_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_username">Username</label>
-                <input type="text" name="username" id="add_username" required>
-                <span class="error" id="add_username_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_password">Password</label>
-                <div class="password-container">
-                    <input type="password" name="password" id="add_password" required>
-                    <i class="fas fa-eye password-toggle" id="toggleAddPassword"></i>
+            <p>Are you sure you want to archive <span id="archiveUserName"></span>?</p>
+            <form method="POST" id="archiveForm">
+                <input type="hidden" name="u_id" id="archiveUserId">
+                <input type="hidden" name="archive_user" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('archiveModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Archive</button>
                 </div>
-                <span class="error" id="add_password_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_type">Account Type</label>
-                <select name="type" id="add_type" required>
-                    <option value="staff">Staff</option>
-                    <option value="technician">Technician</option>
-                </select>
-                <span class="error" id="add_type_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="add_status">Account Status</label>
-                <select name="status" id="add_status" required>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                </select>
-                <span class="error" id="add_status_error"></span>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('addUserModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Add User</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Edit User Modal -->
-<div id="editUserModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Edit User</h2>
+            </form>
         </div>
-        <form method="POST" id="editUserForm" class="modal-form">
-            <input type="hidden" name="edit_user" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <input type="hidden" name="u_id" id="edit_u_id">
-            <div class="form-group">
-                <label for="edit_firstname">First Name</label>
-                <input type="text" name="firstname" id="edit_firstname" required>
-                <span class="error" id="edit_firstname_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_lastname">Last Name</label>
-                <input type="text" name="lastname" id="edit_lastname" required>
-                <span class="error" id="edit_lastname_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_email">Email</label>
-                <input type="email" name="email" id="edit_email" required>
-                <span class="error" id="edit_email_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_username">Username</label>
-                <input type="text" name="username" id="edit_username" required>
-                <span class="error" id="edit_username_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_type">Type</label>
-                <select name="type" id="edit_type" required>
-                    <option value="admin">Admin</option>
-                    <option value="staff">Staff</option>
-                    <option value="technician">Technician</option>
-                </select>
-                <span class="error" id="edit_type_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_status">Status</label>
-                <select name="status" id="edit_status" required>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                </select>
-                <span class="error" id="edit_status_error"></span>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('editUserModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Update User</button>
-            </div>
-        </form>
     </div>
-</div>
 
-<script>
-    let currentSearchPage = 1;
-    let currentTab = '<?php echo isset($_GET['tab']) ? $_GET['tab'] : 'active'; ?>';
-    let activePage = <?php echo json_encode($page); ?>;
-    let archivedPage = <?php echo json_encode($archivedPage); ?>;
+    <!-- Restore User Modal -->
+    <div id="restoreModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Unarchive User</h2>
+            </div>
+            <p>Are you sure you want to unarchive <span id="restoreUserName"></span>?</p>
+            <form method="POST" id="restoreForm">
+                <input type="hidden" name="u_id" id="restoreUserId">
+                <input type="hidden" name="restore_user" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('restoreModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Unarchive</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
+    <!-- Delete User Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete User</h2>
+            </div>
+            <p>Are you sure you want to delete <span id="deleteUserName"></span> from the archive? This action cannot be undone.</p>
+            <form method="POST" id="deleteForm">
+                <input type="hidden" name="u_id" id="deleteUserId">
+                <input type="hidden" name="delete_user" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Restore All Users Modal -->
+    <div id="restoreAllModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Restore All Users</h2>
+            </div>
+            <p>Are you sure you want to restore all archived users?</p>
+            <form method="POST" id="restoreAllForm">
+                <input type="hidden" name="restore_all_users" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('restoreAllModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Restore All</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New User</h2>
+            </div>
+            <form method="POST" id="addUserForm" class="modal-form">
+                <input type="hidden" name="add_user" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <div class="form-group">
+                    <label for="add_firstname">First Name</label>
+                    <input type="text" name="firstname" id="add_firstname" required>
+                    <span class="error" id="add_firstname_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_lastname">Last Name</label>
+                    <input type="text" name="lastname" id="add_lastname" required>
+                    <span class="error" id="add_lastname_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_email">Email</label>
+                    <input type="email" name="email" id="add_email" required>
+                    <span class="error" id="add_email_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_username">Username</label>
+                    <input type="text" name="username" id="add_username" required>
+                    <span class="error" id="add_username_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_password">Password</label>
+                    <div class="password-container">
+                        <input type="password" name="password" id="add_password" required>
+                        <i class="fas fa-eye password-toggle" id="toggleAddPassword"></i>
+                    </div>
+                    <span class="error" id="add_password_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_type">Account Type</label>
+                    <select name="type" id="add_type" required>
+                        <option value="staff">Staff</option>
+                        <option value="technician">Technician</option>
+                    </select>
+                    <span class="error" id="add_type_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="add_status">Account Status</label>
+                    <select name="status" id="add_status" required>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                    <span class="error" id="add_status_error"></span>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('addUserModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit User</h2>
+            </div>
+            <form method="POST" id="editUserForm" class="modal-form">
+                <input type="hidden" name="edit_user" value="1">
+                <input type="hidden" name="ajax" value="true">
+                <input type="hidden" name="u_id" id="edit_u_id">
+                <div class="form-group">
+                    <label for="edit_firstname">First Name</label>
+                    <input type="text" name="firstname" id="edit_firstname" required>
+                    <span class="error" id="edit_firstname_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit_lastname">Last Name</label>
+                    <input type="text" name="lastname" id="edit_lastname" required>
+                    <span class="error" id="edit_lastname_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit_email">Email</label>
+                    <input type="email" name="email" id="edit_email" required>
+                    <span class="error" id="edit_email_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit_username">Username</label>
+                    <input type="text" name="username" id="edit_username" required>
+                    <span class="error" id="edit_username_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit_type">Type</label>
+                    <select name="type" id="edit_type" required>
+                        <option value="admin">Admin</option>
+                        <option value="staff">Staff</option>
+                        <option value="technician">Technician</option>
+                    </select>
+                    <span class="error" id="edit_type_error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="edit_status">Status</label>
+                    <select name="status" id="edit_status" required>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                    <span class="error" id="edit_status_error"></span>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('editUserModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm" id="editUserSubmit">Update User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Filter Users Modal -->
+    <div id="filterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Filter Users</h2>
+            </div>
+            <form method="GET" id="filterForm" class="modal-form">
+                <input type="hidden" name="ajax" value="true">
+                <div class="form-group">
+                    <label for="filter_status">Status</label>
+                    <select name="status" id="filter_status">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filter_type">Type</label>
+                    <select name="type" id="filter_type">
+                        <option value="">All Types</option>
+                        <option value="admin">Admin</option>
+                        <option value="staff">Staff</option>
+                        <option value="technician">Technician</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('filterModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentSearchPage = 1;
+        let currentTab = '<?php echo isset($_GET['tab']) ? $_GET['tab'] : 'active'; ?>';
+        let activePage = <?php echo json_encode($page); ?>;
+        let archivedPage = <?php echo json_encode($archivedPage); ?>;
+        let currentStatusFilter = '';
+        let currentTypeFilter = '';
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
                 clearTimeout(timeout);
-                func(...args);
+                timeout = setTimeout(later, wait);
             };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    function showTab(tabName) {
-        const activeTab = document.getElementById('active-users-tab');
-        const archivedTab = document.getElementById('archived-users-tab');
-        const buttons = document.querySelectorAll('.tab-btn');
-
-        activeTab.classList.remove('active');
-        archivedTab.classList.remove('active');
-        buttons.forEach(btn => btn.classList.remove('active'));
-
-        if (tabName === 'active') {
-            activeTab.classList.add('active');
-            buttons[0].classList.add('active');
-            currentTab = 'active';
-            currentSearchPage = activePage;
-        } else if (tabName === 'archived') {
-            archivedTab.classList.add('active');
-            buttons[1].classList.add('active');
-            currentTab = 'archived';
-            currentSearchPage = archivedPage;
         }
-        searchUsers(currentSearchPage);
-    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        showTab(currentTab);
+        function showTab(tabName) {
+            const activeTab = document.getElementById('active-users-tab');
+            const archivedTab = document.getElementById('archived-users-tab');
+            const buttons = document.querySelectorAll('.tab-btn');
 
-        // Password toggle functionality
-        document.getElementById('toggleAddPassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('add_password');
-            const icon = this;
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+            activeTab.classList.remove('active');
+            archivedTab.classList.remove('active');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            if (tabName === 'active') {
+                activeTab.classList.add('active');
+                buttons[0].classList.add('active');
+                currentTab = 'active';
+                currentSearchPage = activePage;
+            } else if (tabName === 'archived') {
+                archivedTab.classList.add('active');
+                buttons[1].classList.add('active');
+                currentTab = 'archived';
+                currentSearchPage = archivedPage;
             }
-        });
+            searchUsers(currentSearchPage);
+        }
 
-        // Client-side validation for Add User Form
-        document.getElementById('addUserForm').addEventListener('submit', function(e) {
-            let isValid = true;
-            const firstname = document.getElementById('add_firstname').value.trim();
-            const lastname = document.getElementById('add_lastname').value.trim();
-            const firstnameError = document.getElementById('add_firstname_error');
-            const lastnameError = document.getElementById('add_lastname_error');
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab(currentTab);
 
-            // Validate firstname (no numbers)
-            if (!firstname.match(/^[a-zA-Z\s-]+$/)) {
-                firstnameError.textContent = 'Firstname must not contain numbers.';
-                isValid = false;
-            } else {
+            // Password toggle functionality
+            document.getElementById('toggleAddPassword').addEventListener('click', function() {
+                const passwordInput = document.getElementById('add_password');
+                const icon = this;
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
+
+            // Client-side validation for Add User Form
+            document.getElementById('addUserForm').addEventListener('submit', function(e) {
+                let isValid = true;
+                const firstname = document.getElementById('add_firstname').value.trim();
+                const lastname = document.getElementById('add_lastname').value.trim();
+                const firstnameError = document.getElementById('add_firstname_error');
+                const lastnameError = document.getElementById('add_lastname_error');
+
+                // Validate firstname (no numbers)
+                if (!firstname.match(/^[a-zA-Z\s-]+$/)) {
+                    firstnameError.textContent = 'Firstname must not contain numbers.';
+                    isValid = false;
+                } else {
+                    firstnameError.textContent = '';
+                }
+
+                // Validate lastname (no numbers)
+                if (!lastname.match(/^[a-zA-Z\s-]+$/)) {
+                    lastnameError.textContent = 'Lastname must not contain numbers.';
+                    isValid = false;
+                } else {
+                    lastnameError.textContent = '';
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                }
+            });
+
+            // Client-side validation for Edit User Form
+            document.getElementById('editUserForm').addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                let isValid = true;
+                const firstname = document.getElementById('edit_firstname').value.trim();
+                const lastname = document.getElementById('edit_lastname').value.trim();
+                const email = document.getElementById('edit_email').value.trim();
+                const username = document.getElementById('edit_username').value.trim();
+                const firstnameError = document.getElementById('edit_firstname_error');
+                const lastnameError = document.getElementById('edit_lastname_error');
+                const emailError = document.getElementById('edit_email_error');
+                const usernameError = document.getElementById('edit_username_error');
+
+                // Clear previous errors
                 firstnameError.textContent = '';
-            }
-
-            // Validate lastname (no numbers)
-            if (!lastname.match(/^[a-zA-Z\s-]+$/)) {
-                lastnameError.textContent = 'Lastname must not contain numbers.';
-                isValid = false;
-            } else {
                 lastnameError.textContent = '';
-            }
+                emailError.textContent = '';
+                usernameError.textContent = '';
 
-            if (!isValid) {
-                e.preventDefault();
-            }
+                // Validate firstname (no numbers)
+                if (!firstname.match(/^[a-zA-Z\s-]+$/)) {
+                    firstnameError.textContent = 'Firstname must not contain numbers.';
+                    isValid = false;
+                }
+
+                // Validate lastname (no numbers)
+                if (!lastname.match(/^[a-zA-Z\s-]+$/)) {
+                    lastnameError.textContent = 'Lastname must not contain numbers.';
+                    isValid = false;
+                }
+
+                // Validate email
+                if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                    emailError.textContent = 'A valid email is required.';
+                    isValid = false;
+                }
+
+                // Validate username
+                if (!username) {
+                    usernameError.textContent = 'Username is required.';
+                    isValid = false;
+                }
+
+                if (isValid) {
+                    // Submit form via AJAX
+                    const formData = new FormData(this);
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'viewU.php', true);
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                try {
+                                    const response = JSON.parse(xhr.responseText);
+                                    console.log('Edit User Response:', response); // Debug log
+                                    if (response.success) {
+                                        closeModal('editUserModal');
+                                        searchUsers(activePage); // Refresh table
+                                        showAlert('success', response.message);
+                                    } else if (response.errors) {
+                                        Object.keys(response.errors).forEach(key => {
+                                            document.getElementById(`edit_${key}_error`).textContent = response.errors[key];
+                                        });
+                                    } else {
+                                        showAlert('error', response.message || 'An error occurred.');
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e, xhr.responseText);
+                                    showAlert('error', 'Failed to process response.');
+                                }
+                            } else {
+                                console.error('AJAX Error:', xhr.status, xhr.statusText);
+                                showAlert('error', 'Server error occurred.');
+                            }
+                        }
+                    };
+                    xhr.send(formData);
+                }
+            });
         });
-    });
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-        if (modalId === 'addUserModal') {
-            document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            if (modalId === 'addUserModal') {
+                document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
+                document.getElementById('addUserForm').reset();
+                const passwordInput = document.getElementById('add_password');
+                const toggleIcon = document.getElementById('toggleAddPassword');
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            } else if (modalId === 'editUserModal') {
+                document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
+                document.getElementById('editUserForm').reset();
+            } else if (modalId === 'filterModal') {
+                document.getElementById('filterForm').reset();
+            }
+        }
+
+        function showViewModal(id, fname, lname, email, username, type, status) {
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            const safeId = escapeHtml(String(id));
+            const safeFname = escapeHtml(fname);
+            const safeLname = escapeHtml(lname);
+            const safeEmail = escapeHtml(email);
+            const safeUsername = escapeHtml(username);
+            const safeType = escapeHtml(type);
+            const safeStatus = escapeHtml(status);
+            const displayStatus = safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1).toLowerCase();
+
+            const viewContent = document.getElementById('viewContent');
+            if (viewContent) {
+                viewContent.innerHTML = `
+                    <p><strong>ID:</strong> ${safeId}</p>
+                    <p><strong>First Name:</strong> ${safeFname}</p>
+                    <p><strong>Last Name:</strong> ${safeLname}</p>
+                    <p><strong>Email:</strong> ${safeEmail}</p>
+                    <p><strong>Username:</strong> ${safeUsername}</p>
+                    <p><strong>Type:</strong> ${safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase()}</p>
+                    <p><strong>Status:</strong> <span class="status-${safeStatus.toLowerCase()}">${displayStatus}</span></p>
+                `;
+            } else {
+                console.error('View content element not found');
+                return;
+            }
+
+            const viewModal = document.getElementById('viewModal');
+            if (viewModal) {
+                viewModal.style.display = 'block';
+            } else {
+                console.error('View modal element not found');
+            }
+        }
+
+        function showArchiveModal(id, name) {
+            document.getElementById('archiveUserId').value = id;
+            document.getElementById('archiveUserName').innerText = name;
+            document.getElementById('archiveModal').style.display = 'block';
+        }
+
+        function showRestoreModal(id, name) {
+            document.getElementById('restoreUserId').value = id;
+            document.getElementById('restoreUserName').innerText = name;
+            document.getElementById('restoreModal').style.display = 'block';
+        }
+
+        function showDeleteModal(id, name) {
+            document.getElementById('deleteUserId').value = id;
+            document.getElementById('deleteUserName').innerText = name;
+            document.getElementById('deleteModal').style.display = 'block';
+        }
+
+        function showRestoreAllModal() {
+            document.getElementById('restoreAllModal').style.display = 'block';
+        }
+
+        function showAddUserModal() {
             document.getElementById('addUserForm').reset();
+            document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
             const passwordInput = document.getElementById('add_password');
             const toggleIcon = document.getElementById('toggleAddPassword');
             passwordInput.type = 'password';
             toggleIcon.classList.remove('fa-eye-slash');
             toggleIcon.classList.add('fa-eye');
-        } else if (modalId === 'editUserModal') {
+            document.getElementById('addUserModal').style.display = 'block';
+        }
+
+        function showEditUserModal(id, fname, lname, email, username, type, status) {
+            document.getElementById('edit_u_id').value = id;
+            document.getElementById('edit_firstname').value = fname;
+            document.getElementById('edit_lastname').value = lname;
+            document.getElementById('edit_email').value = email;
+            document.getElementById('edit_username').value = username;
+            const typeSelect = document.getElementById('edit_type');
+            const normalizedType = type.toLowerCase();
+            typeSelect.value = normalizedType === 'admin' ? 'admin' : normalizedType === 'staff' ? 'staff' : 'technician';
+            document.getElementById('edit_status').value = status.toLowerCase();
             document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
-        }
-    }
-
-    function showViewModal(id, fname, lname, email, username, type, status) {
-        document.getElementById('viewContent').innerHTML = `
-            <p><strong>ID:</strong> ${id}</p>
-            <p><strong>First Name:</strong> ${fname}</p>
-            <p><strong>Last Name:</strong> ${lname}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Username:</strong> ${username}</p>
-            <p><strong>Type:</strong> ${type}</p>
-            <p><strong>Status:</strong> ${status}</p>
-        `;
-        document.getElementById('viewModal').style.display = 'block';
-    }
-
-    function showArchiveModal(id, name) {
-        document.getElementById('archiveUserId').value = id;
-        document.getElementById('archiveUserName').innerText = name;
-        document.getElementById('archiveModal').style.display = 'block';
-    }
-
-    function showRestoreModal(id, name) {
-        document.getElementById('restoreUserId').value = id;
-        document.getElementById('restoreUserName').innerText = name;
-        document.getElementById('restoreModal').style.display = 'block';
-    }
-
-    function showDeleteModal(id, name) {
-        document.getElementById('deleteUserId').value = id;
-        document.getElementById('deleteUserName').innerText = name;
-        document.getElementById('deleteModal').style.display = 'block';
-    }
-
-    function showRestoreAllModal() {
-        document.getElementById('restoreAllModal').style.display = 'block';
-    }
-
-    function showAddUserModal() {
-        document.getElementById('addUserForm').reset();
-        document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
-        const passwordInput = document.getElementById('add_password');
-        const toggleIcon = document.getElementById('toggleAddPassword');
-        passwordInput.type = 'password';
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
-        document.getElementById('addUserModal').style.display = 'block';
-    }
-    function showEditUserModal(id, fname, lname, email, username, type, status) {
-        document.getElementById('edit_u_id').value = id;
-        document.getElementById('edit_firstname').value = fname;
-        document.getElementById('edit_lastname').value = lname;
-        document.getElementById('edit_email').value = email;
-        document.getElementById('edit_username').value = username;
-        // Set type correctly for admin, staff, or technician
-        const typeSelect = document.getElementById('edit_type');
-        const normalizedType = type.toLowerCase();
-        typeSelect.value = normalizedType === 'admin' ? 'admin' : normalizedType === 'staff' ? 'staff' : 'technician';
-        // Set status correctly
-        document.getElementById('edit_status').value = status.toLowerCase();
-        document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
-        document.getElementById('editUserModal').style.display = 'block';
-    }
-
-    function updatePagination(currentPage, totalPages, tab) {
-        const paginationContainer = tab === 'active' ? document.getElementById('active-users-pagination') : document.getElementById('archived-users-pagination');
-        let paginationHtml = '';
-
-        if (currentPage > 1) {
-            paginationHtml += `<a href="javascript:searchUsers(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
-        } else {
-            paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+            document.getElementById('editUserModal').style.display = 'block';
         }
 
-        paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
-
-        if (currentPage < totalPages) {
-            paginationHtml += `<a href="javascript:searchUsers(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
-        } else {
-            paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+        function showFilterModal() {
+            document.getElementById('filter_status').value = currentStatusFilter;
+            document.getElementById('filter_type').value = currentTypeFilter;
+            document.getElementById('filterModal').style.display = 'block';
         }
 
-        paginationContainer.innerHTML = paginationHtml;
-    }
+        function updatePagination(currentPage, totalPages, tab) {
+            const paginationContainer = tab === 'active' ? document.getElementById('active-users-pagination') : document.getElementById('archived-users-pagination');
+            let paginationHtml = '';
 
-    function searchUsers(page) {
-        const searchTerm = document.getElementById('searchInput').value;
-        const tbody = currentTab === 'active' ? document.getElementById('active-users-tbody') : document.getElementById('archived-users-tbody');
-
-        currentSearchPage = page;
-
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    tbody.innerHTML = response.html;
-                    updatePagination(response.currentPage, response.totalPages, response.tab);
-                    if (currentTab === 'active') {
-                        activePage = response.currentPage;
-                    } else {
-                        archivedPage = response.currentPage;
-                    }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e, xhr.responseText);
-                }
+            if (currentPage > 1) {
+                paginationHtml += `<a href="javascript:searchUsers(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+            } else {
+                paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
             }
-        };
-        xhr.open('GET', `viewU.php?action=search&search=${encodeURIComponent(searchTerm)}&tab=${currentTab}&search_page=${page}`, true);
-        xhr.send();
-    }
 
-    function handleFormSubmission(formId, successCallback) {
-        const form = document.getElementById(formId);
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
+            paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
+
+            if (currentPage < totalPages) {
+                paginationHtml += `<a href="javascript:searchUsers(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+            } else {
+                paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+            }
+
+            paginationContainer.innerHTML = paginationHtml;
+        }
+
+        function searchUsers(page) {
+            const searchTerm = document.getElementById('searchInput').value;
+            const tbody = currentTab === 'active' ? document.getElementById('active-users-tbody') : document.getElementById('archived-users-tbody');
+
+            currentSearchPage = page;
+
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', 'viewU.php', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.success) {
-                        closeModal(formId.replace('Form', 'Modal'));
-                        successCallback();
-                        // Show success alert
-                        const alertContainer = document.querySelector('.alert-container');
-                        const alert = document.createElement('div');
-                        alert.className = 'alert alert-success';
-                        alert.textContent = response.message;
-                        alertContainer.appendChild(alert);
-                        setTimeout(() => {
-                            alert.classList.add('alert-hidden');
-                            setTimeout(() => alert.remove(), 500);
-                        }, 3000);
-                    } else if (response.errors) {
-                        Object.keys(response.errors).forEach(key => {
-                            document.getElementById(`${formId.replace('Form', '')}_${key}_error`).textContent = response.errors[key];
-                        });
-                    } else {
-                        // Show error alert
-                        const alertContainer = document.querySelector('.alert-container');
-                        const alert = document.createElement('div');
-                        alert.className = 'alert alert-error';
-                        alert.textContent = response.message || 'An error occurred.';
-                        alertContainer.appendChild(alert);
-                        setTimeout(() => {
-                            alert.classList.add('alert-hidden');
-                            setTimeout(() => alert.remove(), 500);
-                        }, 3000);
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        tbody.innerHTML = response.html;
+                        updatePagination(response.currentPage, response.totalPages, response.tab);
+                        if (currentTab === 'active') {
+                            activePage = response.currentPage;
+                        } else {
+                            archivedPage = response.currentPage;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing JSON:', e, xhr.responseText);
                     }
                 }
             };
-            xhr.send(formData);
-        });
-    }
+            let url = `viewU.php?action=search&search=${encodeURIComponent(searchTerm)}&tab=${currentTab}&search_page=${page}`;
+            if (currentTab === 'active') {
+                if (currentStatusFilter) {
+                    url += `&status=${encodeURIComponent(currentStatusFilter)}`;
+                }
+                if (currentTypeFilter) {
+                    url += `&type=${encodeURIComponent(currentTypeFilter)}`;
+                }
+            }
+            xhr.open('GET', url, true);
+            xhr.send();
+        }
 
-    handleFormSubmission('addUserForm', () => searchUsers(activePage));
-    handleFormSubmission('editUserForm', () => searchUsers(activePage));
-    handleFormSubmission('archiveForm', () => searchUsers(activePage));
-    handleFormSubmission('restoreForm', () => searchUsers(archivedPage));
-    handleFormSubmission('deleteForm', () => searchUsers(archivedPage));
-    handleFormSubmission('restoreAllForm', () => searchUsers(archivedPage));
+        function showAlert(type, message) {
+            const alertContainer = document.querySelector('.alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+            setTimeout(() => {
+                alert.classList.add('alert-hidden');
+                setTimeout(() => alert.remove(), 500);
+            }, 3000);
+        }
 
-    const debouncedSearchUsers = debounce(searchUsers, 300);
-</script>
+        function handleFormSubmission(formId, successCallback) {
+            const form = document.getElementById(formId);
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'viewU.php', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log(`Response for ${formId}:`, response); // Debug log
+                        if (response.success) {
+                            closeModal(formId.replace('Form', 'Modal'));
+                            successCallback();
+                            showAlert('success', response.message);
+                        } else if (response.errors) {
+                            Object.keys(response.errors).forEach(key => {
+                                document.getElementById(`${formId.replace('Form', '')}_${key}_error`).textContent = response.errors[key];
+                            });
+                        } else {
+                            showAlert('error', response.message || 'An error occurred.');
+                        }
+                    }
+                };
+                xhr.send(formData);
+            });
+        }
+
+        handleFormSubmission('addUserForm', () => searchUsers(activePage));
+        handleFormSubmission('archiveForm', () => searchUsers(activePage));
+        handleFormSubmission('restoreForm', () => searchUsers(archivedPage));
+        handleFormSubmission('deleteForm', () => searchUsers(archivedPage));
+        handleFormSubmission('restoreAllForm', () => searchUsers(archivedPage));
+
+        const debouncedSearchUsers = debounce(searchUsers, 300);
+    </script>
 </body>
 </html>
 

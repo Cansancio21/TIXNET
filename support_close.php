@@ -353,7 +353,7 @@ $conn->close();
                         <th>Customer Name</th>
                         <th>Technician</th>
                         <th>Subject</th>
-                        <th>Message</th>
+                        <th>Ticket Details</th>
                         <th>Status</th>
                         <th>Date</th>
                         <th>Actions</th>

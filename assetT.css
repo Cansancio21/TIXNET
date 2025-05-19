@@ -663,6 +663,16 @@ tr:hover td {
     border: 1px solid #f5c6cb;
 }
 
+/* Form Validation Errors */
+.error {
+    color: var(--danger); /* Red color from your --danger variable (#d63031) */
+    font-size: 0.9em; /* Slightly smaller text for subtlety */
+    display: block; /* Ensures error takes its own line */
+    margin-top: 5px; /* Space above the error message */
+    margin-bottom: 10px; /* Space below to avoid crowding */
+    font-weight: 400; /* Normal weight for readability */
+}
+
 .settings-link {
     position: absolute;
     right: 10px;
@@ -709,8 +719,6 @@ tr:hover td {
 .alert-hidden {
     opacity: 0;
 }
-
-
 
 
 .add-btn {
@@ -777,7 +785,7 @@ tr:hover td {
     font-size: 13px;
     font-weight: lighter;
     transition: 0.3s;
-    margin-left: 5px;
+    margin-left: 10px;
     margin-top: -100px;
     margin-bottom: 50px;
 }

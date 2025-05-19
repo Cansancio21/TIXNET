@@ -238,49 +238,69 @@ if (isset($_GET['id']) && !isset($_GET['page']) && !isset($_GET['deleted']) && !
     exit();
 }
 
-// Handle AJAX search request
+// Handle AJAX search request with filters
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['search'])) {
     $searchTerm = trim($_GET['search']);
     $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
+    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
+    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
     $output = '';
 
-    if ($searchTerm === '') {
-        // Fetch default deployed assets for the current page
-        $countSql = "SELECT COUNT(*) as total FROM tbl_deployed";
-        $countResult = $conn->query($countSql);
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $totalPages = ceil($totalRecords / $limit);
+    // Build the WHERE clause dynamically
+    $whereClauses = [];
+    $params = [];
+    $paramTypes = '';
 
-        $sql = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
-                FROM tbl_deployed 
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ii", $offset, $limit);
-    } else {
-        // Count total matching records for pagination
-        $countSql = "SELECT COUNT(*) as total FROM tbl_deployed 
-                     WHERE d_assets_name LIKE ? OR d_technician_name LIKE ? OR d_technician_id LIKE ? OR d_date LIKE ?";
-        $countStmt = $conn->prepare($countSql);
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(d_assets_name LIKE ? OR d_technician_name LIKE ? OR d_technician_id LIKE ? OR d_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $countStmt->bind_param("ssss", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard);
-        $countStmt->execute();
-        $countResult = $countStmt->get_result();
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $countStmt->close();
-
-        $totalPages = ceil($totalRecords / $limit);
-
-        // Fetch paginated search results
-        $sql = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
-                FROM tbl_deployed 
-                WHERE d_assets_name LIKE ? OR d_technician_name LIKE ? OR d_technician_id LIKE ? OR d_date LIKE ?
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssii", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $offset, $limit);
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'ssss';
     }
 
+    if ($assetNameFilter !== '') {
+        $whereClauses[] = "d_assets_name = ?";
+        $params[] = $assetNameFilter;
+        $paramTypes .= 's';
+    }
+
+    if ($technicianNameFilter !== '') {
+        $whereClauses[] = "d_technician_name = ?";
+        $params[] = $technicianNameFilter;
+        $paramTypes .= 's';
+    }
+
+    $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+    // Count total matching records for pagination
+    $countSql = "SELECT COUNT(*) as total FROM tbl_deployed $whereClause";
+    $countStmt = $conn->prepare($countSql);
+    if ($paramTypes !== '') {
+        $countStmt->bind_param($paramTypes, ...$params);
+    }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
+    $totalRecords = $countResult->fetch_assoc()['total'];
+    $countStmt->close();
+
+    $totalPages = ceil($totalRecords / $limit);
+
+    // Fetch paginated search results
+    $sql = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
+            FROM tbl_deployed 
+            $whereClause 
+            LIMIT ?, ?";
+    $stmt = $conn->prepare($sql);
+    if ($paramTypes !== '') {
+        $params[] = $offset;
+        $params[] = $limit;
+        $paramTypes .= 'ii';
+        $stmt->bind_param($paramTypes, ...$params);
+    } else {
+        $stmt->bind_param("ii", $offset, $limit);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -338,6 +358,21 @@ if ($conn) {
     $stmt->fetch();
     $stmt->close();
 
+    // Fetch unique asset names and technician names for filter modal
+    $assetNamesQuery = "SELECT DISTINCT d_assets_name FROM tbl_deployed ORDER BY d_assets_name";
+    $assetNamesResult = $conn->query($assetNamesQuery);
+    $assetNames = [];
+    while ($row = $assetNamesResult->fetch_assoc()) {
+        $assetNames[] = $row['d_assets_name'];
+    }
+
+    $technicianNamesQuery = "SELECT DISTINCT d_technician_name FROM tbl_deployed ORDER BY d_technician_name";
+    $technicianNamesResult = $conn->query($technicianNamesQuery);
+    $technicianNames = [];
+    while ($row = $technicianNamesResult->fetch_assoc()) {
+        $technicianNames[] = $row['d_technician_name'];
+    }
+
     // Pagination setup
     $limit = 10;
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -385,10 +420,25 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deployed Assets</title>
-    <link rel="stylesheet" href="deployedTB.css"> 
+    <link rel="stylesheet" href="deployedTsB.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        .filter-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--primary);
+            margin-left: 91%;
+            margin-top: 25px;
+        }
+        .filter-btn:hover {
+            color: var(--primary-dark);
+        }    
+        </style>
 </head>
 <body>
 <div class="wrapper">
@@ -457,9 +507,9 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
             <?php endif; ?>
 
             <div class="deployed">
-                <div class="button-container">
-                    <button class="return-btn" onclick="showDeployModal()"><i class="fas fa-cogs"></i> Deploy</button>
-                    <a href="createTickets.php" class="export-btn"><i class="fas fa-download"></i> Export</a>
+                <div class="action-buttons">
+                    <button class="filter-btn" onclick="showFilterModal()" title="Filter Assets"><i class='bx bx-filter'></i></button>
+                    <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
                 </div>
                 <table id="deployedTable">
                     <thead>
@@ -497,22 +547,21 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                         ?>
                     </tbody>
                 </table>
+<div class="pagination" id="deployed-pagination">
+    <?php if ($page > 1): ?>
+        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+    <?php else: ?>
+        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+    <?php endif; ?>
 
-                <div class="pagination" id="deployed-pagination">
-                    <?php if ($page > 1): ?>
-                        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                    <?php endif; ?>
+    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
 
-                    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-
-                    <?php if ($page < $totalPages): ?>
-                        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                    <?php endif; ?>
-                </div>
+    <?php if ($page < $totalPages): ?>
+        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+    <?php else: ?>
+        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+    <?php endif; ?>
+</div>
             </div>       
         </div>
     </div>
@@ -604,6 +653,44 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     </div>
 </div>
 
+<!-- Filter Modal -->
+<div id="filterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filter Assets</h2>
+        </div>
+        <form method="GET" id="filterForm" class="modal-form">
+            <input type="hidden" name="ajax" value="true">
+            <div class="form-group">
+                <label for="filter_technician_name">Technician Name</label>
+                <select name="technician_name" id="filter_technician_name">
+                    <option value="">All Technicians</option>
+                    <?php foreach ($technicianNames as $name): ?>
+                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="filter_asset_name">Asset Name</label>
+                <select name="asset_name" id="filter_asset_name">
+                    <option value="">All Assets</option>
+                    <?php foreach ($assetNames as $name): ?>
+                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('filterModal')">Cancel</button>
+                <button type="submit" class="modal-btn confirm">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
@@ -624,6 +711,8 @@ function debounce(func, wait) {
 
 function searchDeployed(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
+    const assetName = document.getElementById('filter_asset_name')?.value || '';
+    const technicianName = document.getElementById('filter_technician_name')?.value || '';
     const tbody = document.getElementById('tableBody');
     const paginationContainer = document.getElementById('deployed-pagination');
 
@@ -636,7 +725,8 @@ function searchDeployed(page = 1) {
             tbody.innerHTML = xhr.responseText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
         }
     };
-    xhr.open('GET', `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}`, true);
+    const url = `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm || assetName || technicianName ? page : defaultPage}&asset_name=${encodeURIComponent(assetName)}&technician_name=${encodeURIComponent(technicianName)}`;
+    xhr.open('GET', url, true);
     xhr.send();
 }
 
@@ -697,9 +787,15 @@ function showDeleteModal(id, assetName) {
     document.getElementById('deleteModal').style.display = 'flex';
 }
 
+function showFilterModal() {
+    document.getElementById('filterModal').style.display = 'flex';
+}
+
 function updateTable() {
     const searchTerm = document.getElementById('searchInput').value;
-    if (searchTerm) {
+    const assetName = document.getElementById('filter_asset_name')?.value || '';
+    const technicianName = document.getElementById('filter_technician_name')?.value || '';
+    if (searchTerm || assetName || technicianName) {
         searchDeployed(currentSearchPage);
     } else {
         fetch(`deployedT.php?page=${defaultPage}`)
@@ -807,6 +903,13 @@ document.getElementById('editAssetForm').addEventListener('submit', function(e) 
             setTimeout(() => alert.remove(), 500);
         }, 2000);
     });
+});
+
+// Handle filter form submission
+document.getElementById('filterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    closeModal('filterModal');
+    searchDeployed(1); // Reset to page 1 when applying filters
 });
 
 // Initialize auto-update table every 30 seconds
