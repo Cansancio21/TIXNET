@@ -190,13 +190,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isse
         exit();
     }
 }
-
 // Handle delete request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && isset($_POST['d_id'])) {
     $id = (int)$_POST['d_id'];
     
     $sql = "DELETE FROM tbl_deployed WHERE d_id = ?";
     $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        $_SESSION['error'] = "Error preparing delete statement: " . $conn->error;
+        header("Location: deployedT.php");
+        exit();
+    }
     $stmt->bind_param("i", $id);
     
     if ($stmt->execute()) {
@@ -206,11 +210,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && is
     }
     
     $stmt->close();
-    header("Location: deployedT.php");
+    // Preserve filters in redirect
+    $queryParams = [];
+    if (isset($_GET['asset_name'])) {
+        $queryParams[] = 'asset_name=' . urlencode($_GET['asset_name']);
+    }
+    if (isset($_GET['technician_name'])) {
+        $queryParams[] = 'technician_name=' . urlencode($_GET['technician_name']);
+    }
+    $queryString = !empty($queryParams) ? '?' . implode('&', $queryParams) . '&deleted=true' : '?deleted=true';
+    header("Location: deployedT.php" . $queryString);
     exit();
 }
 
-// Handle AJAX request for asset name (retained for potential other uses)
+// Handle AJAX request for asset name
 if (isset($_GET['id']) && !isset($_GET['page']) && !isset($_GET['deleted']) && !isset($_GET['updated']) && !isset($_GET['action'])) {
     error_log('AJAX handler triggered for id: ' . $_GET['id']);
     header('Content-Type: application/json');
@@ -358,7 +371,7 @@ if ($conn) {
     $stmt->fetch();
     $stmt->close();
 
-    // Fetch unique asset names and technician names for filter modal
+    // Fetch unique asset names and technician names for filter modals
     $assetNamesQuery = "SELECT DISTINCT d_assets_name FROM tbl_deployed ORDER BY d_assets_name";
     $assetNamesResult = $conn->query($assetNamesQuery);
     $assetNames = [];
@@ -427,18 +440,24 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         .filter-btn {
-            background: none;
+            background: transparent !important;
             border: none;
             cursor: pointer;
-            font-size: 24px;
-            color: var(--primary);
-            margin-left: 91%;
-            margin-top: 25px;
+            font-size: 15px;
+            color: var(--light, #f5f8fc); /* White text */
+            margin-left: 5px;
+            vertical-align: middle;
+            padding: 0;
+            outline: none;
         }
         .filter-btn:hover {
-            color: var(--primary-dark);
-        }    
-        </style>
+            color: var(--primary-dark, hsl(211, 45.70%, 84.10%)); /* White shade for hover */
+            background: transparent !important;
+        }
+        th .filter-btn {
+            background: transparent !important;
+        }
+    </style>
 </head>
 <body>
 <div class="wrapper">
@@ -508,16 +527,15 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
 
             <div class="deployed">
                 <div class="action-buttons">
-                    <button class="filter-btn" onclick="showFilterModal()" title="Filter Assets"><i class='bx bx-filter'></i></button>
                     <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
                 </div>
                 <table id="deployedTable">
                     <thead>
                         <tr>
                             <th>Deployed ID</th>
-                            <th>Asset Name</th>
+                            <th>Asset Name <button class="filter-btn" onclick="showAssetFilterModal()" title="Filter by Asset Name"><i class='bx bx-filter'></i></button></th>
                             <th>Quantity</th>
-                            <th>Technician Name</th>
+                            <th>Technician Name <button class="filter-btn" onclick="showTechnicianFilterModal()" title="Filter by Technician Name"><i class='bx bx-filter'></i></button></th>
                             <th>Technician ID</th>
                             <th>Deployed Date</th>
                             <th>Actions</th>
@@ -547,21 +565,21 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                         ?>
                     </tbody>
                 </table>
-<div class="pagination" id="deployed-pagination">
-    <?php if ($page > 1): ?>
-        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-    <?php else: ?>
-        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-    <?php endif; ?>
+                <div class="pagination" id="deployed-pagination">
+                    <?php if ($page > 1): ?>
+                        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+                    <?php endif; ?>
 
-    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
+                    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
 
-    <?php if ($page < $totalPages): ?>
-        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-    <?php else: ?>
-        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-    <?php endif; ?>
-</div>
+                    <?php if ($page < $totalPages): ?>
+                        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+                    <?php endif; ?>
+                </div>
             </div>       
         </div>
     </div>
@@ -653,25 +671,14 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     </div>
 </div>
 
-<!-- Filter Modal -->
-<div id="filterModal" class="modal">
+<!-- Asset Name Filter Modal -->
+<div id="assetFilterModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Filter Assets</h2>
+            <h2>Filter by Asset Name</h2>
         </div>
-        <form method="GET" id="filterForm" class="modal-form">
+        <form method="GET" id="assetFilterForm" class="modal-form">
             <input type="hidden" name="ajax" value="true">
-            <div class="form-group">
-                <label for="filter_technician_name">Technician Name</label>
-                <select name="technician_name" id="filter_technician_name">
-                    <option value="">All Technicians</option>
-                    <?php foreach ($technicianNames as $name): ?>
-                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
-                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
             <div class="form-group">
                 <label for="filter_asset_name">Asset Name</label>
                 <select name="asset_name" id="filter_asset_name">
@@ -684,8 +691,35 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                 </select>
             </div>
             <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('filterModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Apply Filters</button>
+                <button type="button" class="modal-btn cancel" onclick="closeModal('assetFilterModal')">Cancel</button>
+                <button type="submit" class="modal-btn confirm">Apply Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Technician Name Filter Modal -->
+<div id="technicianFilterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filter by Technician Name</h2>
+        </div>
+        <form method="GET" id="technicianFilterForm" class="modal-form">
+            <input type="hidden" name="ajax" value="true">
+            <div class="form-group">
+                <label for="filter_technician_name">Technician Name</label>
+                <select name="technician_name" id="filter_technician_name">
+                    <option value="">All Technicians</option>
+                    <?php foreach ($technicianNames as $name): ?>
+                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('technicianFilterModal')">Cancel</button>
+                <button type="submit" class="modal-btn confirm">Apply Filter</button>
             </div>
         </form>
     </div>
@@ -695,6 +729,8 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
 let updateInterval = null;
+let currentAssetFilter = '<?php echo isset($_GET['asset_name']) ? $_GET['asset_name'] : ''; ?>';
+let currentTechnicianFilter = '<?php echo isset($_GET['technician_name']) ? $_GET['technician_name'] : ''; ?>';
 
 // Debounce function to limit search calls
 function debounce(func, wait) {
@@ -711,8 +747,6 @@ function debounce(func, wait) {
 
 function searchDeployed(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
-    const assetName = document.getElementById('filter_asset_name')?.value || '';
-    const technicianName = document.getElementById('filter_technician_name')?.value || '';
     const tbody = document.getElementById('tableBody');
     const paginationContainer = document.getElementById('deployed-pagination');
 
@@ -725,7 +759,13 @@ function searchDeployed(page = 1) {
             tbody.innerHTML = xhr.responseText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
         }
     };
-    const url = `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm || assetName || technicianName ? page : defaultPage}&asset_name=${encodeURIComponent(assetName)}&technician_name=${encodeURIComponent(technicianName)}`;
+    let url = `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm || currentAssetFilter || currentTechnicianFilter ? page : defaultPage}`;
+    if (currentAssetFilter) {
+        url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
+    }
+    if (currentTechnicianFilter) {
+        url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
+    }
     xhr.open('GET', url, true);
     xhr.send();
 }
@@ -787,15 +827,19 @@ function showDeleteModal(id, assetName) {
     document.getElementById('deleteModal').style.display = 'flex';
 }
 
-function showFilterModal() {
-    document.getElementById('filterModal').style.display = 'flex';
+function showAssetFilterModal() {
+    document.getElementById('filter_asset_name').value = currentAssetFilter;
+    document.getElementById('assetFilterModal').style.display = 'flex';
+}
+
+function showTechnicianFilterModal() {
+    document.getElementById('filter_technician_name').value = currentTechnicianFilter;
+    document.getElementById('technicianFilterModal').style.display = 'flex';
 }
 
 function updateTable() {
     const searchTerm = document.getElementById('searchInput').value;
-    const assetName = document.getElementById('filter_asset_name')?.value || '';
-    const technicianName = document.getElementById('filter_technician_name')?.value || '';
-    if (searchTerm || assetName || technicianName) {
+    if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
         searchDeployed(currentSearchPage);
     } else {
         fetch(`deployedT.php?page=${defaultPage}`)
@@ -813,6 +857,11 @@ function updateTable() {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    if (modalId === 'assetFilterModal') {
+        document.getElementById('assetFilterForm').reset();
+    } else if (modalId === 'technicianFilterModal') {
+        document.getElementById('technicianFilterForm').reset();
+    }
 }
 
 window.addEventListener('click', function(event) {
@@ -905,10 +954,19 @@ document.getElementById('editAssetForm').addEventListener('submit', function(e) 
     });
 });
 
-// Handle filter form submission
-document.getElementById('filterForm').addEventListener('submit', function(e) {
+// Handle asset filter form submission
+document.getElementById('assetFilterForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    closeModal('filterModal');
+    currentAssetFilter = document.getElementById('filter_asset_name').value;
+    closeModal('assetFilterModal');
+    searchDeployed(1); // Reset to page 1 when applying filters
+});
+
+// Handle technician filter form submission
+document.getElementById('technicianFilterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    currentTechnicianFilter = document.getElementById('filter_technician_name').value;
+    closeModal('technicianFilterModal');
     searchDeployed(1); // Reset to page 1 when applying filters
 });
 
@@ -924,9 +982,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-    // Initialize search on page load if there's a search term
+    // Initialize search on page load if there's a search term or filter
     const searchInput = document.getElementById('searchInput');
-    if (searchInput.value) {
+    if (searchInput.value || currentAssetFilter || currentTechnicianFilter) {
         searchDeployed();
     }
 });
@@ -944,3 +1002,4 @@ window.addEventListener('beforeunload', () => {
 <?php 
 $conn->close();
 ?>
+

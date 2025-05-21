@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include 'db.php';
@@ -42,6 +43,28 @@ if (file_exists($userAvatar)) {
     $_SESSION['avatarPath'] = $defaultAvatar;
 }
 $avatarPath = $_SESSION['avatarPath'];
+
+// Fetch unique asset names and technician names for filter modals
+$uniqueAssetNames = [];
+$uniqueTechnicianNames = [];
+
+if ($conn) {
+    $sqlNames = "SELECT DISTINCT b_assets_name FROM tbl_borrowed ORDER BY b_assets_name";
+    $resultNames = $conn->query($sqlNames);
+    if ($resultNames) {
+        while ($row = $resultNames->fetch_assoc()) {
+            $uniqueAssetNames[] = $row['b_assets_name'];
+        }
+    }
+
+    $sqlTechNames = "SELECT DISTINCT b_technician_name FROM tbl_borrowed ORDER BY b_technician_name";
+    $resultTechNames = $conn->query($sqlTechNames);
+    if ($resultTechNames) {
+        while ($row = $resultTechNames->fetch_assoc()) {
+            $uniqueTechnicianNames[] = $row['b_technician_name'];
+        }
+    }
+}
 
 // Fetch borrowed assets for return modal dropdown
 $sqlBorrowedDropdown = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id 
@@ -361,49 +384,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isse
     exit();
 }
 
-// Handle AJAX search request
+// Handle AJAX search request with filters
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['search'])) {
     $searchTerm = trim($_GET['search']);
+    $filterAssetName = trim($_GET['filter_asset_name'] ?? '');
+    $filterTechName = trim($_GET['filter_technician_name'] ?? '');
     $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
     $output = '';
 
-    if ($searchTerm === '') {
-        // Fetch default borrowed assets for the current page
-        $countSql = "SELECT COUNT(*) as total FROM tbl_borrowed";
-        $countResult = $conn->query($countSql);
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $totalPages = ceil($totalRecords / $limit);
+    $params = [];
+    $types = '';
+    $whereClauses = [];
 
-        $sql = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date 
-                FROM tbl_borrowed 
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ii", $offset, $limit);
-    } else {
-        // Count total matching records for pagination
-        $countSql = "SELECT COUNT(*) as total FROM tbl_borrowed 
-                     WHERE b_assets_name LIKE ? OR b_technician_name LIKE ? OR b_technician_id LIKE ? OR b_date LIKE ?";
-        $countStmt = $conn->prepare($countSql);
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(b_assets_name LIKE ? OR b_technician_name LIKE ? OR b_technician_id LIKE ? OR b_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $countStmt->bind_param("ssss", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard);
-        $countStmt->execute();
-        $countResult = $countStmt->get_result();
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $countStmt->close();
-
-        $totalPages = ceil($totalRecords / $limit);
-
-        // Fetch paginated search results
-        $sql = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date 
-                FROM tbl_borrowed 
-                WHERE b_assets_name LIKE ? OR b_technician_name LIKE ? OR b_technician_id LIKE ? OR b_date LIKE ?
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssii", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $offset, $limit);
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $types .= 'ssss';
     }
 
+    if ($filterAssetName !== '') {
+        $whereClauses[] = "b_assets_name = ?";
+        $params[] = $filterAssetName;
+        $types .= 's';
+    }
+
+    if ($filterTechName !== '') {
+        $whereClauses[] = "b_technician_name = ?";
+        $params[] = $filterTechName;
+        $types .= 's';
+    }
+
+    $whereClause = empty($whereClauses) ? '1' : implode(' AND ', $whereClauses);
+
+    // Count total matching records for pagination
+    $countSql = "SELECT COUNT(*) as total FROM tbl_borrowed WHERE $whereClause";
+    $countStmt = $conn->prepare($countSql);
+    if (!empty($params)) {
+        $countStmt->bind_param($types, ...$params);
+    }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
+    $totalRecords = $countResult->fetch_assoc()['total'];
+    $countStmt->close();
+
+    $totalPages = ceil($totalRecords / $limit);
+
+    // Fetch paginated search results
+    $sql = "SELECT b_id, b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date 
+            FROM tbl_borrowed 
+            WHERE $whereClause 
+            LIMIT ?, ?";
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $params[] = $offset;
+        $params[] = $limit;
+        $types .= 'ii';
+        $stmt->bind_param($types, ...$params);
+    } else {
+        $stmt->bind_param("ii", $offset, $limit);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -472,12 +514,32 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Borrowed Assets</title>
     <link rel="stylesheet" href="borrowedsT.css"> 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        .filter-btn {
+            background: transparent !important;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: #f5f8fc;
+            margin-left: 5px;
+            vertical-align: middle;
+            padding: 0;
+            outline: none;
+        }
+        .filter-btn:hover {
+            color: hsl(211, 45.70%, 84.10%);
+            background: transparent !important;
+        }
+        th .filter-btn {
+            background: transparent !important;
+        }
+    </style>
 </head>
 <body>
-
 <div class="wrapper">
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
@@ -550,9 +612,19 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                     <thead>
                         <tr>
                             <th>Borrowed ID</th>
-                            <th>Asset Name</th>
+                            <th>
+                                Asset Name
+                                <button class="filter-btn" onclick="showAssetNameFilterModal()" title="Filter by Asset Name">
+                                    <i class='bx bx-filter'></i>
+                                </button>
+                            </th>
                             <th>Asset Quantity</th>
-                            <th>Technician Name</th>
+                            <th>
+                                Technician Name
+                                <button class="filter-btn" onclick="showTechnicianNameFilterModal()" title="Filter by Technician Name">
+                                    <i class='bx bx-filter'></i>
+                                </button>
+                            </th>
                             <th>Technician ID</th>
                             <th>Borrowed Date</th>
                             <th>Actions</th>
@@ -589,9 +661,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                     <?php else: ?>
                         <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
                     <?php endif; ?>
-
                     <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-
                     <?php if ($page < $totalPages): ?>
                         <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
                     <?php else: ?>
@@ -624,37 +694,31 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                     <input type="hidden" name="edit_asset" value="1">
                     <input type="hidden" name="ajax" value="true">
                     <input type="hidden" name="b_id" id="edit_b_id">
-                    
                     <div class="form-group">
                         <label for="edit_b_assets_name">Asset Name</label>
                         <input type="text" name="b_assets_name" id="edit_b_assets_name" required>
                         <span class="error-message" id="error_b_assets_name"></span>
                     </div>
-                    
                     <div class="form-group">
                         <label for="edit_b_quantity">Asset Quantity</label>
                         <input type="number" name="b_quantity" id="edit_b_quantity" min="1" required>
                         <span class="error-message" id="error_b_quantity"></span>
                     </div>
-                    
                     <div class="form-group">
                         <label for="edit_b_technician_name">Technician Name</label>
                         <input type="text" name="b_technician_name" id="edit_b_technician_name" required>
                         <span class="error-message" id="error_b_technician_name"></span>
                     </div>
-                    
                     <div class="form-group">
                         <label for="edit_b_technician_id">Technician ID</label>
                         <input type="text" name="b_technician_id" id="edit_b_technician_id" required>
                         <span class="error-message" id="error_b_technician_id"></span>
                     </div>
-                    
                     <div class="form-group">
                         <label for="edit_b_date">Borrowed Date</label>
                         <input type="date" name="b_date" id="edit_b_date" required>
                         <span class="error-message" id="error_b_date"></span>
                     </div>
-                    
                     <div class="modal-footer">
                         <button type="button" class="modal-btn cancel" onclick="closeModal('editBorrowedModal')">Cancel</button>
                         <button type="submit" class="modal-btn confirm">Update Asset</button>
@@ -731,6 +795,54 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                 </form>
             </div>
         </div>
+
+        <!-- Asset Name Filter Modal -->
+        <div id="assetNameFilterModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Filter by Asset Name</h2>
+                </div>
+                <form id="assetNameFilterForm" class="modal-form">
+                    <label for="asset_name_filter">Select Asset Name</label>
+                    <select name="asset_name_filter" id="asset_name_filter">
+                        <option value="">All Assets</option>
+                        <?php foreach ($uniqueAssetNames as $name): ?>
+                            <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('assetNameFilterModal')">Cancel</button>
+                        <button type="button" class="modal-btn confirm" onclick="applyAssetNameFilter()">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Technician Name Filter Modal -->
+        <div id="technicianNameFilterModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Filter by Technician Name</h2>
+                </div>
+                <form id="technicianNameFilterForm" class="modal-form">
+                    <label for="technician_name_filter">Select Technician Name</label>
+                    <select name="technician_name_filter" id="technician_name_filter">
+                        <option value="">All Technicians</option>
+                        <?php foreach ($uniqueTechnicianNames as $name): ?>
+                            <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('technicianNameFilterModal')">Cancel</button>
+                        <button type="button" class="modal-btn confirm" onclick="applyTechnicianNameFilter()">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -738,6 +850,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
 let updateInterval = null;
+window.currentFilters = { assetName: '', technicianName: '' };
 
 // Debounce function to limit search calls
 function debounce(func, wait) {
@@ -752,7 +865,7 @@ function debounce(func, wait) {
     };
 }
 
-function searchBorrowed(page = 1) {
+function searchBorrowed(page = 1, filterAssetName = '', filterTechName = '') {
     const searchTerm = document.getElementById('searchInput').value;
     const tbody = document.getElementById('tableBody');
     const paginationContainer = document.getElementById('borrowed-pagination');
@@ -772,7 +885,9 @@ function searchBorrowed(page = 1) {
             }
         }
     };
-    xhr.open('GET', `borrowedStaff.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}`, true);
+    const url = `borrowedStaff.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}` +
+                `&filter_asset_name=${encodeURIComponent(filterAssetName)}&filter_technician_name=${encodeURIComponent(filterTechName)}`;
+    xhr.open('GET', url, true);
     xhr.send();
 }
 
@@ -797,7 +912,7 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationContainer.innerHTML = paginationHtml;
 }
 
-const debouncedSearchBorrowed = debounce(searchBorrowed, 300);
+const debouncedSearchBorrowed = debounce((page) => searchBorrowed(page), 300);
 
 function showViewModal(id, assetName, quantity, technicianName, technicianId, date) {
     const modalContent = `
@@ -819,9 +934,7 @@ function showEditModal(id) {
                 alert('Error: ' + data.error);
                 return;
             }
-            // Clear previous error messages
             document.querySelectorAll('.error-message').forEach(span => span.textContent = '');
-            // Populate form fields
             document.getElementById('edit_b_id').value = id;
             document.getElementById('edit_b_assets_name').value = data.b_assets_name || '';
             document.getElementById('edit_b_quantity').value = data.b_quantity || 1;
@@ -843,17 +956,45 @@ function showDeleteModal(id, assetName) {
 }
 
 function showReturnAssetModal() {
-    // Clear previous error messages and reset form
     document.querySelectorAll('#returnAssetForm .error-message').forEach(span => span.textContent = '');
     document.getElementById('returnAssetForm').reset();
     document.getElementById('date').value = '<?php echo date('Y-m-d'); ?>';
     document.getElementById('returnAssetModal').style.display = 'flex';
 }
 
+function showAssetNameFilterModal() {
+    document.getElementById('assetNameFilterModal').style.display = 'flex';
+}
+
+function showTechnicianNameFilterModal() {
+    document.getElementById('technicianNameFilterModal').style.display = 'flex';
+}
+
+function applyAssetNameFilter() {
+    const nameSelect = document.getElementById('asset_name_filter');
+    const selectedName = nameSelect.value;
+    applyFilter(selectedName, null);
+    closeModal('assetNameFilterModal');
+}
+
+function applyTechnicianNameFilter() {
+    const techNameSelect = document.getElementById('technician_name_filter');
+    const selectedTechName = techNameSelect.value;
+    applyFilter(null, selectedTechName);
+    closeModal('technicianNameFilterModal');
+}
+
+function applyFilter(selectedAssetName = null, selectedTechName = null) {
+    const currentAssetName = selectedAssetName !== null ? selectedAssetName : (window.currentFilters?.assetName || '');
+    const currentTechName = selectedTechName !== null ? selectedTechName : (window.currentFilters?.technicianName || '');
+    window.currentFilters = { assetName: currentAssetName, technicianName: currentTechName };
+    searchBorrowed(1, currentAssetName, currentTechName);
+}
+
 function updateTable() {
     const searchTerm = document.getElementById('searchInput').value;
     if (searchTerm) {
-        searchBorrowed(currentSearchPage);
+        searchBorrowed(currentSearchPage, window.currentFilters.assetName, window.currentFilters.technicianName);
     } else {
         fetch(`borrowedStaff.php?page=${defaultPage}`)
             .then(response => response.text())
@@ -872,7 +1013,6 @@ function updateTable() {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
-    // Clear error messages when closing edit or return modal
     if (modalId === 'editBorrowedModal' || modalId === 'returnAssetModal') {
         document.querySelectorAll(`#${modalId} .error-message`).forEach(span => span.textContent = '');
     }
@@ -895,13 +1035,11 @@ document.getElementById('editBorrowedForm').addEventListener('submit', function(
     })
     .then(response => response.json())
     .then(data => {
-        // Clear previous error messages
         document.querySelectorAll('#editBorrowedForm .error-message').forEach(span => span.textContent = '');
         
         if (data.success) {
             closeModal('editBorrowedModal');
             updateTable();
-            // Show success message
             const alertContainer = document.querySelector('.alert-container');
             alertContainer.innerHTML = '<div class="alert alert-success">' + data.message + '</div>';
             setTimeout(() => {
@@ -912,7 +1050,6 @@ document.getElementById('editBorrowedForm').addEventListener('submit', function(
                 }
             }, 2000);
         } else {
-            // Display validation errors
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {
                     const errorSpan = document.getElementById(`error_${field}`);
@@ -943,13 +1080,11 @@ document.getElementById('returnAssetForm').addEventListener('submit', function(e
     })
     .then(response => response.json())
     .then(data => {
-        // Clear previous error messages
         document.querySelectorAll('#returnAssetForm .error-message').forEach(span => span.textContent = '');
         
         if (data.success) {
             closeModal('returnAssetModal');
             updateTable();
-            // Show success message
             const alertContainer = document.querySelector('.alert-container');
             alertContainer.innerHTML = '<div class="alert alert-success">' + data.message + '</div>';
             setTimeout(() => {
@@ -960,7 +1095,6 @@ document.getElementById('returnAssetForm').addEventListener('submit', function(e
                 }
             }, 2000);
         } else {
-            // Display validation errors
             if (data.errors) {
                 for (const [field, error] of Object.entries(data.errors)) {
                     const errorSpan = document.getElementById(`error_${field}`);
@@ -992,7 +1126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-    // Initialize search on page load if there's a search term
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value) {
         searchBorrowed();
@@ -1006,10 +1139,8 @@ window.addEventListener('beforeunload', () => {
     }
 });
 </script>
-
 </body>
 </html>
-
 <?php 
 $conn->close();
 ?>

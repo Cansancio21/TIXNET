@@ -524,17 +524,18 @@ $stmt->close();
             font-size: 12px;
             display: block;
         }
-        .filter-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 24px;
-            color: var(--primary);
-            margin-left: 10px;
-        }
-        .filter-btn:hover {
-            color: var(--primary-dark);
-        }
+.filter-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--light, #f5f8fc); /* White as specified */
+    margin-left: 5px;
+    vertical-align: middle;
+}
+.filter-btn:hover {
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%)); /* White shade for hover */
+}
     </style>
 </head>
 <body>
@@ -604,7 +605,6 @@ $stmt->close();
                         <span class="tab-badge"><?php echo $totalArchived; ?></span>
                     <?php endif; ?>
                 </button>
-                <button class="filter-btn" onclick="showFilterModal()" title="Filter Users"><i class='bx bx-filter'></i></button>
             </div>
             
             <div id="active-users-tab" class="active">
@@ -619,8 +619,8 @@ $stmt->close();
                             <th>Lastname</th>
                             <th>Email</th>
                             <th>Username</th>
-                            <th>Type</th>
-                            <th>Status</th>
+                            <th>Type <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+                            <th>Status <button class="filter-btn" onclick="showStatusFilterModal('active')" title="Filter by Status"><i class='bx bx-filter'></i></button></th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -681,8 +681,8 @@ $stmt->close();
                             <th>Lastname</th>
                             <th>Email</th>
                             <th>Username</th>
-                            <th>Type</th>
-                            <th>Status</th>
+                            <th>Type <button class="filter-btn" onclick="showTypeFilterModal('archived')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+                            <th>Status <button class="filter-btn" onclick="showStatusFilterModal('archived')" title="Filter by Status"><i class='bx bx-filter'></i></button></th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -937,22 +937,15 @@ $stmt->close();
         </div>
     </div>
 
-    <!-- Filter Users Modal -->
-    <div id="filterModal" class="modal">
+    <!-- Type Filter Modal -->
+    <div id="typeFilterModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Filter Users</h2>
+                <h2>Filter by Type</h2>
             </div>
-            <form method="GET" id="filterForm" class="modal-form">
+            <form method="GET" id="typeFilterForm" class="modal-form">
                 <input type="hidden" name="ajax" value="true">
-                <div class="form-group">
-                    <label for="filter_status">Status</label>
-                    <select name="status" id="filter_status">
-                        <option value="">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="pending">Pending</option>
-                    </select>
-                </div>
+                <input type="hidden" id="typeFilterTab" name="tab" value="">
                 <div class="form-group">
                     <label for="filter_type">Type</label>
                     <select name="type" id="filter_type">
@@ -963,8 +956,33 @@ $stmt->close();
                     </select>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="modal-btn cancel" onclick="closeModal('filterModal')">Cancel</button>
-                    <button type="submit" class="modal-btn confirm">Apply Filters</button>
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('typeFilterModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Status Filter Modal -->
+    <div id="statusFilterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Filter by Status</h2>
+            </div>
+            <form method="GET" id="statusFilterForm" class="modal-form">
+                <input type="hidden" name="ajax" value="true">
+                <input type="hidden" id="statusFilterTab" name="tab" value="">
+                <div class="form-group">
+                    <label for="filter_status">Status</label>
+                    <select name="status" id="filter_status">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('statusFilterModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Apply Filter</button>
                 </div>
             </form>
         </div>
@@ -975,8 +993,8 @@ $stmt->close();
         let currentTab = '<?php echo isset($_GET['tab']) ? $_GET['tab'] : 'active'; ?>';
         let activePage = <?php echo json_encode($page); ?>;
         let archivedPage = <?php echo json_encode($archivedPage); ?>;
-        let currentStatusFilter = '';
-        let currentTypeFilter = '';
+        let currentStatusFilter = '<?php echo isset($_GET['status']) ? $_GET['status'] : ''; ?>';
+        let currentTypeFilter = '<?php echo isset($_GET['type']) ? $_GET['type'] : ''; ?>';
 
         function debounce(func, wait) {
             let timeout;
@@ -1138,6 +1156,26 @@ $stmt->close();
                     xhr.send(formData);
                 }
             });
+
+            // Handle Type Filter Form submission
+            document.getElementById('typeFilterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                currentTypeFilter = document.getElementById('filter_type').value;
+                currentTab = document.getElementById('typeFilterTab').value;
+                currentSearchPage = currentTab === 'active' ? activePage : archivedPage;
+                closeModal('typeFilterModal');
+                searchUsers(currentSearchPage);
+            });
+
+            // Handle Status Filter Form submission
+            document.getElementById('statusFilterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                currentStatusFilter = document.getElementById('filter_status').value;
+                currentTab = document.getElementById('statusFilterTab').value;
+                currentSearchPage = currentTab === 'active' ? activePage : archivedPage;
+                closeModal('statusFilterModal');
+                searchUsers(currentSearchPage);
+            });
         });
 
         function closeModal(modalId) {
@@ -1156,8 +1194,10 @@ $stmt->close();
             } else if (modalId === 'editUserModal') {
                 document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
                 document.getElementById('editUserForm').reset();
-            } else if (modalId === 'filterModal') {
-                document.getElementById('filterForm').reset();
+            } else if (modalId === 'typeFilterModal') {
+                document.getElementById('typeFilterForm').reset();
+            } else if (modalId === 'statusFilterModal') {
+                document.getElementById('statusFilterForm').reset();
             }
         }
 
@@ -1251,10 +1291,16 @@ $stmt->close();
             document.getElementById('editUserModal').style.display = 'block';
         }
 
-        function showFilterModal() {
-            document.getElementById('filter_status').value = currentStatusFilter;
+        function showTypeFilterModal(tab) {
+            document.getElementById('typeFilterTab').value = tab;
             document.getElementById('filter_type').value = currentTypeFilter;
-            document.getElementById('filterModal').style.display = 'block';
+            document.getElementById('typeFilterModal').style.display = 'block';
+        }
+
+        function showStatusFilterModal(tab) {
+            document.getElementById('statusFilterTab').value = tab;
+            document.getElementById('filter_status').value = currentStatusFilter;
+            document.getElementById('statusFilterModal').style.display = 'block';
         }
 
         function updatePagination(currentPage, totalPages, tab) {

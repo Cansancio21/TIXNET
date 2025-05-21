@@ -360,7 +360,7 @@ table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 20px;
+    margin-top: 80px;
     table-layout: auto;
 }
 
@@ -693,6 +693,7 @@ tr:hover td {
 }
 
 .borrow-btn, .return-btn, .export-btn {
+
     display: inline-block;
     color: white;
     padding: 10px 20px;
@@ -733,4 +734,6 @@ tr:hover td {
 .export-btn:hover {
     background-color: #7494ec;
 }
+
+
 

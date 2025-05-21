@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include 'db.php';
@@ -44,8 +45,30 @@ if ($conn) {
     $_SESSION['error'] = "Database connection failed.";
 }
 
+// Fetch unique asset names and statuses
+$uniqueAssetNames = [];
+$uniqueAssetStatuses = [];
+
+if ($conn) {
+    $sqlNames = "SELECT DISTINCT a_name FROM tbl_assets ORDER BY a_name";
+    $resultNames = $conn->query($sqlNames);
+    if ($resultNames) {
+        while ($row = $resultNames->fetch_assoc()) {
+            $uniqueAssetNames[] = $row['a_name'];
+        }
+    }
+
+    $sqlStatuses = "SELECT DISTINCT a_status FROM tbl_assets WHERE a_status != 'Archived' ORDER BY a_status";
+    $resultStatuses = $conn->query($sqlStatuses);
+    if ($resultStatuses) {
+        while ($row = $resultStatuses->fetch_assoc()) {
+            $uniqueAssetStatuses[] = $row['a_status'];
+        }
+    }
+}
+
 // Handle add/edit/borrow/deploy asset requests
-if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $hasError = false;
 
     // Add Asset
@@ -56,12 +79,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
         $assetdate = trim($_POST['date'] ?? '');
         $assetnameErr = $assetstatusErr = $assetquantityErr = $assetdateErr = "";
 
-        // Validate inputs
         if (!preg_match("/^[a-zA-Z\s-]+$/", $assetname)) {
             $assetnameErr = "Asset Name should not contain numbers.";
             $hasError = true;
         }
-        // Check for duplicate asset name
         if (empty($assetnameErr)) {
             $sqlCheck = "SELECT a_id FROM tbl_assets WHERE a_name = ?";
             $stmtCheck = $conn->prepare($sqlCheck);
@@ -98,25 +119,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
             if ($stmt) {
                 $stmt->bind_param("ssis", $assetname, $assetstatus, $assetquantity, $assetdate);
                 if ($stmt->execute()) {
-                    echo json_encode(['success' => true, 'message' => 'Asset registered successfully.']);
+                    $_SESSION['message'] = "Asset registered successfully.";
+                    $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+                    $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+                    header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
+                    exit();
                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to register asset.']);
+                    $_SESSION['error'] = "Failed to register asset.";
                 }
                 $stmt->close();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Database error.']);
+                $_SESSION['error'] = "Database error.";
             }
         } else {
-            echo json_encode([
-                'success' => false,
-                'errors' => [
-                    'asset_name' => $assetnameErr,
-                    'asset_status' => $assetstatusErr,
-                    'asset_quantity' => $assetquantityErr,
-                    'date' => $assetdateErr
-                ]
-            ]);
+            $_SESSION['error'] = implode(" ", array_filter([$assetnameErr, $assetstatusErr, $assetquantityErr, $assetdateErr]));
         }
+        $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+        $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+        header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
         exit();
     }
 
@@ -129,7 +149,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
         $assetdate = trim($_POST['date'] ?? '');
         $assetnameErr = $assetstatusErr = $assetquantityErr = $assetdateErr = "";
 
-        // Validate inputs
         if (!preg_match("/^[a-zA-Z\s-]+$/", $assetname)) {
             $assetnameErr = "Asset Name should not contain numbers.";
             $hasError = true;
@@ -153,25 +172,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
             if ($stmt) {
                 $stmt->bind_param("ssisi", $assetname, $assetstatus, $assetquantity, $assetdate, $assetId);
                 if ($stmt->execute()) {
-                    echo json_encode(['success' => true, 'message' => 'Asset updated successfully.']);
+                    $_SESSION['message'] = "Asset updated successfully.";
+                    $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+                    $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+                    header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
+                    exit();
                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to update asset.']);
+                    $_SESSION['error'] = "Failed to update asset.";
                 }
                 $stmt->close();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Database error.']);
+                $_SESSION['error'] = "Database error.";
             }
         } else {
-            echo json_encode([
-                'success' => false,
-                'errors' => [
-                    'asset_name' => $assetnameErr,
-                    'asset_status' => $assetstatusErr,
-                    'asset_quantity' => $assetquantityErr,
-                    'date' => $assetdateErr
-                ]
-            ]);
+            $_SESSION['error'] = implode(" ", array_filter([$assetnameErr, $assetstatusErr, $assetquantityErr, $assetdateErr]));
         }
+        $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+        $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+        header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
         exit();
     }
 
@@ -184,24 +202,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
         $borrow_techid = trim($_POST['tech_id'] ?? '');
         $borrowdate = trim($_POST['date'] ?? '');
 
-        // Validate inputs
         if (empty($asset_id)) {
-            $errors['asset_id'] = "Please select an asset.";
+            $errors[] = "Please select an asset.";
         }
         if (empty($borrowquantity) || !is_numeric($borrowquantity) || $borrowquantity <= 0) {
-            $errors['borrow_quantity'] = "Please enter a valid quantity (greater than 0).";
+            $errors[] = "Please enter a valid quantity (greater than 0).";
         }
         if (empty($borrow_techname) || !preg_match("/^[a-zA-Z\s-]+$/", $borrow_techname)) {
-            $errors['tech_name'] = "Technician name is required and should not contain numbers.";
+            $errors[] = "Technician name is required and should not contain numbers.";
         }
         if (empty($borrow_techid)) {
-            $errors['tech_id'] = "Technician ID is required.";
+            $errors[] = "Technician ID is required.";
         }
         if (empty($borrowdate) || !preg_match("/^\d{4}-\d{2}-\d{2}$/", $borrowdate)) {
-            $errors['date'] = "Borrow date is required and must be valid.";
+            $errors[] = "Borrow date is required and must be valid.";
         }
 
-        // Validate technician ID and name
         if (empty($errors)) {
             $sqlCheckTechnician = "SELECT u_fname, u_lname FROM tbl_user WHERE u_id = ?";
             $stmtCheckTechnician = $conn->prepare($sqlCheckTechnician);
@@ -213,15 +229,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $row = $resultCheckTechnician->fetch_assoc();
                 $fullName = trim($row['u_fname'] . ' ' . $row['u_lname']);
                 if (strcasecmp($fullName, $borrow_techname) !== 0) {
-                    $errors['tech_name'] = "Technician name does not match the ID.";
+                    $errors[] = "Technician name does not match the ID.";
                 }
             } else {
-                $errors['tech_id'] = "Technician ID does not exist.";
+                $errors[] = "Technician ID does not exist.";
             }
             $stmtCheckTechnician->close();
         }
 
-        // Check if technician has borrowed assets
         if (empty($errors)) {
             $sqlCheckBorrowed = "SELECT SUM(b_quantity) AS total_borrowed FROM tbl_borrowed WHERE b_technician_id = ?";
             $stmtCheckBorrowed = $conn->prepare($sqlCheckBorrowed);
@@ -231,12 +246,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
             $row = $resultCheckBorrowed->fetch_assoc();
 
             if ($row['total_borrowed'] > 0) {
-                $errors['tech_id'] = "Technician must return borrowed assets before borrowing again.";
+                $errors[] = "Technician must return borrowed assets before borrowing again.";
             }
             $stmtCheckBorrowed->close();
         }
 
-        // Validate asset and quantity
         if (empty($errors)) {
             $sqlCheckAsset = "SELECT a_name, a_quantity FROM tbl_assets WHERE a_id = ? AND a_status != 'Archived'";
             $stmtCheckAsset = $conn->prepare($sqlCheckAsset);
@@ -250,19 +264,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $availableQuantity = $row['a_quantity'];
 
                 if ($borrowquantity > $availableQuantity) {
-                    $errors['borrow_quantity'] = "Requested quantity ($borrowquantity) exceeds available stock ($availableQuantity).";
+                    $errors[] = "Requested quantity ($borrowquantity) exceeds available stock ($availableQuantity).";
                 }
             } else {
-                $errors['asset_id'] = "Selected asset is not available.";
+                $errors[] = "Selected asset is not available.";
             }
             $stmtCheckAsset->close();
         }
 
-        // If no errors, perform database operations in a transaction
         if (empty($errors)) {
             $conn->begin_transaction();
             try {
-                // Insert into tbl_borrowed
                 $sqlInsertBorrowed = "INSERT INTO tbl_borrowed (b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date) 
                                       VALUES (?, ?, ?, ?, ?)";
                 $stmtInsertBorrowed = $conn->prepare($sqlInsertBorrowed);
@@ -270,7 +282,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $stmtInsertBorrowed->execute();
                 $stmtInsertBorrowed->close();
 
-                // Insert into tbl_techborrowed
                 $sqlInsertTechBorrowed = "INSERT INTO tbl_techborrowed (b_assets_name, b_quantity, b_technician_name, b_technician_id, b_date) 
                                           VALUES (?, ?, ?, ?, ?)";
                 $stmtInsertTechBorrowed = $conn->prepare($sqlInsertTechBorrowed);
@@ -278,7 +289,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $stmtInsertTechBorrowed->execute();
                 $stmtInsertTechBorrowed->close();
 
-                // Update asset quantity
                 $newQuantity = $availableQuantity - $borrowquantity;
                 $sqlUpdate = "UPDATE tbl_assets SET a_quantity = ? WHERE a_id = ?";
                 $stmtUpdate = $conn->prepare($sqlUpdate);
@@ -286,17 +296,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $stmtUpdate->execute();
                 $stmtUpdate->close();
 
-                // Commit transaction
                 $conn->commit();
-                echo json_encode(['success' => true, 'message' => 'Asset borrowed successfully!']);
+                $_SESSION['message'] = "Asset borrowed successfully!";
             } catch (Exception $e) {
                 $conn->rollback();
-                echo json_encode(['success' => false, 'message' => 'Error borrowing asset: ' . $e->getMessage()]);
+                $_SESSION['error'] = "Error borrowing asset: " . $e->getMessage();
                 error_log("Borrow error: " . $e->getMessage());
             }
         } else {
-            echo json_encode(['success' => false, 'errors' => $errors]);
+            $_SESSION['error'] = implode(" ", $errors);
         }
+        $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+        $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+        header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
         exit();
     }
 
@@ -309,24 +321,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
         $borrow_techid = trim($_POST['tech_id'] ?? '');
         $borrowdate = trim($_POST['date'] ?? '');
 
-        // Validate inputs
         if (empty($asset_id)) {
-            $errors['asset_id'] = "Please select an asset.";
+            $errors[] = "Please select an asset.";
         }
         if (empty($borrowquantity) || !is_numeric($borrowquantity) || $borrowquantity <= 0) {
-            $errors['borrow_quantity'] = "Please enter a valid quantity (greater than 0).";
+            $errors[] = "Please enter a valid quantity (greater than 0).";
         }
         if (empty($borrow_techname) || !preg_match("/^[a-zA-Z\s-]+$/", $borrow_techname)) {
-            $errors['tech_name'] = "Technician name is required and should not contain numbers.";
+            $errors[] = "Technician name is required and should not contain numbers.";
         }
         if (empty($borrow_techid)) {
-            $errors['tech_id'] = "Technician ID is required.";
+            $errors[] = "Technician ID is required.";
         }
         if (empty($borrowdate) || !preg_match("/^\d{4}-\d{2}-\d{2}$/", $borrowdate)) {
-            $errors['date'] = "Deployment date is required and must be valid.";
+            $errors[] = "Deployment date is required and must be valid.";
         }
 
-        // Validate technician ID and name
         if (empty($errors)) {
             $sqlCheckTechnician = "SELECT u_fname, u_lname FROM tbl_user WHERE u_id = ?";
             $stmtCheckTechnician = $conn->prepare($sqlCheckTechnician);
@@ -338,15 +348,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $row = $resultCheckTechnician->fetch_assoc();
                 $fullName = trim($row['u_fname'] . ' ' . $row['u_lname']);
                 if (strcasecmp($fullName, $borrow_techname) !== 0) {
-                    $errors['tech_name'] = "Technician name does not match the ID.";
+                    $errors[] = "Technician name does not match the ID.";
                 }
             } else {
-                $errors['tech_id'] = "Technician ID does not exist.";
+                $errors[] = "Technician ID does not exist.";
             }
             $stmtCheckTechnician->close();
         }
 
-        // Check if asset exists and has sufficient quantity
         if (empty($errors)) {
             $sqlCheckAsset = "SELECT a_name, a_quantity FROM tbl_assets WHERE a_id = ? AND a_status = 'Deployment'";
             $stmtCheckAsset = $conn->prepare($sqlCheckAsset);
@@ -360,26 +369,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $availableQuantity = $row['a_quantity'];
 
                 if ($borrowquantity > $availableQuantity) {
-                    $errors['borrow_quantity'] = "Requested quantity ($borrowquantity) exceeds available stock ($availableQuantity).";
+                    $errors[] = "Requested quantity ($borrowquantity) exceeds available stock ($availableQuantity).";
                 }
             } else {
-                $errors['asset_id'] = "Selected asset is not available or not a deployment asset.";
+                $errors[] = "Selected asset is not available or not a deployment asset.";
             }
             $stmtCheckAsset->close();
         }
 
-        // If no errors, perform database operations in a transaction
         if (empty($errors)) {
             $conn->begin_transaction();
             try {
-                // Insert into tbl_deployed
                 $sqlInsert = "INSERT INTO tbl_deployed (d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date) VALUES (?, ?, ?, ?, ?)";
                 $stmtInsert = $conn->prepare($sqlInsert);
                 $stmtInsert->bind_param("sisis", $borrow_assetsname, $borrowquantity, $borrow_techname, $borrow_techid, $borrowdate);
                 $stmtInsert->execute();
                 $stmtInsert->close();
 
-                // Update asset quantity
                 $newQuantity = $availableQuantity - $borrowquantity;
                 $sqlUpdate = "UPDATE tbl_assets SET a_quantity = ? WHERE a_id = ?";
                 $stmtUpdate = $conn->prepare($sqlUpdate);
@@ -387,23 +393,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $userType !== 'technician') {
                 $stmtUpdate->execute();
                 $stmtUpdate->close();
 
-                // Commit transaction
                 $conn->commit();
-                echo json_encode(['success' => true, 'message' => 'Asset deployed successfully!']);
+                $_SESSION['message'] = "Asset deployed successfully!";
             } catch (Exception $e) {
                 $conn->rollback();
-                echo json_encode(['success' => false, 'message' => 'Error deploying asset: ' . $e->getMessage()]);
+                $_SESSION['error'] = "Error deploying asset: " . $e->getMessage();
                 error_log("Deploy error: " . $e->getMessage());
             }
         } else {
-            echo json_encode(['success' => false, 'errors' => $errors]);
+            $_SESSION['error'] = implode(" ", $errors);
         }
+        $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+        $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+        header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
         exit();
     }
-}
 
-// Handle archive/unarchive/delete requests (restricted for technicians)
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $userType !== 'technician') {
+    // Handle archive/unarchive/delete requests
     if (isset($_POST['archive_asset'])) {
         $assetId = (int)$_POST['a_id'];
         $sql = "UPDATE tbl_assets SET a_status = 'Archived' WHERE a_id = ?";
@@ -446,17 +452,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $userType !== 'technician') {
     $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
     header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
     exit();
-} elseif ($_SERVER['REQUEST_METHOD'] == 'POST' && $userType === 'technician') {
-    $_SESSION['error'] = "Only staff can add, edit, deploy, or archive assets.";
-    $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
-    $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
-    header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
-    exit();
 }
 
-// Handle AJAX search request
+// Handle AJAX search request with filters
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab'])) {
     $searchTerm = trim($_GET['search'] ?? '');
+    $filterName = trim($_GET['filter_name'] ?? '');
+    $filterStatus = trim($_GET['filter_status'] ?? '');
     $tab = $_GET['tab'] === 'archive' ? 'archive' : 'active';
     $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
     $limit = 10;
@@ -464,44 +466,56 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     $output = '';
 
     $statusCondition = $tab === 'active' ? "a_status != 'Archived'" : "a_status = 'Archived'";
+    $params = [];
+    $types = '';
+    $whereClauses = [$statusCondition];
 
-    if ($searchTerm === '') {
-        $countSql = "SELECT COUNT(*) as total FROM tbl_assets WHERE $statusCondition";
-        $countResult = $conn->query($countSql);
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $totalPages = ceil($totalRecords / $limit);
-
-        $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
-                FROM tbl_assets 
-                WHERE $statusCondition 
-                ORDER BY a_id ASC 
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ii", $offset, $limit);
-    } else {
-        $countSql = "SELECT COUNT(*) as total FROM tbl_assets 
-                     WHERE $statusCondition AND (a_name LIKE ? OR a_status LIKE ? OR a_quantity LIKE ? OR a_date LIKE ?)";
-        $countStmt = $conn->prepare($countSql);
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(a_name LIKE ? OR a_status LIKE ? OR a_quantity LIKE ? OR a_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $countStmt->bind_param("ssss", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard);
-        $countStmt->execute();
-        $countResult = $countStmt->get_result();
-        $totalRecords = $countResult->fetch_assoc()['total'];
-        $countStmt->close();
-
-        $totalPages = ceil($totalRecords / $limit);
-
-        $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
-                FROM tbl_assets 
-                WHERE $statusCondition AND (a_name LIKE ? OR a_status LIKE ? OR a_quantity LIKE ? OR a_date LIKE ?)
-                ORDER BY a_id ASC 
-                LIMIT ?, ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssii", $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $offset, $limit);
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $types .= 'ssss';
     }
 
+    if ($filterName !== '') {
+        $whereClauses[] = "a_name = ?";
+        $params[] = $filterName;
+        $types .= 's';
+    }
+
+    if ($filterStatus !== '') {
+        $whereClauses[] = "a_status = ?";
+        $params[] = $filterStatus;
+        $types .= 's';
+    }
+
+    $whereClause = implode(' AND ', $whereClauses);
+
+    $countSql = "SELECT COUNT(*) as total FROM tbl_assets WHERE $whereClause";
+    $countStmt = $conn->prepare($countSql);
+    if (!empty($params)) {
+        $countStmt->bind_param($types, ...$params);
+    }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
+    $totalRecords = $countResult->fetch_assoc()['total'];
+    $countStmt->close();
+
+    $totalPages = ceil($totalRecords / $limit);
+
+    $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
+            FROM tbl_assets 
+            WHERE $whereClause 
+            ORDER BY a_id ASC 
+            LIMIT ?, ?";
+    $stmt = $conn->prepare($sql);
+    $params[] = $offset;
+    $params[] = $limit;
+    $types .= 'ii';
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
+
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $output .= "<tr> 
@@ -511,20 +525,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
                           <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>  
                           <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                           <td>";
-            if ($userType !== 'technician') {
-                if ($tab === 'active') {
-                    $output .= "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
-                                <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
-                } else {
-                    $output .= "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
-                }
+            if ($tab === 'active') {
+                $output .= "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                            <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                            <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
             } else {
-                $output .= "<a class='view-btn' onclick=\"showRestrictionMessage()\" title='View'><i class='fas fa-eye'></i></a>
-                            <a class='edit-btn' onclick=\"showRestrictionMessage()\" title='Edit'><i class='fas fa-edit'></i></a>
-                            <a class='archive-btn' onclick=\"showRestrictionMessage()\" title='Archive'><i class='fas fa-archive'></i></a>";
+                $output .= "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                            <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                            <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
             }
             $output .= "</td></tr>";
         }
@@ -559,7 +567,6 @@ $sqlDeployAssets = "SELECT a_id, a_name, a_quantity FROM tbl_assets WHERE a_stat
 $resultDeployAssets = $conn->query($sqlDeployAssets);
 
 if ($conn) {
-    // Active Assets
     $activeCountQuery = "SELECT COUNT(*) as total FROM tbl_assets WHERE a_status != 'Archived'";
     $activeCountResult = $conn->query($activeCountQuery);
     $totalActive = $activeCountResult ? $activeCountResult->fetch_assoc()['total'] : 0;
@@ -572,7 +579,6 @@ if ($conn) {
     $resultActive = $stmtActive->get_result();
     $stmtActive->close();
 
-    // Archived Assets
     $archivedCountQuery = "SELECT COUNT(*) as total FROM tbl_assets WHERE a_status = 'Archived'";
     $archivedCountResult = $conn->query($archivedCountQuery);
     $totalArchived = $archivedCountResult ? $archivedCountResult->fetch_assoc()['total'] : 0;
@@ -596,9 +602,31 @@ if ($conn) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Management</title>
     <link rel="stylesheet" href="assetT.css"> 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+
+    <style>
+        .filter-btn {
+            background: transparent !important;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: #f5f8fc;
+            margin-left: 5px;
+            vertical-align: middle;
+            padding: 0;
+            outline: none;
+        }
+        .filter-btn:hover {
+            color: hsl(211, 45.70%, 84.10%);
+            background: transparent !important;
+        }
+        th .filter-btn {
+            background: transparent !important;
+        }
+    </style>
 </head>
 <body>
 <div class="wrapper">
@@ -669,19 +697,25 @@ if ($conn) {
                         </button>
                     </div>
                 </div>
-                <?php if ($userType !== 'technician'): ?>
-                    <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
-                <?php else: ?>
-                    <a href="#" class="add-btn disabled" onclick="showRestrictionMessage()"><i class="fas fa-plus"></i> Add Asset</a>
-                <?php endif; ?>
+                <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
                 <a href="exportAssets.php" class="export-btn"><i class="fas fa-download"></i> Export</a>
                 <div id="assets-active" class="tab-content">
                     <table id="assets-table">
                         <thead>
                             <tr>
                                 <th>Asset ID</th>
-                                <th>Asset Name</th>
-                                <th>Asset Status</th>
+                                <th>
+                                    Asset Name
+                                    <button class="filter-btn" onclick="showAssetNameFilterModal('active')" title="Filter by Asset Name">
+                                        <i class='bx bx-filter'></i>
+                                    </button>
+                                </th>
+                                <th>
+                                    Asset Status
+                                    <button class="filter-btn" onclick="showAssetStatusFilterModal('active')" title="Filter by Asset Status">
+                                        <i class='bx bx-filter'></i>
+                                    </button>
+                                </th>
                                 <th>Asset Quantity</th>
                                 <th>Date Registered</th>
                                 <th>Actions</th>
@@ -697,17 +731,11 @@ if ($conn) {
                                             <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
                                             <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>  
                                             <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                            <td>";
-                                    if ($userType !== 'technician') {
-                                        echo "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                              <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
-                                              <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
-                                    } else {
-                                        echo "<a class='view-btn' onclick=\"showRestrictionMessage()\" title='View'><i class='fas fa-eye'></i></a>
-                                              <a class='edit-btn' onclick=\"showRestrictionMessage()\" title='Edit'><i class='fas fa-edit'></i></a>
-                                              <a class='archive-btn' onclick=\"showRestrictionMessage()\" title='Archive'><i class='fas fa-archive'></i></a>";
-                                    }
-                                    echo "</td></tr>"; 
+                                            <td>
+                                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                                <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
+                                            </td></tr>"; 
                                 } 
                             } else { 
                                 echo "<tr><td colspan='6'>No active assets found.</td></tr>"; 
@@ -734,8 +762,18 @@ if ($conn) {
                         <thead>
                             <tr>
                                 <th>Asset ID</th>
-                                <th>Asset Name</th>
-                                <th>Asset Status</th>
+                                <th>
+                                    Asset Name
+                                    <button class="filter-btn" onclick="showAssetNameFilterModal('archive')" title="Filter by Asset Name">
+                                        <i class='bx bx-filter'></i>
+                                    </button>
+                                </th>
+                                <th>
+                                    Asset Status
+                                    <button class="filter-btn" onclick="showAssetStatusFilterModal('archive')" title="Filter by Asset Status">
+                                        <i class='bx bx-filter'></i>
+                                    </button>
+                                </th>
                                 <th>Asset Quantity</th>
                                 <th>Date Registered</th>
                                 <th>Actions</th>
@@ -751,17 +789,11 @@ if ($conn) {
                                             <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
                                             <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td> 
                                             <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                            <td>";
-                                    if ($userType !== 'technician') {
-                                        echo "<a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                              <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                              <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
-                                    } else {
-                                        echo "<a class='view-btn' onclick=\"showRestrictionMessage()\" title='View'><i class='fas fa-eye'></i></a>
-                                              <a class='unarchive-btn' onclick=\"showRestrictionMessage()\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                              <a class='delete-btn' onclick=\"showRestrictionMessage()\" title='Delete'><i class='fas fa-trash'></i></a>";
-                                    }
-                                    echo "</td></tr>"; 
+                                            <td>
+                                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                                                <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                                            </td></tr>"; 
                                 } 
                             } else { 
                                 echo "<tr><td colspan='6'>No archived assets found.</td></tr>"; 
@@ -783,13 +815,8 @@ if ($conn) {
                         <?php endif; ?>
                     </div>
                 </div>
-                <?php if ($userType !== 'technician'): ?>
-                    <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
-                    <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
-                <?php else: ?>
-                    <a href="#" class="borrow-btn disabled" onclick="showRestrictionMessage()"><i class="fas fa-plus"></i> Borrow</a>
-                    <a href="#" class="deploy-btn disabled" onclick="showRestrictionMessage()"><i class="fas fa-cogs"></i> Deploy</a>
-                <?php endif; ?>
+                <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
+                <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
             </div>
         </div>
 
@@ -814,7 +841,6 @@ if ($conn) {
                 </div>
                 <form method="POST" id="addAssetForm" class="modal-form">
                     <input type="hidden" name="add_asset" value="1">
-                    <input type="hidden" name="ajax" value="true">
                     <div class="form-group">
                         <label for="asset_name">Asset Name:</label>
                         <input type="text" id="asset_name" name="asset_name" placeholder="Asset Name" required>
@@ -854,7 +880,6 @@ if ($conn) {
                 </div>
                 <form method="POST" id="editAssetForm" class="modal-form">
                     <input type="hidden" name="edit_asset" value="1">
-                    <input type="hidden" name="ajax" value="true">
                     <input type="hidden" name="a_id" id="edit_a_id">
                     <div class="form-group">
                         <label for="edit_asset_name">Asset Name:</label>
@@ -871,11 +896,12 @@ if ($conn) {
                         <select id="edit_asset_status" name="asset_status" required>
                             <option value="Borrowing">Borrowing</option>
                             <option value="Deployment">Deployment</option>
+                            <option value="Archived">Archived</option>
                         </select>
                         <span class="error" id="edit_asset_status_error"></span>
                     </div>
                     <div class="form-group">
-                        <label for="date">Date Registered:</label>
+                        <label for="edit_date">Date Registered:</label>
                         <input type="date" id="edit_date" name="date" required>
                         <span class="error" id="edit_date_error"></span>
                     </div>
@@ -895,13 +921,12 @@ if ($conn) {
                 </div>
                 <form method="POST" id="borrowAssetForm" class="modal-form">
                     <input type="hidden" name="borrow_asset" value="1">
-                    <input type="hidden" name="ajax" value="true">
                     <div class="form-group">
                         <label for="asset_id">Asset Name</label>
                         <select id="asset_id" name="asset_id" required>
                             <option value="">Select Asset</option>
                             <?php 
-                            $resultAssets->data_seek(0); // Reset result pointer
+                            $resultAssets->data_seek(0);
                             while ($row = $resultAssets->fetch_assoc()): ?>
                                 <option value="<?php echo htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8'); ?>">
                                     <?php echo htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . " (Available: " . $row['a_quantity'] . ")"; ?>
@@ -946,14 +971,13 @@ if ($conn) {
                 </div>
                 <form method="POST" id="deployAssetForm" class="modal-form">
                     <input type="hidden" name="deploy_asset" value="1">
-                    <input type="hidden" name="ajax" value="true">
                     <div class="form-group">
                         <label for="asset_id">Asset Name</label>
                         <select id="asset_id" name="asset_id" required>
                             <option value="">Select Asset</option>
                             <?php 
                             if ($resultDeployAssets && $resultDeployAssets->num_rows > 0) {
-                                $resultDeployAssets->data_seek(0); // Reset result pointer
+                                $resultDeployAssets->data_seek(0);
                                 while ($row = $resultDeployAssets->fetch_assoc()): ?>
                                     <option value="<?php echo htmlspecialchars($row['a_id'], ENT_QUOTES, 'UTF-8'); ?>">
                                         <?php echo htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . " (Available: " . $row['a_quantity'] . ")"; ?>
@@ -1046,6 +1070,56 @@ if ($conn) {
                 </form>
             </div>
         </div>
+
+        <!-- Asset Name Filter Modal -->
+        <div id="assetNameFilterModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Filter by Asset Name</h2>
+                </div>
+                <form id="assetNameFilterForm" class="modal-form">
+                    <input type="hidden" name="tab" id="assetNameFilterTab">
+                    <label for="asset_name_filter">Select Asset Name</label>
+                    <select name="asset_name_filter" id="asset_name_filter">
+                        <option value="">All Assets</option>
+                        <?php foreach ($uniqueAssetNames as $name): ?>
+                            <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('assetNameFilterModal')">Cancel</button>
+                        <button type="button" class="modal-btn confirm" onclick="applyAssetNameFilter()">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Asset Status Filter Modal -->
+        <div id="assetStatusFilterModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Filter by Asset Status</h2>
+                </div>
+                <form id="assetStatusFilterForm" class="modal-form">
+                    <input type="hidden" name="tab" id="assetStatusFilterTab">
+                    <label for="asset_status_filter">Select Asset Status</label>
+                    <select name="asset_status_filter" id="asset_status_filter">
+                        <option value="">All Statuses</option>
+                        <?php foreach ($uniqueAssetStatuses as $status): ?>
+                            <option value="<?php echo htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn cancel" onclick="closeModal('assetStatusFilterModal')">Cancel</button>
+                        <button type="button" class="modal-btn confirm" onclick="applyAssetStatusFilter()">Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1085,10 +1159,6 @@ function showAssetTab(tab) {
         }
     });
     searchAssets(1, tab);
-}
-
-function showRestrictionMessage() {
-    alert("Only staff can add, view, edit, borrow, deploy, or archive assets.");
 }
 
 function showAssetViewModal(id, name, status, quantity, date) {
@@ -1154,11 +1224,44 @@ function showDeleteModal(id, name) {
     document.getElementById('deleteModal').style.display = 'block';
 }
 
+function showAssetNameFilterModal(tab) {
+    document.getElementById('assetNameFilterTab').value = tab;
+    document.getElementById('assetNameFilterModal').style.display = 'block';
+}
+
+function showAssetStatusFilterModal(tab) {
+    document.getElementById('assetStatusFilterTab').value = tab;
+    document.getElementById('assetStatusFilterModal').style.display = 'block';
+}
+
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-function searchAssets(page = 1, tab = null) {
+function applyAssetNameFilter() {
+    const tab = document.getElementById('assetNameFilterTab').value;
+    const nameSelect = document.getElementById('asset_name_filter');
+    const selectedName = nameSelect.value;
+    applyFilter(tab, selectedName, null);
+    closeModal('assetNameFilterModal');
+}
+
+function applyAssetStatusFilter() {
+    const tab = document.getElementById('assetStatusFilterTab').value;
+    const statusSelect = document.getElementById('asset_status_filter');
+    const selectedStatus = statusSelect.value;
+    applyFilter(tab, null, selectedStatus);
+    closeModal('assetStatusFilterModal');
+}
+
+function applyFilter(tab, selectedName = null, selectedStatus = null) {
+    const currentName = selectedName !== null ? selectedName : (window.currentFilters?.name || '');
+    const currentStatus = selectedStatus !== null ? selectedStatus : (window.currentFilters?.status || '');
+    window.currentFilters = { name: currentName, status: currentStatus };
+    searchAssets(1, tab, currentName, currentStatus);
+}
+
+function searchAssets(page = 1, tab = null, filterName = '', filterStatus = '') {
     const searchTerm = document.getElementById('searchInput').value;
     const activeTab = tab || (document.getElementById('assets-active').style.display !== 'none' ? 'active' : 'archive');
     const tbody = document.getElementById(activeTab === 'active' ? 'assets-table-body' : 'archived-assets-table-body');
@@ -1176,7 +1279,9 @@ function searchAssets(page = 1, tab = null) {
             }
         }
     };
-    xhr.open('GET', `assetsT.php?action=search&tab=${activeTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}`, true);
+    const url = `assetsT.php?action=search&tab=${activeTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}` +
+                `&filter_name=${encodeURIComponent(filterName)}&filter_status=${encodeURIComponent(filterStatus)}`;
+    xhr.open('GET', url, true);
     xhr.send();
 }
 
@@ -1214,139 +1319,6 @@ function debounce(func, wait) {
 }
 
 const debouncedSearchAssets = debounce((page) => searchAssets(page), 300);
-
-// Handle Add/Edit/Borrow/Deploy Asset Form Submissions
-document.getElementById('addAssetForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('alert-success', data.message);
-            closeModal('addAssetModal');
-            searchAssets(1);
-        } else {
-            if (data.errors) {
-                for (const [field, error] of Object.entries(data.errors)) {
-                    document.getElementById(`add_${field}_error`).textContent = error;
-                }
-            } else {
-                showAlert('alert-error', data.message);
-            }
-        }
-    })
-    .catch(error => {
-        showAlert('alert-error', 'An error occurred.');
-        console.error(error);
-    });
-});
-
-document.getElementById('editAssetForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('alert-success', data.message);
-            closeModal('editAssetModal');
-            searchAssets(1);
-        } else {
-            if (data.errors) {
-                for (const [field, error] of Object.entries(data.errors)) {
-                    document.getElementById(`edit_${field}_error`).textContent = error;
-                }
-            } else {
-                showAlert('alert-error', data.message);
-            }
-        }
-    })
-    .catch(error => {
-        showAlert('alert-error', 'An error occurred.');
-        console.error(error);
-    });
-});
-
-document.getElementById('borrowAssetForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('alert-success', data.message);
-            closeModal('borrowAssetModal');
-            searchAssets(1);
-        } else {
-            if (data.errors) {
-                for (const [field, error] of Object.entries(data.errors)) {
-                    document.getElementById(`borrow_${field}_error`).textContent = error;
-                }
-            } else {
-                showAlert('alert-error', data.message);
-            }
-        }
-    })
-    .catch(error => {
-        showAlert('alert-error', 'An error occurred.');
-        console.error(error);
-    });
-});
-
-document.getElementById('deployAssetForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('alert-success', data.message);
-            closeModal('deployAssetModal');
-            searchAssets(1);
-        } else {
-            if (data.errors) {
-                for (const [field, error] of Object.entries(data.errors)) {
-                    document.getElementById(`deploy_${field}_error`).textContent = error;
-                }
-            } else {
-                showAlert('alert-error', data.message);
-            }
-        }
-    })
-    .catch(error => {
-        showAlert('alert-error', 'An error occurred.');
-        console.error(error);
-    });
-});
-
-function showAlert(type, message) {
-    const alertContainer = document.querySelector('.alert-container');
-    const alert = document.createElement('div');
-    alert.className = `alert ${type}`;
-    alert.textContent = message;
-    alertContainer.appendChild(alert);
-    setTimeout(() => {
-        alert.classList.add('alert-hidden');
-        setTimeout(() => alert.remove(), 500);
-    }, 2000);
-}
 </script>
 </body>
 </html>
-
-<?php $conn->close(); ?>
-
-
