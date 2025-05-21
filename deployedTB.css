@@ -19,7 +19,6 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
-    min-height: 100vh;
 }
 
 .glass-container {
@@ -34,7 +33,6 @@ body {
 .wrapper {
     display: flex;
     min-height: 100vh;
-    width: 100%;
 }
 
 /* Sidebar */
@@ -171,10 +169,6 @@ footer {
     margin-top: -15px;
 }
 
-.container h1 {
-    color: white;
-}
-
 /* Header */
 .upper {
     display: flex;
@@ -287,6 +281,31 @@ footer {
     margin-left: 5px;
 }
 
+.add-user-btn {
+    position: absolute;
+    top: 65px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.add-user-btn:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.add-user-btn i {
+    margin-right: 8px;
+}
+
 /* Tabs */
 .tab-buttons {
     display: flex;
@@ -302,25 +321,6 @@ footer {
     margin-right: 5px;
     border-radius: 4px 4px 0 0;
     position: relative;
-}
-
-.export-btn {
-    display: inline-block;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-    position: absolute;
-    right: 30px;
-    top: 50px;
-}
-
-.export-btn:hover {
-    background-color: #7494ec;
 }
 
 .tab-btn.active {
@@ -356,14 +356,12 @@ footer {
     display: flex;
 }
 
-/* Table */
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 90px;
+    margin-top: 80px;
     table-layout: auto;
-
 }
 
 thead {
@@ -446,10 +444,9 @@ tr:hover td {
 .action-buttons {
     display: flex;
     gap: 5px;
-    justify-content: center;
 }
 
-.view-btn, .edit-btn {
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -476,6 +473,19 @@ tr:hover td {
 
 .edit-btn:hover {
     background-color: #27ae60;
+}
+
+
+.return-btn {
+    outline: none;
+    border: none;
+}
+
+.return-btn:focus,
+.return-btn:active {
+    outline: none;
+    box-shadow: none;
+    background-color: #7aa12e; /* Optional: subtle focus indicator */
 }
 
 /* Pagination */
@@ -537,8 +547,8 @@ tr:hover td {
 
 .modal-content {
     background: white;
-    margin: 10% auto;
     padding: 20px;
+    margin: 10% auto;
     border-radius: 15px;
     width: 90%;
     max-width: 500px;
@@ -571,8 +581,8 @@ tr:hover td {
 }
 
 .modal-btn.cancel {
-    background: var(--light);
-    color: var(--dark);
+    background: var(--primary);
+    color: var(--light);
 }
 
 .modal-btn:hover {
@@ -589,7 +599,24 @@ tr:hover td {
     border-radius: 5px;
 }
 
-/* Archive Header */
+#viewModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -60px;
+}
+
+#editAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+    margin-top: -10px;
+}
+
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -130px;
+}
+
 .archive-header {
     display: flex;
     justify-content: space-between;
@@ -640,7 +667,6 @@ tr:hover td {
     border: 1px solid #f5c6cb;
 }
 
-
 .settings-link {
     position: absolute;
     right: 40px;
@@ -678,186 +704,72 @@ tr:hover td {
     border-radius: 8px;
     margin-top: 10px;
 }
-.back-icon i {
-    transition: color 0.3s;
-}
 
-.back-icon:hover i {
-    color: #007bff;
-}
-
-/* Heading */
-h1 {
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 24px;
-    color: #333;
-}
-
-/* Form Styles */
-.form {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-row {
-    margin-bottom: 15px;
-}
-
-label {
-    margin-bottom: 10px;
-    font-weight: bold;
-    color: #555;
-}
-
-/* Button Styles */
 button {
-    padding: 10px;
-    background-color: #007bff;
-    color: #fff;
     border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+    outline: none;
 }
 
-button:hover {
-    background-color: #0056b3;
+.button-container {
+    position: relative;
+    margin-bottom: 20px;
 }
 
-.error {
-    color: red;
-    font-size: 0.9em;
-    margin-top: 5px;
-    display: block;
+.borrow-btn, .return-btn{
+
+    display: inline-block;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    position: absolute;
+    top: 35px;
+    margin-bottom: 20px;
+    outline: none;
+    text-decoration: none;
 }
 
-.alert {
-    opacity: 1;
-    transition: opacity 0.5s ease-out;
+.borrow-btn {
+    background-color: #FFA500;
+    right: 225px;
 }
 
-.alert-hidden {
-    opacity: 0;
+.return-btn {
+    background-color: #8ea722d3;
+    right: 115px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .sidebar {
-        width: 70px;
-    }
-
-    .sidebar h2 {
-        font-size: 1rem;
-        padding: 10px;
-        margin-left: 0;
-    }
-
-    .sidebar ul li a span {
-        display: none;
-    }
-
-    .sidebar ul li a i {
-        margin-right: 0;
-        font-size: 1.5rem;
-    }
-
-    .container {
-        margin-left: 70px;
-        padding: 15px;
-    }
-
-    .upper {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .search-container {
-        width: 100%;
-    }
-
-    .user-profile {
-        margin-left: 0;
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .user-details {
-        margin-left: 0;
-    }
-
-    .user-details span,
-    .user-details small {
-        margin-left: 0;
-    }
-
-    .table-box {
-        padding: 15px;
-    }
-
-    th, td {
-        padding: 8px;
-        font-size: 0.875rem;
-    }
-
-    .action-buttons a {
-        width: 30px;
-        height: 30px;
-    }
-
-    .pagination-link {
-        width: 35px;
-        height: 35px;
-    }
+.borrow-btn:hover {
+    background-color: #7494ec;
 }
 
-@media (max-width: 480px) {
-    .sidebar {
-        width: 60px;
-    }
-
-    .container {
-        margin-left: 60px;
-        padding: 10px;
-    }
-
-    .upper h1 {
-        font-size: 1.2rem;
-    }
-
-    .search-bar {
-        padding: 8px 30px 8px 10px;
-    }
-
-    .table-box {
-        padding: 10px;
-    }
-
-    th, td {
-        padding: 6px;
-        font-size: 0.75rem;
-    }
-
-    .modal-content {
-        width: 95%;
-        margin: 5% auto;
-        padding: 15px;
-    }
-
-    .modal-btn {
-        padding: 6px 15px;
-    }
-
-    .action-buttons a {
-        width: 25px;
-        height: 25px;
-    }
-
-    .pagination-link {
-        width: 30px;
-        height: 30px;
-    }
+.return-btn:hover {
+    background-color: #7494ec;
 }
+
+.export-btn {
+    display: inline-block;
+    background-color: #63c216;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    position: absolute;
+    right: 30px;
+    top: 50px;
+    outline: none;
+}
+
+.export-btn:hover {
+    background-color: #7494ec;
+}
+
+
+
 

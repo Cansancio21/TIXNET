@@ -138,12 +138,12 @@ if ($conn) {
           
         <div class="table-box">
             <div class="welcome-card">
-                <h2>Welcome to TIMSS, <?php echo htmlspecialchars($firstName); ?>! 
+                <h2>Welcome to TIXNET, <?php echo htmlspecialchars($firstName); ?>! 
                     <?php if ($userType === 'admin'): ?>
                         <span class="admin-badge"><i class="fas fa-user-shield"></i> Administrator</span>
                     <?php endif; ?>
                 </h2>
-                <p>Here is the total breakdown of the TIMS system.</p>
+                <p>Here is the total breakdown of the TIXNET pro.</p>
             </div>
 
             <div class="stat-grid">

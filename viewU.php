@@ -590,7 +590,7 @@ $stmt->close();
         <div class="alert-container"></div>
 
         <div class="table-box glass-container">
-            <?php if ($userType === 'staff'): ?>
+            <?php if ($userType === 'admin'): ?>
                 <div class="username">
                     Welcome, <?php echo htmlspecialchars($firstName); ?>!
                     <i class="fas fa-user-shield admin-icon"></i>
