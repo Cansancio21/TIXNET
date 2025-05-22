@@ -9,7 +9,6 @@
     --info: #0984e3;
 }
 
-
 * {
     margin: 0;
     padding: 0;
@@ -72,10 +71,10 @@ form {
 
 .container h1 {
     font-size: 36px;
-    margin: 20px 0; /* Adjust margin to create space */
-    align-self: flex-end; /* Align the heading to the right */
-    text-align: right; /* Align text to the right */
-    width: 80%; /* Make the heading take full width */
+    margin: 20px 0;
+    align-self: flex-end;
+    text-align: right;
+    width: 80%;
 }
 
 .input-box {
@@ -87,39 +86,37 @@ form {
 }
 
 .input-box input {
-    width: 100%; /* Full width for input fields */
-    padding: 13px 20px 13px 50px; /* Ensure enough space for the icon on the left */
-    padding-right: 40px; /* Increase space for the icon on the right */
+    width: 100%;
+    padding: 13px 20px 13px 50px;
+    padding-right: 40px;
     background: #eee;
     border-radius: 8px;
-    border: 1px solid #ccc; 
+    border: 1px solid #ccc;
     color: #333;
     font-weight: 500;
-    white-space: nowrap; /* Prevent text from wrapping */
-    overflow: hidden; /* Hide overflowing text */
-    text-overflow: ellipsis; /* Add ellipsis if the text overflows */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .input-box .error {
-    color: red; /* Error message color */
-    font-size: 0.9em; /* Font size for error messages */
-    margin-top: 5px; /* Space above error messages */
-    position: absolute; /* Positioning the error message */
-    bottom: -20px; /* Position below the input field */
-    left: 0; /* Align to the left */
+    color: var(--danger);
+    font-size: 0.9em;
+    margin-top: 5px;
+    position: absolute;
+    bottom: -20px;
+    left: 0;
 }
 
-/* Adjusting icon position */
 .input-box i {
     position: absolute;
-    right: 15px; /* Ensure the icon is positioned well */
+    right: 15px;
     top: 50%;
-    transform: translateY(-50%); /* Vertically center the icon */
+    transform: translateY(-50%);
     font-size: 20px;
     color: #888;
 }
 
-/* Prevent placeholder text from overflowing */
 .input-box input::placeholder {
     color: #888;
     font-weight: 400;
@@ -140,7 +137,7 @@ form {
     width: 100%;
     max-width: 300px;
     height: 48px;
-    background-color: #372fa7;
+    background-color: var(--secondary);
     border: none;
     border-radius: 8px;
     color: #fff;
@@ -153,52 +150,52 @@ form {
 }
 
 .btn:hover {
-    background-color: #3d28e2; 
-    transform: translateY(-2px); 
+    background-color: var(--primary);
+    transform: translateY(-2px);
 }
 
 .btn:active {
-    transform: translateY(0); 
-    background-color: #1b4d80; 
+    transform: translateY(0);
+    background-color: var(--dark);
 }
 
 .btn:disabled {
-    background-color: #ccc; 
-    color: #888; 
-    cursor: not-allowed; 
+    background-color: #ccc;
+    color: #888;
+    cursor: not-allowed;
 }
 
 .button {
-    width: 100%; 
+    width: 100%;
     max-width: 300px;
-    height: 48px; 
-    background-color: #1b4d80;
-    border: none; 
-    border-radius: 8px; 
-    color: #fff; 
-    font-size: 16px; 
-    font-weight: 600; 
-    cursor: pointer; 
-    transition: background-color 0.3s ease, transform 0.2s ease; 
-    margin: 20px 0; 
+    height: 48px;
+    background-color: var(--dark);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin: 20px 0;
     margin-left: 50%;
-    margin-top: -20px
+    margin-top: -20px;
 }
 
 .button:hover {
-    background-color: #1b4d80;
-    transform: translateY(-2px); 
+    background-color: var(--primary);
+    transform: translateY(-2px);
 }
 
 .button:active {
-    transform: translateY(0); 
-    background-color: #1b4d80;
+    transform: translateY(0);
+    background-color: var(--dark);
 }
 
 .button:disabled {
-    background-color: #ccc; 
-    color: #888; 
-    cursor: not-allowed; 
+    background-color: #ccc;
+    color: #888;
+    cursor: not-allowed;
 }
 
 .container p {
@@ -284,8 +281,8 @@ form {
 }
 
 .toggle-panel p {
-    margin: 0; 
-    text-align: center; 
+    margin: 0;
+    text-align: center;
 }
 
 .toggle-panel .btn {
@@ -328,20 +325,20 @@ form {
 }
 
 .input-box select {
-    width: 100%; 
-    padding: 10px 40px 10px 20px; 
-    border: 1px solid #ccc; 
-    border-radius: 5px; 
-    font-size: 16px; 
-    appearance: none; 
-    background-color: #fff; 
-    background-repeat: no-repeat; 
-    background-position: right 10px center; 
+    width: 100%;
+    padding: 10px 40px 10px 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    appearance: none;
+    background-color: #fff;
+    background-repeat: no-repeat;
+    background-position: right 10px center;
 }
 
 .input-box select:focus {
-    border-color: #007bff; 
-    outline: none; 
+    border-color: var(--primary);
+    outline: none;
 }
 
 .input-box i {
@@ -353,114 +350,103 @@ form {
 }
 
 /* Custom Icon Colors */
-.input-box i.firstname-icon {
-    color: black; /* Blue */
-}
-.input-box i.lastname-icon {
-    color: black; /* Yellow */
-}
-.input-box i.email-icon {
-    color: black; /* Yellow */
-}
-.input-box i.username-icon {
-    color: black; /* Purple */
-}
-.input-box i.password-icon {
-    color: black; /* Pink */
-}
-.input-box i.type-icon {
-    color: black; /* Green */
-}
-.input-box i.status-icon {
-    color: black; /* Orange */
-}
-
+.input-box i.firstname-icon,
+.input-box i.lastname-icon,
+.input-box i.email-icon,
+.input-box i.username-icon,
+.input-box i.password-icon,
+.input-box i.type-icon,
+.input-box i.status-icon,
 .input-box i.user-icon {
-    color: black; /* Green */
-}
-.input-box i.password-icon {
-    color: black; /* Orange */
-}
-
-
-
-
-.error {
-    position: absolute;
-    bottom: -18px;
-    left: 0;
-    color: red;
-    font-size: 0.9em;
-}
-
-.error-message {
-    position: absolute;
-    bottom: -35px;
-    color: red;
-    font-size: 0.9em;
+    color: var(--dark);
 }
 
 /* Status Message Styling */
 .status-message {
     position: absolute;
-    top: 80px; /* Below <h1>Login</h1> (36px font + 20px margin) */
+    top: 80px;
     left: 46.5%;
     width: 50%;
-    color: #4CAF50; /* Green for active */
     padding: 10px;
     border-radius: 5px;
     text-align: center;
+    font-size: 14px;
     opacity: 1;
     transition: opacity 0.5s ease-out;
 }
 
+.status-message.active,
+.status-message.success {
+    font-size: 15px;
+    color: #00a87b;
+}
+
 .status-message.pending {
-    color: #FF0000; /* Red for pending */
+    background-color: var(--danger);
+    color: #fff;
+    border: 1px solid #b72829;
 }
 
 .status-message.fade-out {
     opacity: 0;
 }
 
-.reg-password-container input[type="password"] {
-            padding: 10px 30px 10px 10px;
-            width: 200px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        .reg-password-container input[type="password"]:focus {
-            border-color: #007bff;
-        }
-        .reg-password-arrow {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 16px;
-            color: #fff;
-            cursor: pointer;
-            user-select: none;
-            background-color: #372fa7;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 24px;
-        }
-        .reg-password-arrow:hover {
-            background-color: #87ceeb;
-        }
-        .reg-password-container {
-            display: none;
-            margin-top: 10px;
-            text-align: center;
-            position: relative;
-        }
-        .reg-password-container.active {
-            display: block;
-        }
+/* Registration Code Input */
+.reg-password-container {
+    display: none;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.reg-password-container.active {
+    display: block;
+}
+
+.reg-password-container .input-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.reg-password-container input[type="password"],
+.reg-password-container input[type="text"] {
+    padding: 10px 40px 10px 10px;
+    width: 200px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.reg-password-container input[type="password"]:focus,
+.reg-password-container input[type="text"]:focus {
+    border-color: var(--primary);
+}
+
+.reg-password-icon {
+    position: absolute;
+    right: 10px; /* Position icon to the right of the input */
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--dark);
+    cursor: pointer;
+}
+
+.reg-password-error {
+    color: var(--danger);
+    font-size: 12px;
+    margin-top: 5px;
+    text-align: center;
+}
+
+.form-box.login .input-box p.error-message {
+    color: var(--danger) !important;
+    font-size: 0.9em;
+    position: absolute;
+    bottom: -35px;
+    left: 0;
+    width: 100%;
+    text-align: left;
+    margin-top: 5px;
+}

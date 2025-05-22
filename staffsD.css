@@ -383,11 +383,13 @@ thead {
     z-index: 10;
 }
 
+
 th {
     padding: 15px;
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
+    border: none;
 }
 
 th:first-child {
@@ -398,8 +400,27 @@ th:last-child {
     border-top-right-radius: 10px;
 }
 
+td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+}
 
-th:nth-child(1) { width: 80px; } /* Ticket ID */
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(108, 92, 231, 0.05);
+}
+
+th:nth-child(1) { width: 150px; } /* Ticket ID */
 th:nth-child(2) { width: 150px; } /* Account Name */
 th:nth-child(3) { width: 100px; } /* Type */
 th:nth-child(4) { width: 100px; } /* Status */

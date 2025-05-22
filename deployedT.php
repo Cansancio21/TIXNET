@@ -12,6 +12,12 @@ if (!isset($_SESSION['username'])) {
     exit(); 
 }
 
+// Generate CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrfToken = $_SESSION['csrf_token'];
+
 // Initialize variables for deploy form
 $borrow_assetsname = $borrow_quantity = $borrow_techname = $borrow_techid = $borrow_date = "";
 $borrow_assetsnameErr = $borrow_quantityErr = $borrow_technameErr = $borrow_techidErr = "";
@@ -23,6 +29,19 @@ $deploy_assetsnameErr = $deploy_quantityErr = $deploy_technameErr = $deploy_tech
 
 // Handle deploy request via AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['deploy_asset'])) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $response = ['status' => 'error', 'message' => 'Invalid CSRF token'];
+        if (isset($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            exit();
+        } else {
+            $_SESSION['error'] = $response['message'];
+            header("Location: deployedT.php");
+            exit();
+        }
+    }
+
     $borrow_assetsname = trim($_POST['asset_name']);
     $borrow_quantity = trim($_POST['borrow_quantity']);
     $borrow_techname = trim($_POST['tech_name']);
@@ -110,6 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['deploy_asset'])) {
                     $stmtUpdate->execute();
                     $stmtUpdate->close();
 
+                    // Log action
+                    $logDescription = "Admin {$_SESSION['username']} deployed asset: $borrow_assetsname, Quantity: $borrow_quantity";
+                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                    $stmtLog = $conn->prepare($sqlLog);
+                    $stmtLog->bind_param("s", $logDescription);
+                    $stmtLog->execute();
+                    $stmtLog->close();
+
                     $response = ['status' => 'success', 'message' => 'Asset deployed successfully!'];
                 } else {
                     $response = ['status' => 'error', 'message' => 'Error deploying asset: ' . $stmtInsert->error];
@@ -139,6 +166,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['deploy_asset'])) {
 
 // Handle edit request via AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isset($_POST['d_id'])) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $response = ['status' => 'error', 'message' => 'Invalid CSRF token'];
+        if (isset($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            exit();
+        } else {
+            $_SESSION['error'] = $response['message'];
+            header("Location: deployedT.php");
+            exit();
+        }
+    }
+
     $id = (int)$_POST['d_id'];
     $deploy_assetsname = trim($_POST['asset_name']);
     $deploy_quantity = trim($_POST['deploy_quantity']);
@@ -171,6 +211,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isse
         $stmtUpdate->bind_param("sisssi", $deploy_assetsname, $deploy_quantity, $deploy_techname, $deploy_techid, $deploy_date, $id);
 
         if ($stmtUpdate->execute()) {
+            // Log action
+            $logDescription = "Admin {$_SESSION['username']} updated deployed asset ID $id";
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+            $stmtLog = $conn->prepare($sqlLog);
+            $stmtLog->bind_param("s", $logDescription);
+            $stmtLog->execute();
+            $stmtLog->close();
+
             $response = ['status' => 'success', 'message' => 'Record updated successfully!'];
         } else {
             $response = ['status' => 'error', 'message' => 'Error updating record: ' . $conn->error];
@@ -190,8 +238,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isse
         exit();
     }
 }
+
 // Handle delete request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && isset($_POST['d_id'])) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $_SESSION['error'] = "Invalid CSRF token";
+        header("Location: deployedT.php");
+        exit();
+    }
+
     $id = (int)$_POST['d_id'];
     
     $sql = "DELETE FROM tbl_deployed WHERE d_id = ?";
@@ -204,22 +259,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && is
     $stmt->bind_param("i", $id);
     
     if ($stmt->execute()) {
+        // Log action
+        $logDescription = "Admin {$_SESSION['username']} deleted deployed asset ID $id";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+        $stmtLog = $conn->prepare($sqlLog);
+        $stmtLog->bind_param("s", $logDescription);
+        $stmtLog->execute();
+        $stmtLog->close();
+
         $_SESSION['message'] = "Record deleted successfully!";
     } else {
         $_SESSION['error'] = "Error deleting record: " . $conn->error;
     }
     
     $stmt->close();
-    // Preserve filters in redirect
-    $queryParams = [];
+    // Preserve pagination and filters in redirect
+    $redirectParams = ['page' => isset($_GET['page']) ? (int)$_GET['page'] : 1];
+    if (isset($_GET['search'])) {
+        $redirectParams['search'] = trim($_GET['search']);
+    }
     if (isset($_GET['asset_name'])) {
-        $queryParams[] = 'asset_name=' . urlencode($_GET['asset_name']);
+        $redirectParams['asset_name'] = trim($_GET['asset_name']);
     }
     if (isset($_GET['technician_name'])) {
-        $queryParams[] = 'technician_name=' . urlencode($_GET['technician_name']);
+        $redirectParams['technician_name'] = trim($_GET['technician_name']);
     }
-    $queryString = !empty($queryParams) ? '?' . implode('&', $queryParams) . '&deleted=true' : '?deleted=true';
-    header("Location: deployedT.php" . $queryString);
+    $redirectParams['deleted'] = 'true';
+    header("Location: deployedT.php?" . http_build_query($redirectParams));
     exit();
 }
 
@@ -251,15 +317,75 @@ if (isset($_GET['id']) && !isset($_GET['page']) && !isset($_GET['deleted']) && !
     exit();
 }
 
+// Handle AJAX export data request
+if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
+    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
+    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
+
+    // Build the WHERE clause dynamically
+    $whereClauses = [];
+    $params = [];
+    $paramTypes = '';
+
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(d_assets_name LIKE ? OR d_technician_name LIKE ? OR d_technician_id LIKE ? OR d_date LIKE ?)";
+        $searchWildcard = "%$searchTerm%";
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'ssss';
+    }
+
+    if ($assetNameFilter !== '') {
+        $whereClauses[] = "d_assets_name = ?";
+        $params[] = $assetNameFilter;
+        $paramTypes .= 's';
+    }
+
+    if ($technicianNameFilter !== '') {
+        $whereClauses[] = "d_technician_name = ?";
+        $params[] = $technicianNameFilter;
+        $paramTypes .= 's';
+    }
+
+    $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+    // Fetch all records for export (no limit/offset)
+    $sqlExport = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
+                  FROM tbl_deployed $whereClause 
+                  ORDER BY d_date DESC";
+    $stmtExport = $conn->prepare($sqlExport);
+    if ($paramTypes !== '') {
+        $stmtExport->bind_param($paramTypes, ...$params);
+    }
+    $stmtExport->execute();
+    $resultExport = $stmtExport->get_result();
+
+    $records = [];
+    while ($row = $resultExport->fetch_assoc()) {
+        $records[] = [
+            'Deployed ID' => $row['d_id'],
+            'Asset Name' => $row['d_assets_name'] ?? '',
+            'Quantity' => $row['d_quantity'] ?? 0,
+            'Technician Name' => $row['d_technician_name'] ?? '',
+            'Technician ID' => $row['d_technician_id'] ?? '',
+            'Deployed Date' => $row['d_date'] ?? '-'
+        ];
+    }
+    $stmtExport->close();
+
+    header('Content-Type: application/json');
+    echo json_encode(['data' => $records]);
+    exit;
+}
+
 // Handle AJAX search request with filters
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['search'])) {
     $searchTerm = trim($_GET['search']);
-    $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
+    $page = isset($_GET['search_page']) ? max(1, (int)$_GET['search_page']) : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
     $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
     $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
-    $output = '';
 
     // Build the WHERE clause dynamically
     $whereClauses = [];
@@ -298,12 +424,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $totalRecords = $countResult->fetch_assoc()['total'];
     $countStmt->close();
 
-    $totalPages = ceil($totalRecords / $limit);
+    $totalPages = max(1, ceil($totalRecords / $limit));
 
     // Fetch paginated search results
     $sql = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
             FROM tbl_deployed 
             $whereClause 
+            ORDER BY d_date DESC 
             LIMIT ?, ?";
     $stmt = $conn->prepare($sql);
     if ($paramTypes !== '') {
@@ -317,33 +444,47 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $stmt->execute();
     $result = $stmt->get_result();
 
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $output .= "<tr> 
-                          <td>{$row['d_id']}</td> 
-                          <td>" . (isset($row['d_assets_name']) ? htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') : 'N/A') . "</td>  
-                          <td>{$row['d_quantity']}</td>
-                          <td>" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
-                          <td>{$row['d_technician_id']}</td>    
-                          <td>{$row['d_date']}</td> 
-                          <td>
-                              <a class='view-btn' onclick=\"showViewModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_quantity']}', '" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_technician_id']}', '{$row['d_date']}')\" title='View'><i class='fas fa-eye'></i></a>
-                              <a class='edit-btn' onclick=\"showEditModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_quantity']}', '" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_technician_id']}', '{$row['d_date']}')\" title='Edit'><i class='fas fa-edit'></i></a>
-                              <a class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
-                          </td>
-                        </tr>";
+   ob_start();
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $assetData = json_encode([
+            'id' => $row['d_id'],
+            'asset_name' => $row['d_assets_name'] ?? '',
+            'quantity' => $row['d_quantity'] ?? 0,
+            'technician_name' => $row['d_technician_name'] ?? '',
+            'technician_id' => $row['d_technician_id'] ?? '',
+            'date' => $row['d_date'] ?? '-'
+        ], JSON_HEX_QUOT | JSON_HEX_TAG);
+        echo "<tr> 
+                <td>{$row['d_id']}</td> 
+                <td>" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "</td>  
+                <td>{$row['d_quantity']}</td>
+                <td>" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['d_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
+                <td>" . htmlspecialchars($row['d_date'], ENT_QUOTES, 'UTF-8') . "</td> 
+                <td>
+                    <div class='action-buttons'>
+                        <span class='view-btn' onclick='showViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>";
+        if ($userType === 'admin') {
+            echo "<span class='edit-btn' onclick='showEditModal($assetData)' title='Edit'><i class='fas fa-edit'></i></span>
+                  <span class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
         }
-    } else {
-        $output = "<tr><td colspan='7'>No deployed assets found.</td></tr>";
+        echo "</div>
+                </td></tr>";
     }
+} else {
+    echo "<tr><td colspan='7'>No deployed assets found.</td></tr>";
+}
+$html = ob_get_clean();
     $stmt->close();
 
-    // Add pagination data
-    $output .= "<script>
-        updatePagination($page, $totalPages, '$searchTerm');
-    </script>";
-
-    echo $output;
+    header('Content-Type: application/json');
+    echo json_encode([
+        'html' => $html,
+        'currentPage' => $page,
+        'totalPages' => $totalPages,
+        'searchTerm' => $searchTerm
+    ]);
     exit();
 }
 
@@ -388,23 +529,70 @@ if ($conn) {
 
     // Pagination setup
     $limit = 10;
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $offset = ($page - 1) * $limit;
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
+    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
 
-    // Fetch total number of deployed assets
-    $countQuery = "SELECT COUNT(*) as total FROM tbl_deployed";
-    $countResult = $conn->query($countQuery);
+    // Build the WHERE clause dynamically
+    $whereClauses = [];
+    $params = [];
+    $paramTypes = '';
+
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(d_assets_name LIKE ? OR d_technician_name LIKE ? OR d_technician_id LIKE ? OR d_date LIKE ?)";
+        $searchWildcard = "%$searchTerm%";
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'ssss';
+    }
+
+    if ($assetNameFilter !== '') {
+        $whereClauses[] = "d_assets_name = ?";
+        $params[] = $assetNameFilter;
+        $paramTypes .= 's';
+    }
+
+    if ($technicianNameFilter !== '') {
+        $whereClauses[] = "d_technician_name = ?";
+        $params[] = $technicianNameFilter;
+        $paramTypes .= 's';
+    }
+
+    $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+    // Count total records for pagination
+    $countSql = "SELECT COUNT(*) as total FROM tbl_deployed $whereClause";
+    $countStmt = $conn->prepare($countSql);
+    if ($paramTypes !== '') {
+        $countStmt->bind_param($paramTypes, ...$params);
+    }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
     $totalRecords = $countResult->fetch_assoc()['total'];
-    $totalPages = ceil($totalRecords / $limit);
+    $countStmt->close();
+
+    $totalPages = max(1, ceil($totalRecords / $limit));
+    $page = min($page, $totalPages); // Ensure page doesn't exceed total pages
+    $offset = ($page - 1) * $limit;
 
     // Fetch deployed assets with pagination
     $sqlBorrowed = "SELECT d_id, d_assets_name, d_quantity, d_technician_name, d_technician_id, d_date 
                     FROM tbl_deployed 
+                    $whereClause 
+                    ORDER BY d_date DESC 
                     LIMIT ?, ?";
     $stmt = $conn->prepare($sqlBorrowed);
-    $stmt->bind_param("ii", $offset, $limit);
+    if ($paramTypes !== '') {
+        $params[] = $offset;
+        $params[] = $limit;
+        $paramTypes .= 'ii';
+        $stmt->bind_param($paramTypes, ...$params);
+    } else {
+        $stmt->bind_param("ii", $offset, $limit);
+    }
     $stmt->execute();
     $resultBorrowed = $stmt->get_result();
+    $stmt->close();
 } else {
     echo "Database connection failed.";
     exit();
@@ -433,25 +621,28 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deployed Assets</title>
-    <link rel="stylesheet" href="deployedTB.css"> 
+    <link rel="stylesheet" href="deployedsT.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <!-- Libraries for export functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         .filter-btn {
             background: transparent !important;
             border: none;
             cursor: pointer;
             font-size: 15px;
-            color: var(--light, #f5f8fc); /* White text */
+            color: var(--light, #f5f8fc);
             margin-left: 5px;
             vertical-align: middle;
             padding: 0;
             outline: none;
         }
         .filter-btn:hover {
-            color: var(--primary-dark, hsl(211, 45.70%, 84.10%)); /* White shade for hover */
+            color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
             background: transparent !important;
         }
         th .filter-btn {
@@ -464,13 +655,13 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-           <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
-           <li><a href="viewU.php"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
-           <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
-           <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
-           <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
-           <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
-           <li><a href="deployedT.php" class="active"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
+            <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+            <li><a href="viewU.php"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
+            <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
+            <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
+            <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
+            <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
+            <li><a href="deployedT.php" class="active"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -481,7 +672,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
         <div class="upper"> 
             <h1>Deployed Assets</h1>
             <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search deployed assets..." onkeyup="debouncedSearchDeployed()">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search deployed assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchDeployed()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
             <div class="user-profile">
@@ -510,10 +701,10 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
           
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message']); unset($_SESSION['message']); ?></div>
             <?php endif; ?>
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
         </div>
 
@@ -525,10 +716,16 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                 </div>
             <?php endif; ?>
 
-            <div class="deployed">
                 <div class="action-buttons">
+                <div class="export-container">
                     <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                    <div class="export-dropdown">
+                        <button onclick="exportTable('excel')">Excel</button>
+                        <button onclick="exportTable('csv')">CSV</button>
+                    </div>
                 </div>
+            </div>
+                  
                 <table id="deployedTable">
                     <thead>
                         <tr>
@@ -541,44 +738,67 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody">
-                        <?php 
-                        if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
-                            while ($row = $resultBorrowed->fetch_assoc()) { 
-                                echo "<tr> 
-                                        <td>{$row['d_id']}</td> 
-                                        <td>" . (isset($row['d_assets_name']) ? htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') : 'N/A') . "</td>  
-                                        <td>{$row['d_quantity']}</td>
-                                        <td>" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
-                                        <td>{$row['d_technician_id']}</td>    
-                                        <td>{$row['d_date']}</td> 
-                                        <td>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_quantity']}', '" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_technician_id']}', '{$row['d_date']}')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' onclick=\"showEditModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_quantity']}', '" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "', '{$row['d_technician_id']}', '{$row['d_date']}')\" title='Edit'><i class='fas fa-edit'></i></a>
-                                            <a class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
-                                        </td>
-                                      </tr>"; 
-                            } 
-                        } else { 
-                            echo "<tr><td colspan='7'>No deployed assets found.</td></tr>"; 
-                        } 
-                        ?>
-                    </tbody>
+                  <tbody id="tableBody">
+    <?php 
+    if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
+        while ($row = $resultBorrowed->fetch_assoc()) { 
+            $assetData = json_encode([
+                'id' => $row['d_id'],
+                'asset_name' => $row['d_assets_name'] ?? '',
+                'quantity' => $row['d_quantity'] ?? 0,
+                'technician_name' => $row['d_technician_name'] ?? '',
+                'technician_id' => $row['d_technician_id'] ?? '',
+                'date' => $row['d_date'] ?? '-'
+            ], JSON_HEX_QUOT | JSON_HEX_TAG);
+            echo "<tr> 
+                    <td>{$row['d_id']}</td> 
+                    <td>" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "</td>  
+                    <td>{$row['d_quantity']}</td>
+                    <td>" . htmlspecialchars($row['d_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . htmlspecialchars($row['d_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
+                    <td>" . htmlspecialchars($row['d_date'], ENT_QUOTES, 'UTF-8') . "</td> 
+                    <td>
+                        <div class='action-buttons'>
+                            <span class='view-btn' onclick='showViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>";
+            if ($userType === 'admin') {
+                echo "<span class='edit-btn' onclick='showEditModal($assetData)' title='Edit'><i class='fas fa-edit'></i></span>
+                      <span class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
+            }
+            echo "</div>
+                    </td></tr>";
+        } 
+    } else { 
+        echo "<tr><td colspan='7'>No deployed assets found.</td></tr>"; 
+    } 
+    ?>
+</tbody>
                 </table>
                 <div class="pagination" id="deployed-pagination">
-                    <?php if ($page > 1): ?>
-                        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                    <?php endif; ?>
-
-                    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-
-                    <?php if ($page < $totalPages): ?>
-                        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                    <?php endif; ?>
+                    <?php
+                    $paginationParams = [];
+                    if ($searchTerm) {
+                        $paginationParams['search'] = urlencode($searchTerm);
+                    }
+                    if ($assetNameFilter) {
+                        $paginationParams['asset_name'] = urlencode($assetNameFilter);
+                    }
+                    if ($technicianNameFilter) {
+                        $paginationParams['technician_name'] = urlencode($technicianNameFilter);
+                    }
+                    if ($page > 1) {
+                        $paginationParams['page'] = $page - 1;
+                        echo "<a href='javascript:searchDeployed(" . ($page - 1) . ")' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                    } else {
+                        echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                    }
+                    echo "<span class='current-page'>Page $page of $totalPages</span>";
+                    if ($page < $totalPages) {
+                        $paginationParams['page'] = $page + 1;
+                        echo "<a href='javascript:searchDeployed(" . ($page + 1) . ")' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                    } else {
+                        echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                    }
+                    ?>
                 </div>
             </div>       
         </div>
@@ -594,6 +814,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
         <form method="POST" id="deployAssetForm" class="modal-form">
             <input type="hidden" name="deploy_asset" value="1">
             <input type="hidden" name="ajax" value="true">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
             <label for="deploy_asset_name">Asset Name</label>
             <input type="text" name="asset_name" id="deploy_asset_name" required>
             <label for="deploy_borrow_quantity">Quantity</label>
@@ -635,6 +856,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
             <input type="hidden" name="edit_asset" value="1">
             <input type="hidden" name="ajax" value="true">
             <input type="hidden" name="d_id" id="edit_d_id">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
             <label for="edit_asset_name">Asset Name</label>
             <input type="text" name="asset_name" id="edit_asset_name" required>
             <label for="edit_deploy_quantity">Quantity</label>
@@ -663,6 +885,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
         <form method="POST" id="deleteForm">
             <input type="hidden" name="d_id" id="deleteAssetId">
             <input type="hidden" name="delete_asset" value="1">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Delete</button>
@@ -684,7 +907,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                 <select name="asset_name" id="filter_asset_name">
                     <option value="">All Assets</option>
                     <?php foreach ($assetNames as $name): ?>
-                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $assetNameFilter === $name ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php endforeach; ?>
@@ -711,7 +934,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                 <select name="technician_name" id="filter_technician_name">
                     <option value="">All Technicians</option>
                     <?php foreach ($technicianNames as $name): ?>
-                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianNameFilter === $name ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php endforeach; ?>
@@ -729,8 +952,8 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
 let updateInterval = null;
-let currentAssetFilter = '<?php echo isset($_GET['asset_name']) ? $_GET['asset_name'] : ''; ?>';
-let currentTechnicianFilter = '<?php echo isset($_GET['technician_name']) ? $_GET['technician_name'] : ''; ?>';
+let currentAssetFilter = '<?php echo htmlspecialchars($assetNameFilter); ?>';
+let currentTechnicianFilter = '<?php echo htmlspecialchars($technicianNameFilter); ?>';
 
 // Debounce function to limit search calls
 function debounce(func, wait) {
@@ -756,10 +979,16 @@ function searchDeployed(page = 1) {
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            tbody.innerHTML = xhr.responseText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            try {
+                const response = JSON.parse(xhr.responseText);
+                tbody.innerHTML = response.html;
+                updatePagination(response.currentPage, response.totalPages, response.searchTerm);
+            } catch (e) {
+                console.error('Error parsing JSON:', e, xhr.responseText);
+            }
         }
     };
-    let url = `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm || currentAssetFilter || currentTechnicianFilter ? page : defaultPage}`;
+    let url = `deployedT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${page}`;
     if (currentAssetFilter) {
         url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
     }
@@ -799,25 +1028,26 @@ function showDeployModal() {
     document.getElementById('deployAssetModal').style.display = 'flex';
 }
 
-function showViewModal(id, assetName, quantity, technicianName, technicianId, date) {
+function showViewModal(data) {
     const modalContent = `
-        <p><strong>Asset Name:</strong> ${assetName}</p>
-        <p><strong>Quantity:</strong> ${quantity}</p>
-        <p><strong>Technician Name:</strong> ${technicianName}</p>
-        <p><strong>Technician ID:</strong> ${technicianId}</p>
-        <p><strong>Deployed Date:</strong> ${date}</p>
+        <p><strong>Deployed ID:</strong> ${data.id}</p>
+        <p><strong>Asset Name:</strong> ${data.asset_name}</p>
+        <p><strong>Quantity:</strong> ${data.quantity}</p>
+        <p><strong>Technician Name:</strong> ${data.technician_name}</p>
+        <p><strong>Technician ID:</strong> ${data.technician_id}</p>
+        <p><strong>Deployed Date:</strong> ${data.date}</p>
     `;
     document.getElementById('viewModalContent').innerHTML = modalContent;
     document.getElementById('viewModal').style.display = 'flex';
 }
 
-function showEditModal(id, name, quantity, techName, techId, date) {
-    document.getElementById('edit_d_id').value = id;
-    document.getElementById('edit_asset_name').value = name;
-    document.getElementById('edit_deploy_quantity').value = quantity;
-    document.getElementById('edit_tech_name').value = techName;
-    document.getElementById('edit_tech_id').value = techId;
-    document.getElementById('edit_date').value = date;
+function showEditModal(data) {
+    document.getElementById('edit_d_id').value = data.id;
+    document.getElementById('edit_asset_name').value = data.asset_name;
+    document.getElementById('edit_deploy_quantity').value = data.quantity;
+    document.getElementById('edit_tech_name').value = data.technician_name;
+    document.getElementById('edit_tech_id').value = data.technician_id;
+    document.getElementById('edit_date').value = data.date;
     document.getElementById('editAssetModal').style.display = 'flex';
 }
 
@@ -842,7 +1072,14 @@ function updateTable() {
     if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
         searchDeployed(currentSearchPage);
     } else {
-        fetch(`deployedT.php?page=${defaultPage}`)
+        let url = `deployedT.php?page=${defaultPage}`;
+        if (currentAssetFilter) {
+            url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
+        }
+        if (currentTechnicianFilter) {
+            url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
+        }
+        fetch(url)
             .then(response => response.text())
             .then(data => {
                 const parser = new DOMParser();
@@ -853,6 +1090,47 @@ function updateTable() {
             })
             .catch(error => console.error('Error updating table:', error));
     }
+}
+
+function exportTable(format) {
+    const searchTerm = document.getElementById('searchInput').value;
+
+    let url = `deployedT.php?action=export_data&search=${encodeURIComponent(searchTerm)}`;
+    if (currentAssetFilter) {
+        url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
+    }
+    if (currentTechnicianFilter) {
+        url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                const data = response.data;
+
+                if (format === 'excel') {
+                    // Create Excel file
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Deployed Assets');
+                    XLSX.writeFile(wb, 'deployed_assets.xlsx');
+                } else if (format === 'csv') {
+                    // Create CSV file
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const csv = XLSX.utils.sheet_to_csv(ws);
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    saveAs(blob, 'deployed_assets.csv');
+                }
+            } catch (e) {
+                console.error('Error during export:', e);
+                alert('Error exporting data: ' + e.message);
+            }
+        }
+    };
+    xhr.open('GET', url, true);
+    xhr.send();
 }
 
 function closeModal(modalId) {

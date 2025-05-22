@@ -10,7 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username']) && !isset(
     $sql = "SELECT u_status FROM tbl_user WHERE u_username = ?";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
-        echo json_encode(['error' => 'Prepare failed']);
+        echo json_encode(['error' => 'Prepare failed: ' . $conn->error]);
         exit;
     }
     
@@ -34,7 +34,7 @@ $firstname = $lastname = $email = $username = "";
 $type = $status = ""; 
 
 $firstnameErr = $lastnameErr = $loginError = $passwordError = $usernameError = "";
-$regCodeError = ""; // Error variable for registration code
+$emailErr = $typeErr = $statusErr = $generalError = "";
 $hasError = false;
 
 // Define the registration code
@@ -42,50 +42,63 @@ define('REGISTRATION_CODE', 'ADMIN1234!');
 
 // User Registration
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
-    // Validate the registration code
     $submittedCode = isset($_POST['reg_code']) ? trim($_POST['reg_code']) : '';
     if ($submittedCode !== REGISTRATION_CODE) {
-        $regCodeError = "Invalid registration password.";
+        // Don't set $regCodeError to avoid displaying on registration form
         $hasError = true;
     }
 
-    $firstname = trim($_POST['firstname']);
-    $lastname = trim($_POST['lastname']);
-    $email = trim($_POST['email']);
-    $username = trim($_POST['username']);
-    $password = trim($_POST['password']);
-    $type = trim($_POST['type']);
-    $status = trim($_POST['status']);
+    $firstname = trim($_POST['firstname'] ?? '');
+    $lastname = trim($_POST['lastname'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    $type = trim($_POST['type'] ?? '');
+    $status = trim($_POST['status'] ?? '');
 
     // Validate firstname (should not contain numbers)
-    if (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
-        $firstnameErr = "Firstname should not contain numbers.";
+    if (empty($firstname) || !preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
+        $firstnameErr = "Firstname should not contain numbers and is required.";
         $hasError = true;
     }
 
     // Validate lastname (should not contain numbers)
-    if (!preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {   
-        $lastnameErr = "Lastname should not contain numbers.";
+    if (empty($lastname) || !preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {   
+        $lastnameErr = "Lastname should not contain numbers and is required.";
+        $hasError = true;
+    }
+
+    // Validate email
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emailErr = "Valid email is required.";
         $hasError = true;
     }
 
     // Check if username already exists
-    $sql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $usernameError = "Username already exists.";
+    if (empty($username)) {
+        $usernameError = "Username is required.";
         $hasError = true;
+    } else {
+        $sql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            $generalError = "Database prepare error: " . $conn->error;
+            $hasError = true;
+        } else {
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($result->num_rows > 0) {
+                $usernameError = "Username already exists.";
+                $hasError = true;
+            }
+            $stmt->close();
+        }
     }
 
     // Validate password (must contain letters, numbers, and special characters)
-    if (!preg_match("/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
+    if (empty($password) || !preg_match("/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
         $passwordError = "Password is weak.";
         $hasError = true;
     } else {
@@ -93,25 +106,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
         $password = password_hash($password, PASSWORD_BCRYPT);
     }
 
+    // Validate type
+    if (empty($type) || !in_array($type, ['admin'])) {
+        $typeErr = "Please select a valid user type.";
+        $hasError = true;
+    }
+
+    // Validate status
+    if (empty($status) || !in_array($status, ['pending', 'active'])) {
+        $statusErr = "Please select a valid status.";
+        $hasError = true;
+    }
+
     if (!$hasError) {
         $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
                 VALUES (?, ?, ?, ?, ?, ?, ?)";
-
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
-            die("Prepare failed: " . $conn->error);
-        }
-
-        $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
-
-        if ($stmt->execute()) {
-            header("Location: index.php?success=Registration+successful");
-            exit();
+            $generalError = "Database prepare error: " . $conn->error;
+            $hasError = true;
         } else {
-            die("Execution failed: " . $stmt->error);
+            $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
+            if ($stmt->execute()) {
+                // Log success for debugging
+                error_log("User registered: $username");
+                header("Location: index.php?success=Registration+successful");
+                exit();
+            } else {
+                $generalError = "Database execution error: " . $stmt->error;
+                $hasError = true;
+                error_log("Registration failed: " . $stmt->error);
+            }
+            $stmt->close();
         }
-
-        $stmt->close();
+    } else {
+        error_log("Registration failed due to validation errors: " . json_encode([
+            'firstnameErr' => $firstnameErr,
+            'lastnameErr' => $lastnameErr,
+            'emailErr' => $emailErr,
+            'usernameError' => $usernameError,
+            'passwordError' => $passwordError,
+            'typeErr' => $typeErr,
+            'statusErr' => $statusErr
+        ]));
     }
 }
 
@@ -131,62 +168,59 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
     $sql = "SELECT u_id, u_username, u_password, u_type, u_status FROM tbl_user WHERE u_username = ?";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
+        $generalError = "Database prepare error: " . $conn->error;
+    } else {
+        $stmt->bind_param("s", $username);
+        if ($stmt->execute()) {
+            $result = $stmt->get_result();
+            if ($result->num_rows === 1) {
+                $userExists = true;
+                $row = $result->fetch_assoc();
 
-    $stmt->bind_param("s", $username);
-    
-    if ($stmt->execute() === false) {
-        die("Execute failed: " . $stmt->error);
-    }
+                if (strtolower($row['u_status']) === "pending") {
+                    $statusMessage = "Your account is pending.";
+                    $statusClass = "pending";
+                } elseif (strtolower($row['u_status']) === "active") {
+                    $statusMessage = "Your account is active.";
+                    $statusClass = "active";
+                }
 
-    $result = $stmt->get_result();
+                if (strtolower($row['u_status']) === "pending") {
+                    // Let status message show
+                } elseif (password_verify($password, $row['u_password'])) {
+                    // Store user info in session
+                    $_SESSION['username'] = $row['u_username'];
+                    $_SESSION['userId'] = $row['u_id'];
+                    $_SESSION['user_type'] = $row['u_type'];
+                    $_SESSION['logged_in'] = true;
 
-    if ($result->num_rows === 1) {
-        $userExists = true;
-        $row = $result->fetch_assoc();
-
-        if (strtolower($row['u_status']) === "pending") {
-            $statusMessage = "Your account is pending.";
-            $statusClass = "pending";
-        } elseif (strtolower($row['u_status']) === "active") {
-            $statusMessage = "Your account is active.";
-            $statusClass = "active";
-        }
-
-        if (strtolower($row['u_status']) === "pending") {
-            // Let status message show
-        } elseif (password_verify($password, $row['u_password'])) {
-            // Store user info in session
-            $_SESSION['username'] = $row['u_username'];
-            $_SESSION['userId'] = $row['u_id'];
-            $_SESSION['user_type'] = $row['u_type'];
-            $_SESSION['logged_in'] = true;
-
-            // Redirect based on user type
-            if ($row['u_type'] == 'admin') {
-                header("Location: adminD.php");
-                exit();
-            } elseif ($row['u_type'] == 'staff') {
-                header("Location: staffD.php");
-                exit();
-            } elseif ($row['u_type'] == 'technician') {
-                header("Location: technicianD.php");
-                exit();
+                    // Redirect based on user type
+                    if ($row['u_type'] == 'admin') {
+                        header("Location: adminD.php");
+                        exit();
+                    } elseif ($row['u_type'] == 'staff') {
+                        header("Location: staffD.php");
+                        exit();
+                    } elseif ($row['u_type'] == 'technician') {
+                        header("Location: technicianD.php");
+                        exit();
+                    }
+                } else {
+                    $passwordError = "Incorrect password. Try again.";
+                }
+            } else {
+                $loginError = "Incorrect username. Try again.";
             }
         } else {
-            $passwordError = "Incorrect password. Try again.";
+            $generalError = "Database execution error: " . $stmt->error;
         }
-    } else {
-        $loginError = "Incorrect username. Try again.";
+        $stmt->close();
     }
 
     // If user doesn't exist and password was provided
     if (!$userExists && !empty($password)) {
         $passwordError = "Incorrect password. Try again.";
     }
-
-    $stmt->close();
 }
 
 // Check for success message
@@ -199,7 +233,7 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Registration & Login</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="indexs.css">
 </head>
 <body>
     <div class="container <?php echo ($hasError) ? 'active' : ''; ?>">
@@ -208,25 +242,28 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             <form action="" method="POST">
                 <h1>Login</h1>
                 <?php if (!empty($successMessage)) { ?>
-                    <div class="success-message"><?php echo $successMessage; ?></div>
+                    <div class="status-message success"><?php echo $successMessage; ?></div>
                 <?php } ?>
                 <?php if (!empty($statusMessage)) { ?>
                     <div class="status-message <?php echo $statusClass; ?>">
                         <?php echo htmlspecialchars($statusMessage); ?>
                     </div>
                 <?php } ?>
+                <?php if (!empty($generalError)) { ?>
+                    <div class="status-message pending"><?php echo htmlspecialchars($generalError); ?></div>
+                <?php } ?>
                 <div class="input-box">
-                    <input type="text" name="username" placeholder="Username" required>
+                    <input type="text" name="username" placeholder="Username" value="<?php echo htmlspecialchars($username); ?>" required>
                     <i class="bx bxs-user user-icon"></i>
                     <?php if (!empty($loginError)) { ?>
-                        <p class="error-message"><?php echo $loginError; ?></p>
+                        <p class="error-message"><?php echo htmlspecialchars($loginError); ?></p>
                     <?php } ?>
                 </div>
                 <div class="input-box">
                     <input type="password" id="loginPassword" name="password" placeholder="Password" required>
                     <i class="bx bxs-lock-alt password-icon" id="toggleLoginPassword" style="cursor: pointer;"></i>
                     <?php if (!empty($passwordError)) { ?>
-                        <p class="error-message"><?php echo $passwordError; ?></p>
+                        <p class="error-message"><?php echo htmlspecialchars($passwordError); ?></p>
                     <?php } ?>
                 </div> 
                 <button type="submit" name="login" class="btn">Login</button>
@@ -237,8 +274,8 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
         <div class="form-box register">
             <form action="" method="POST">
                 <h1>Registration</h1>
-                <?php if (!empty($regCodeError)) { ?>
-                    <div class="error-message"><?php echo $regCodeError; ?></div>
+                <?php if (!empty($generalError)) { ?>
+                    <div class="error-message"><?php echo htmlspecialchars($generalError); ?></div>
                 <?php } ?>
                 <div class="input-box">
                     <input type="text" name="firstname" placeholder="Firstname" value="<?php echo htmlspecialchars($firstname); ?>" required>
@@ -257,6 +294,9 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 <div class="input-box">
                     <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email); ?>" required>
                     <i class="bx bxs-envelope email-icon"></i>
+                    <?php if (!empty($emailErr)) { ?>
+                        <span class="error"><?php echo $emailErr; ?></span>
+                    <?php } ?>
                 </div>
                 <div class="input-box">
                     <input type="text" name="username" placeholder="Username" value="<?php echo htmlspecialchars($username); ?>" required>
@@ -276,6 +316,9 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                         <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
                     </select>
                     <i class='bx bxs-user type-icon'></i>
+                    <?php if (!empty($typeErr)) { ?>
+                        <span class="error"><?php echo $typeErr; ?></span>
+                    <?php } ?>
                 </div>
                 <div class="input-box">
                     <select name="status" required>
@@ -284,7 +327,12 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                         <option value="active" <?php if ($status == 'active') echo 'selected'; ?>>Active</option>
                     </select>
                     <i class='bx bxs-check-circle status-icon'></i>
+                    <?php if (!empty($statusErr)) { ?>
+                        <span class="error"><?php echo $statusErr; ?></span>
+                    <?php } ?>
                 </div>
+                <!-- Hidden input for reg_code -->
+                <input type="hidden" name="reg_code" id="regCodeHidden">
                 <button type="submit" class="btn">Register</button>
             </form>
         </div>
@@ -296,8 +344,10 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 <p>Don't have an account?</p>
                 <button class="btn register-btn">Register</button>
                 <div class="reg-password-container">
-                    <input type="password" class="reg-password-input" placeholder="Enter password">
-                    <span class="reg-password-arrow">></span>
+                    <div class="input-wrapper">
+                        <input type="password" class="reg-password-input" id="regPassword" placeholder="Enter code">
+                        <i class='bx bxs-lock-alt reg-password-icon' id="toggleRegPassword" style="cursor: pointer;"></i>
+                    </div>
                     <div class="reg-password-error error-message"></div>
                 </div>
             </div>
@@ -332,97 +382,119 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             const togglePassword = document.getElementById('togglePassword');
             const passwordInput = document.getElementById('password');
             const loginPasswordInput = document.getElementById('loginPassword');
-
-            togglePassword.addEventListener('click', function () {
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                this.classList.toggle('bx-show');
-                this.classList.toggle('bx-hide');
-            });
-
             const toggleLoginPassword = document.getElementById('toggleLoginPassword');
-            toggleLoginPassword.addEventListener('click', function () {
-                const type = loginPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                loginPasswordInput.setAttribute('type', type);
-                this.classList.toggle('bx-show');
-                this.classList.toggle('bx-hide');
-            });
+            const regPasswordInput = document.getElementById('regPassword');
+            const toggleRegPassword = document.getElementById('toggleRegPassword');
 
-            // Fade out status message for active status
-            const statusMessage = document.querySelector('.status-message');
-            if (statusMessage && statusMessage.classList.contains('active')) {
+            // Check if elements exist before adding event listeners
+            if (togglePassword && passwordInput) {
+                togglePassword.addEventListener('click', function () {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    this.classList.remove('bxs-lock-alt', 'bx-show');
+                    this.classList.add(type === 'password' ? 'bxs-lock-alt' : 'bx-show');
+                });
+            }
+
+            if (toggleLoginPassword && loginPasswordInput) {
+                toggleLoginPassword.addEventListener('click', function () {
+                    const type = loginPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    loginPasswordInput.setAttribute('type', type);
+                    this.classList.remove('bxs-lock-alt', 'bx-show');
+                    this.classList.add(type === 'password' ? 'bxs-lock-alt' : 'bx-show');
+                });
+            }
+
+            if (toggleRegPassword && regPasswordInput) {
+                toggleRegPassword.addEventListener('click', function () {
+                    const type = regPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    regPasswordInput.setAttribute('type', type);
+                    // Keep the lock icon constant (no class changes)
+                });
+            }
+
+            // Fade out status messages for active and success
+            const statusMessages = document.querySelectorAll('.status-message.active, .status-message.success');
+            statusMessages.forEach(statusMessage => {
                 setTimeout(() => {
                     statusMessage.classList.add('fade-out');
                     setTimeout(() => {
                         statusMessage.style.display = 'none';
                     }, 500);
                 }, 3000);
+            });
+
+            // Ensure login view on success message
+            if (window.location.search.includes('success')) {
+                const container = document.querySelector('.container');
+                if (container) {
+                    container.classList.remove('active');
+                }
             }
 
             // Toggle between Login & Register
             const container = document.querySelector(".container");
             const registerBtn = document.querySelector(".register-btn");
             const loginBtn = document.querySelector(".login-btn");
-            const regForm = document.querySelector(".form-box.register form");
             const regPasswordContainer = document.querySelector(".reg-password-container");
-            const regPasswordInput = document.querySelector(".reg-password-input");
-            const regPasswordArrow = document.querySelector(".reg-password-arrow");
-            const regCodeInput = document.createElement('input');
-            regCodeInput.type = 'hidden';
-            regCodeInput.name = 'reg_code';
-            regForm.appendChild(regCodeInput);
 
-            const REGISTRATION_CODE = 'ADMIN1234!';
+            if (container && registerBtn && loginBtn && regPasswordContainer && regPasswordInput) {
+                const REGISTRATION_CODE = 'ADMIN1234!';
 
-            registerBtn.addEventListener("click", () => {
-                // Toggle visibility of the password input without switching forms
-                regPasswordContainer.classList.toggle("active");
-                if (regPasswordContainer.classList.contains("active")) {
-                    regPasswordInput.focus();
-                } else {
-                    regPasswordInput.value = ""; // Clear input when hiding
-                    document.querySelector(".reg-password-error").textContent = ""; // Clear error
-                }
-            });
+                registerBtn.addEventListener("click", () => {
+                    regPasswordContainer.classList.toggle("active");
+                    if (regPasswordContainer.classList.contains("active")) {
+                        regPasswordInput.focus();
+                    } else {
+                        regPasswordInput.value = "";
+                        document.querySelector(".reg-password-error").textContent = "";
+                    }
+                });
 
-            regPasswordArrow.addEventListener("click", () => {
-                const code = regPasswordInput.value;
-                if (code === REGISTRATION_CODE) {
-                    regCodeInput.value = code; // Set hidden input for server
-                    container.classList.add("active"); // Show registration form
-                    regPasswordContainer.classList.remove("active"); // Hide password input
-                    regPasswordInput.value = ""; // Clear input
-                    document.querySelector(".reg-password-error").textContent = ""; // Clear error
-                } else {
+                // Function to handle registration code submission
+                function submitRegCode() {
+                    const code = regPasswordInput.value;
                     const errorDiv = document.querySelector(".reg-password-error");
-                    errorDiv.textContent = "Invalid registration password.";
+                    const hiddenRegCode = document.getElementById('regCodeHidden');
+                    if (code === REGISTRATION_CODE) {
+                        container.classList.add("active");
+                        regPasswordContainer.classList.remove("active");
+                        regPasswordInput.value = "";
+                        errorDiv.textContent = "";
+                        // Set hidden input for registration form
+                        if (hiddenRegCode) {
+                            hiddenRegCode.value = REGISTRATION_CODE;
+                        }
+                    } else {
+                        errorDiv.textContent = "Invalid registration password.";
+                    }
                 }
-            });
 
-            // Allow Enter key to submit password
-            regPasswordInput.addEventListener("keypress", (e) => {
-                if (e.key === "Enter") {
-                    regPasswordArrow.click();
-                }
-            });
+                // Enter key submits registration code
+                regPasswordInput.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        submitRegCode();
+                    }
+                });
 
-            loginBtn.addEventListener("click", () => {
-                container.classList.remove("active");
-                regPasswordContainer.classList.remove("active"); // Hide password input
-                regPasswordInput.value = ""; // Clear input
-                document.querySelector(".reg-password-error").textContent = ""; // Clear error
-            });
+                loginBtn.addEventListener("click", () => {
+                    container.classList.remove("active");
+                    regPasswordContainer.classList.remove("active");
+                    regPasswordInput.value = "";
+                    document.querySelector(".reg-password-error").textContent = "";
+                });
+            }
 
             // Poll for status updates
             function checkStatus() {
-                const usernameInput = document.querySelector('input[name="username"]').value;
-                if (usernameInput) {
+                const usernameInput = document.querySelector('input[name="username"]');
+                if (usernameInput && usernameInput.value) {
                     fetch('', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: 'username=' + encodeURIComponent(usernameInput)
+                        body: 'username=' + encodeURIComponent(usernameInput.value)
                     })
                     .then(response => response.json())
                     .then(data => {

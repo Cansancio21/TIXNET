@@ -60,24 +60,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
 
 .sidebar ul {
@@ -116,11 +116,6 @@ body {
 .sidebar ul li a i {
     margin-right: 10px;
     font-size: 22px;
-}
-
-.sidebar ul li a span {
-    font-size: 14px;
-    display: inline;
 }
 
 .sidebar ul li a span {
@@ -172,6 +167,7 @@ footer {
     margin-top: -15px;
     padding-top: 100px;
 }
+
 /* Header */
 .upper {
     display: flex;
@@ -281,7 +277,6 @@ footer {
     padding-bottom: 25px;
     margin-bottom: 25px;
     color: var(--primary);
-    
 }
 
 .admin-icon {
@@ -302,8 +297,8 @@ footer {
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none; /* Remove border */
-    outline: none; /* Remove outline on focus */
+    border: none;
+    outline: none;
 }
 
 .add-user-btn:hover {
@@ -434,7 +429,6 @@ button {
     outline: none;
 }
 
-
 /* Action Buttons */
 .delete-btn {
     display: inline-flex;
@@ -512,25 +506,75 @@ button {
 }
 
 .export-btn {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     background-color: #63c216;
     color: white;
     padding: 10px 20px;
     border-radius: 5px;
     text-decoration: none;
     font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
+    font-weight: 500;
+    transition: all 0.3s ease;
     position: absolute;
-    right: 30px;
-    top: 50px;
-    margin-bottom: 50px;
+    top: 30px;
+    left: 525px;
 }
 
 .export-btn:hover {
     background-color: #7494ec;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
+
+.export-btn i {
+    margin-right: 8px;
+}
+
+/* Export Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+}
+
+.export-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 550px;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.export-container:hover .export-dropdown {
+    display: block;
+}
+
+.export-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.export-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
+}
 
 /* Pagination */
 .pagination {
@@ -661,7 +705,6 @@ button {
     margin-top: 170px;
 }
 
-
 /* Archive Header */
 .archive-header {
     display: flex;
@@ -738,7 +781,8 @@ button {
     transform: translateX(0);
 }
 
-/* Empty state styling */
+/* Empty state
+ styling */
 .empty-state {
     height: 300px;
     display: flex;
@@ -759,6 +803,4 @@ button {
 .alert-hidden {
     opacity: 0;
 }
-
-
 

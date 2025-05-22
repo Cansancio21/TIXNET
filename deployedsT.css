@@ -50,6 +50,7 @@ body {
     flex-direction: column;
     align-items: flex-start;
     transition: width 0.3s ease;
+    
 }
 
 .sidebar h2 {
@@ -313,22 +314,74 @@ footer {
 }
 
 .export-btn {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     background-color: #63c216;
     color: white;
     padding: 10px 20px;
     border-radius: 5px;
     text-decoration: none;
     font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
+    font-weight: 500;
+    transition: all 0.3s ease;
     position: absolute;
-    right: 30px;
-    top: 50px;
+    top: 40px;
+    left: 525px;
 }
 
 .export-btn:hover {
     background-color: #7494ec;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+
+.export-btn i {
+    margin-right: 8px;
+}
+
+/* Export Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+}
+
+.export-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 550px;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.export-container:hover .export-dropdown {
+    display: block;
+}
+
+.export-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.export-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
 }
 
 .tab-btn.active {
@@ -451,13 +504,17 @@ tr:hover td {
     font-size: 16px;
 }
 
+/* Action Buttons */
+/* Action Buttons */
 .action-buttons {
     display: flex;
-    gap: 5px;
+    flex-wrap: nowrap;
+    gap: 5px; /* Consistent spacing between buttons */
     justify-content: center;
+    align-items: center;
 }
 
-.view-btn, .edit-btn {
+.view-btn, .edit-btn, .delete-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -465,27 +522,43 @@ tr:hover td {
     height: 30px;
     border-radius: 5px;
     text-decoration: none;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    cursor: pointer;
 }
 
 .view-btn {
-    background-color: #3498db;
+    background-color: #3498db; /* Blue for View */
     color: #fff;
 }
 
 .view-btn:hover {
     background-color: #2980b9;
+    transform: translateY(-2px);
 }
 
 .edit-btn {
-    background-color: #2ecc71;
+    background-color: #2ecc71; /* Green for Edit */
     color: #fff;
 }
 
 .edit-btn:hover {
     background-color: #27ae60;
+    transform: translateY(-2px);
 }
 
+.delete-btn {
+    background-color: #ff6200; /* Orange for Delete */
+    color: #fff;
+}
+
+.delete-btn:hover {
+    background-color: #e55a00;
+    transform: translateY(-2px);
+}
+
+.view-btn i, .edit-btn i, .delete-btn i {
+    font-size: 16px; /* Consistent icon size */
+}
 /* Pagination */
 .pagination {
     display: flex;
@@ -611,6 +684,20 @@ tr:hover td {
     margin: 10% auto;
     max-width: 500px;
 }
+
+#assetFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -100px;
+    
+}
+
+#technicianFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -100px;
+}
+
 
 
 /* Archive Header */
@@ -900,4 +987,45 @@ button:hover {
     
 }
 
+
+
+.modal-form input,
+.modal-form select {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#viewModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -60px;
+}
+
+#editAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+    margin-top: -10px;
+}
+
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -130px;
+}
+
+#assetFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -100px;
+    
+}
+
+#technicianFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -100px;
+}
 
