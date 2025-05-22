@@ -153,59 +153,59 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         $tickets[] = $row;
     }
     $stmt->close();
-
-    // Generate HTML for table body
-    ob_start();
-    if ($tickets) {
-        foreach ($tickets as $row) {
-            $displayMessage = preg_replace('/^ARCHIVED:/', '', $row['s_message'] ?: '-');
-            $displayStatus = ($tab === 'archived' && $row['status'] === 'Archived') ? 'Open' : $row['status'];
-            ?>
-            <tr>
-                <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
-                <td><?php echo htmlspecialchars($row['c_id'] ?: '-'); ?></td>
-                <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
-                <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
-                <td><?php echo htmlspecialchars($displayMessage); ?></td>
-                <td class="status-<?php echo strtolower($displayStatus ?: 'unknown'); ?> status-clickable" 
-                    onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
-                    <?php echo htmlspecialchars($displayStatus ?: 'Unknown'); ?>
-                </td>
-                <td class="action-buttons">
-                    <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($displayMessage); ?>', '<?php echo $row['status']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
-                    <?php if ($isCustomer): ?>
-                        <a class="edit-btn" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>)" title="Edit"><i class="fas fa-edit"></i></a>
-                        <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
-                           onclick="open<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>Modal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" 
-                           title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
-                            <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
-                        </a>
-                        <?php if ($tab === 'archived'): ?>
-                            <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <a class="edit-btn" onclick="showRestrictedMessage()" title="Edit"><i class="fas fa-edit"></i></a>
-                        <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
-                           onclick="showRestrictedMessage()" 
-                           title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
-                            <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
-                        </a>
-                        <?php if ($tab === 'archived'): ?>
-                            <a class="delete-btn" onclick="showRestrictedMessage()" title="Delete"><i class="fas fa-trash"></i></a>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <?php
-        }
-    } else {
+ob_start();
+if ($tickets) {
+    foreach ($tickets as $row) {
+        $displayMessage = preg_replace('/^ARCHIVED:/', '', $row['s_message'] ?: '-');
+        $displayStatus = ($tab === 'archived' && $row['status'] === 'Archived') ? 'Open' : $row['status'];
         ?>
         <tr>
-            <td colspan="7" class="empty-state">No <?php echo $tab === 'active' ? 'active' : 'archived'; ?> tickets found.</td>
+            <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
+            <td><?php echo htmlspecialchars($row['c_id'] ?: '-'); ?></td>
+            <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
+            <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
+            <td><?php echo htmlspecialchars($displayMessage); ?></td>
+            <td class="status-<?php echo strtolower($displayStatus ?: 'unknown'); ?> status-clickable" 
+                onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
+                <?php echo htmlspecialchars($displayStatus ?: 'Unknown'); ?>
+            </td>
+            <td class="action-buttons">
+                <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($displayMessage); ?>', '<?php echo $row['status']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
+                <?php if ($isCustomer): ?>
+                    <?php if ($tab !== 'archived'): ?>
+                        <a class="edit-btn" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>)" title="Edit"><i class="fas fa-edit"></i></a>
+                    <?php endif; ?>
+                    <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
+                       onclick="open<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>Modal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" 
+                       title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
+                        <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
+                    </a>
+                    <?php if ($tab === 'archived'): ?>
+                        <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <a class="edit-btn" onclick="showRestrictedMessage()" title="Edit"><i class="fas fa-edit"></i></a>
+                    <a class="<?php echo $tab === 'archived' ? 'unarchive-btn' : 'archive-btn'; ?>" 
+                       onclick="showRestrictedMessage()" 
+                       title="<?php echo $tab === 'archived' ? 'Unarchive' : 'Archive'; ?>">
+                        <i class="fas fa-<?php echo $tab === 'archived' ? 'box-open' : 'archive'; ?>"></i>
+                    </a>
+                    <?php if ($tab === 'archived'): ?>
+                        <a class="delete-btn" onclick="showRestrictedMessage()" title="Delete"><i class="fas fa-trash"></i></a>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </td>
         </tr>
         <?php
     }
-    $html = ob_get_clean();
+} else {
+    ?>
+    <tr>
+        <td colspan="7" class="empty-state">No <?php echo $tab === 'active' ? 'active' : 'archived'; ?> tickets found.</td>
+    </tr>
+    <?php
+}
+$html = ob_get_clean();
 
     // Return JSON response
     header('Content-Type: application/json');

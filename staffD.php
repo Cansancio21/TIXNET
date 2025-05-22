@@ -38,9 +38,10 @@ if ($resultUser->num_rows > 0) {
     
     if ($userType === 'staff' && !isset($_SESSION['login_logged'])) {
         $logDescription = "Staff $firstName has successfully logged in";
-        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+        $logType = "Staff $firstName $lastName";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
         $stmtLog = $conn->prepare($sqlLog);
-        $stmtLog->bind_param("s", $logDescription);
+        $stmtLog->bind_param("ss", $logDescription, $logType);
         $stmtLog->execute();
         $stmtLog->close();
         $_SESSION['login_logged'] = true;
@@ -82,9 +83,10 @@ if (isset($_GET['aname']) && !empty($_GET['aname'])) {
         $accountnameErr = "Account Name contains invalid characters.";
         $accountname = "";
         $logDescription = "Invalid account name attempt: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
-        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+        $logType = "Staff $firstName $lastName";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
         $stmtLog = $conn->prepare($sqlLog);
-        $stmtLog->bind_param("s", $logDescription);
+        $stmtLog->bind_param("ss", $logDescription, $logType);
         $stmtLog->execute();
         $stmtLog->close();
     } elseif (empty($customers)) {
@@ -103,9 +105,10 @@ if (isset($_GET['aname']) && !empty($_GET['aname'])) {
             $accountnameErr = "Account Name does not exist in customer database.";
             $accountname = "";
             $logDescription = "Attempted to pre-fill invalid customer name: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+            $logType = "Staff $firstName $lastName";
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
             $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("s", $logDescription);
+            $stmtLog->bind_param("ss", $logDescription, $logType);
             $stmtLog->execute();
             $stmtLog->close();
         }
@@ -292,10 +295,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->bind_param("sssss", $t_ref, $accountname, $issuedetails, $subject, $ticketstatus);
             if ($stmt->execute()) {
-                $logDescription = "$userType $firstName added ticket $t_ref for $accountname";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $logDescription = "Created ticket #$t_ref for customer $accountname";
+                $logType = "Staff $firstName $lastName";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
                 $stmtLog = $conn->prepare($sqlLog);
-                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
                 if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
@@ -435,10 +439,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($stmtUpdate->execute()) {
                 if (!empty($logParts)) {
-                    $logDescription = "$userType $firstName edited ticket $t_ref " . implode(" and ", $logParts);
-                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                    $logDescription = "Staff $firstName $lastName edited ticket $t_ref " . implode(" and ", $logParts);
+                    $logType = "Staff $firstName $lastName";
+                    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
                     $stmtLog = $conn->prepare($sqlLog);
-                    $stmtLog->bind_param("s", $logDescription);
+                    $stmtLog->bind_param("ss", $logDescription, $logType);
                     $stmtLog->execute();
                     $stmtLog->close();
                 }
@@ -472,10 +477,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("s", $t_ref);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Ticket archived successfully!";
-            $logDescription = "$userType $firstName archived ticket $t_ref";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+            $logDescription = "Staff $firstName $lastName archived ticket $t_ref";
+            $logType = "Staff $firstName $lastName";
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
             $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("s", $logDescription);
+            $stmtLog->bind_param("ss", $logDescription, $logType);
             $stmtLog->execute();
             $stmtLog->close();
         } else {
@@ -490,10 +496,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("s", $t_ref);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Ticket restored successfully!";
-            $logDescription = "$userType $firstName unarchived ticket $t_ref";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+            $logDescription = "Staff $firstName $lastName unarchived ticket $t_ref";
+            $logType = "Staff $firstName $lastName";
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
             $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("s", $logDescription);
+            $stmtLog->bind_param("ss", $logDescription, $logType);
             $stmtLog->execute();
             $stmtLog->close();
         } else {
@@ -515,42 +522,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($ticket) {
             $t_aname = $ticket['t_aname'];
-            $sqlUserCheck = "SELECT u_fname, u_lname FROM tbl_user WHERE u_username = ?";
-            $stmtUserCheck = $conn->prepare($sqlUserCheck);
-            $stmtUserCheck->bind_param("s", $t_aname);
-            $stmtUserCheck->execute();
-            $resultUserCheck = $stmtUserCheck->get_result();
-            if ($resultUserCheck->num_rows > 0) {
-                $user = $resultUserCheck->fetch_assoc();
-                $userFirstName = $user['u_fname'];
-                $userLastName = $user['u_lname'];
+            $sqlCustomer = "SELECT c_fname, c_lname FROM tbl_customer WHERE CONCAT(c_fname, ' ', c_lname) = ?";
+            $stmtCustomer = $conn->prepare($sqlCustomer);
+            $stmtCustomer->bind_param("s", $t_aname);
+            $stmtCustomer->execute();
+            $resultCustomer = $stmtCustomer->get_result();
+            if ($resultCustomer->num_rows > 0) {
+                $customer = $resultCustomer->fetch_assoc();
+                $userFirstName = $customer['c_fname'];
+                $userLastName = $customer['c_lname'];
             } else {
-                $sqlCustomer = "SELECT c_fname, c_lname FROM tbl_customer WHERE CONCAT(c_fname, ' ', c_lname) = ?";
-                $stmtCustomer = $conn->prepare($sqlCustomer);
-                $stmtCustomer->bind_param("s", $t_aname);
-                $stmtCustomer->execute();
-                $resultCustomer = $stmtCustomer->get_result();
-                if ($resultCustomer->num_rows > 0) {
-                    $customer = $resultCustomer->fetch_assoc();
-                    $userFirstName = $customer['c_fname'];
-                    $userLastName = $customer['c_lname'];
-                } else {
-                    $userFirstName = $t_aname;
-                    $userLastName = '';
-                }
-                $stmtCustomer->close();
+                $userFirstName = $t_aname;
+                $userLastName = '';
             }
-            $stmtUserCheck->close();
+            $stmtCustomer->close();
 
             $sql = "UPDATE tbl_ticket SET t_status='closed' WHERE t_ref=?";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("s", $t_ref);
             if ($stmt->execute()) {
                 $_SESSION['message'] = "Ticket closed successfully!";
-                $logDescription = "$userType closed ticket $t_ref for user $userFirstName $userLastName";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $logDescription = "closed ticket $t_ref for user $userFirstName $userLastName";
+                $logType = "Staff $firstName $lastName";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
                 $stmtLog = $conn->prepare($sqlLog);
-                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
             } else {
@@ -571,10 +567,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
                 $_SESSION['message'] = "Ticket deleted successfully!";
-                $logDescription = "$userType $firstName deleted ticket $t_ref";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                $logDescription = "Staff $firstName $lastName deleted ticket $t_ref";
+                $logType = "Staff $firstName $lastName";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
                 $stmtLog = $conn->prepare($sqlLog);
-                $stmtLog->bind_param("s", $logDescription);
+                $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
             } else {
@@ -1383,36 +1380,11 @@ function showAddTicketModal() {
     document.getElementById('ticket_ref').value = ref;
     document.getElementById('ticket_status').value = 'Open';
     document.getElementById('addTicketModal').style.display = 'block';
-    document.getElementById('modalBackground').style.display = 'block';
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
-    document.getElementById('modalBackground').style.display = 'none';
 }
-
-window.addEventListener('click', function(event) {
-    if (event.target.classList.contains('modal') || event.target.classList.contains('modal-background')) {
-        document.querySelectorAll('.modal').forEach(modal => modal.style.display = 'none');
-        document.getElementById('modalBackground').style.display = 'none';
-    }
-});
-
-document.addEventListener('click', function(event) {
-    const target = event.target.closest('.view-btn');
-    if (target) {
-        event.preventDefault();
-        const row = target.closest('tr');
-        if (row) {
-            const ref = row.cells[0].textContent;
-            const aname = row.cells[1].textContent;
-            const subject = row.cells[2].textContent;
-            const status = row.cells[3].textContent;
-            const details = row.cells[4].textContent;
-            showViewModal(ref, aname, subject, status, details);
-        }
-    }
-});
 </script>
 </body>
 </html>

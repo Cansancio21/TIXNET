@@ -2,6 +2,11 @@
 include 'db.php'; // Include database connection
 session_start();
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Check if admin is logged in
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'admin') {
     header("Location: index.php");
@@ -28,7 +33,7 @@ $avatarPath = $_SESSION['avatarPath'];
 // Handle AJAX search request
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['search'])) {
     $searchTerm = trim($_GET['search']);
-    $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
+    $page = isset($_GET['search_page']) ? max(1, (int)$_GET['search_page']) : 1;
     $logs_per_page = 10;
     $offset = ($page - 1) * $logs_per_page;
     $output = '';
@@ -40,15 +45,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         $total_logs = $countResult->fetch_assoc()['total'];
         $total_pages = ceil($total_logs / $logs_per_page);
 
-        $sql = "SELECT l_stamp, l_description FROM tbl_logs ORDER BY l_stamp ASC LIMIT ?, ?";
+        $sql = "SELECT l_stamp, l_type, l_description FROM tbl_logs ORDER BY l_stamp ASC LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("ii", $offset, $logs_per_page);
     } else {
         // Count total matching logs for pagination
-        $countSql = "SELECT COUNT(*) as total FROM tbl_logs WHERE l_description LIKE ? OR l_stamp LIKE ?";
+        $countSql = "SELECT COUNT(*) as total FROM tbl_logs WHERE l_description LIKE ? OR l_stamp LIKE ? OR l_type LIKE ?";
         $countStmt = $conn->prepare($countSql);
         $searchWildcard = "%$searchTerm%";
-        $countStmt->bind_param("ss", $searchWildcard, $searchWildcard);
+        $countStmt->bind_param("sss", $searchWildcard, $searchWildcard, $searchWildcard);
         $countStmt->execute();
         $countResult = $countStmt->get_result();
         $total_logs = $countResult->fetch_assoc()['total'];
@@ -57,9 +62,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         $total_pages = ceil($total_logs / $logs_per_page);
 
         // Fetch paginated search results
-        $sql = "SELECT l_stamp, l_description FROM tbl_logs WHERE l_description LIKE ? OR l_stamp LIKE ? ORDER BY l_stamp ASC LIMIT ?, ?";
+        $sql = "SELECT l_stamp, l_type, l_description FROM tbl_logs WHERE l_description LIKE ? OR l_stamp LIKE ? OR l_type LIKE ? ORDER BY l_stamp ASC LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssii", $searchWildcard, $searchWildcard, $offset, $logs_per_page);
+        $stmt->bind_param("sssii", $searchWildcard, $searchWildcard, $searchWildcard, $offset, $logs_per_page);
     }
 
     $stmt->execute();
@@ -67,21 +72,27 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
 
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
+            $type_display = $row['l_type'] ? 'user "' . htmlspecialchars($row['l_type']) . '"' : 'Unknown';
+            if (!$row['l_type'] && $row['l_description'] === 'has successfully logged in') {
+                error_log("Warning: l_type is NULL/empty for login log at {$row['l_stamp']}");
+            }
             $output .= "<tr>
                           <td>" . htmlspecialchars($row['l_stamp']) . "</td>
+                          <td>" . $type_display . "</td>
                           <td>" . htmlspecialchars($row['l_description']) . "</td>
                         </tr>";
         }
     } else {
-        $output = "<tr><td colspan='2' style='text-align: center;'>No logs found</td></tr>";
+        $output = "<tr><td colspan='3' style='text-align: center;'>No logs found</td></tr>";
     }
     $stmt->close();
 
     // Add pagination data
     $output .= "<script>
-        updatePagination($page, $total_pages, '$searchTerm');
+        updatePagination($page, $total_pages, '" . addslashes($searchTerm) . "');
     </script>";
 
+    header('Content-Type: text/html; charset=UTF-8');
     echo $output;
     exit();
 }
@@ -96,17 +107,16 @@ if ($conn) {
 
     if ($resultUser->num_rows > 0) {
         $row = $resultUser->fetch_assoc();
-        $firstName = $row['u_fname'];
-        $lastName = $row['u_lname'];
+        $firstName = $row['u_fname'] ?: $username;
+        $lastName = $row['u_lname'] ?: '';
         $userType = $row['u_type'];
     }
     $stmt->close();
 }
 
 // Set up pagination
-$logs_per_page = 10; // Changed from 20 to 10
-$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-if ($current_page < 1) $current_page = 1;
+$logs_per_page = 10;
+$current_page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($current_page - 1) * $logs_per_page;
 
 // Get total number of logs
@@ -116,12 +126,13 @@ $total_logs = $total_logs_result->fetch_assoc()['total'];
 $total_pages = ceil($total_logs / $logs_per_page);
 
 // Fetch logs with pagination
-$log_query = "SELECT * FROM tbl_logs ORDER BY l_stamp ASC LIMIT $offset, $logs_per_page";
-$logResult = $conn->query($log_query);
+$log_query = "SELECT l_stamp, l_type, l_description FROM tbl_logs ORDER BY l_stamp ASC LIMIT ?, ?";
+$stmt = $conn->prepare($log_query);
+$stmt->bind_param("ii", $offset, $logs_per_page);
+$stmt->execute();
+$logResult = $stmt->get_result();
+$stmt->close();
 
-if (!$logResult) {
-    die("Error fetching logs: " . $conn->error . " Query: " . $log_query);
-}
 ?>
 
 <!DOCTYPE html>
@@ -134,22 +145,28 @@ if (!$logResult) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        table th:nth-child(2), table td:nth-child(2) {
+            width: 200px;
+            text-align: left;
+        }
+    </style>
 </head>
 <body>
 <div class="wrapper">
-<div class="sidebar glass-container">
+    <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-           <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
-           <li><a href="viewU.php"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
-           <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
-           <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
-           <li><a href="logs.php" class="active"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
-           <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
-           <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
+            <li><a href="adminD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+            <li><a href="viewU.php"><img src="image/users.png" alt="View Users" class="icon" /> <span>View Users</span></a></li>
+            <li><a href="regular_close.php"><img src="image/ticket.png" alt="Regular Record" class="icon" /> <span>Regular Record</span></a></li>
+            <li><a href="support_close.php"><img src="image/ticket.png" alt="Supports Record" class="icon" /> <span>Support Record</span></a></li>
+            <li><a href="logs.php" class="active"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
+            <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
+            <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
         </ul>
         <footer>
-        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
@@ -163,7 +180,8 @@ if (!$logResult) {
             <div class="user-profile">
                 <div class="user-icon">
                     <?php 
-                    if (!empty($avatarPath) && file_exists(str_replace('?' . time(), '', $avatarPath))) {
+                    $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
+                    if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
                         echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
                     } else {
                         echo "<i class='fas fa-user-circle'></i>";
@@ -186,39 +204,53 @@ if (!$logResult) {
                 <thead>
                     <tr>
                         <th>Timestamp</th>
-                        <th>Activity Description</th>
+                        <th>Type</th>
+                        <th>Description</th>
                     </tr>
                 </thead>
                 <tbody id="logs-tbody">
                     <?php if ($logResult->num_rows > 0): ?>
                         <?php while ($logRow = $logResult->fetch_assoc()): ?>
+                            <?php
+                            $type_display = $logRow['l_type'] ? 'user "' . htmlspecialchars($logRow['l_type']) . '"' : 'Unknown';
+                            if (!$logRow['l_type'] && $logRow['l_description'] === 'has successfully logged in') {
+                                error_log("Warning: l_type is NULL/empty for login log at {$logRow['l_stamp']}");
+                            }
+                            ?>
                             <tr>
-                                <td><?= htmlspecialchars($logRow['l_stamp']) ?></td>
-                                <td><?= htmlspecialchars($logRow['l_description']) ?></td>
+                                <td><?php echo htmlspecialchars($logRow['l_stamp']); ?></td>
+                                <td><?php echo $type_display; ?></td>
+                                <td><?php echo htmlspecialchars($logRow['l_description']); ?></td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="2" style="text-align: center;">No logs found</td>
+                            <td colspan="3" style="text-align: center;">No logs found</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
 
             <div class="pagination" id="logs-pagination">
-                <?php if ($current_page > 1): ?>
-                    <a href="?page=<?= $current_page - 1 ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                <?php else: ?>
-                    <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                <?php endif; ?>
-
-                <span class="current-page">Page <?= $current_page ?> of <?= $total_pages ?></span>
-
-                <?php if ($current_page < $total_pages): ?>
-                    <a href="?page=<?= $current_page + 1 ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                <?php else: ?>
-                    <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                <?php endif; ?>
+                <?php
+                $paginationParams = [];
+                if (isset($_GET['search']) && trim($_GET['search']) !== '') {
+                    $paginationParams['search'] = trim($_GET['search']);
+                }
+                if ($current_page > 1) {
+                    $paginationParams['page'] = $current_page - 1;
+                    echo "<a href='logs.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                } else {
+                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                }
+                echo "<span class='current-page'>Page $current_page of $total_pages</span>";
+                if ($current_page < $total_pages) {
+                    $paginationParams['page'] = $current_page + 1;
+                    echo "<a href='logs.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                } else {
+                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                }
+                ?>
             </div>
         </div>
     </div>
@@ -255,16 +287,23 @@ if (!$logResult) {
                 tbody.innerHTML = xhr.responseText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
             }
         };
-        xhr.open('GET', `logs.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}`, true);
+        const params = new URLSearchParams();
+        params.append('action', 'search');
+        params.append('search', searchTerm);
+        params.append('search_page', searchTerm ? page : defaultPage);
+        xhr.open('GET', `logs.php?${params.toString()}`, true);
         xhr.send();
     }
 
     function updatePagination(currentPage, totalPages, searchTerm) {
         const paginationContainer = document.getElementById('logs-pagination');
         let paginationHtml = '';
+        const params = new URLSearchParams();
+        if (searchTerm) params.append('search', searchTerm);
 
         if (currentPage > 1) {
-            paginationHtml += `<a href="javascript:searchLogs(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+            params.set('search_page', currentPage - 1);
+            paginationHtml += `<a href="logs.php?${params.toString()}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
         } else {
             paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
         }
@@ -272,12 +311,17 @@ if (!$logResult) {
         paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
         if (currentPage < totalPages) {
-            paginationHtml += `<a href="javascript:searchLogs(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+            params.set('search_page', currentPage + 1);
+            paginationHtml += `<a href="logs.php?${params.toString()}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
         } else {
             paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
         }
 
         paginationContainer.innerHTML = paginationHtml;
+
+        // Update URL without reloading
+        const newUrl = searchTerm ? `logs.php?${params.toString()}` : `logs.php?page=${currentPage}`;
+        window.history.pushState({}, '', newUrl);
     }
 
     // Debounced search function
@@ -287,7 +331,7 @@ if (!$logResult) {
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('searchInput');
         if (searchInput.value) {
-            searchLogs();
+            searchLogs(currentSearchPage);
         }
     });
 </script>
@@ -297,4 +341,3 @@ $conn->close();
 ?>
 </body>
 </html>
-

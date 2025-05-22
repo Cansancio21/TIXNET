@@ -2,6 +2,11 @@
 session_start();
 include 'db.php';
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $accountNo = trim($_POST['accountNo']);
@@ -11,7 +16,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt = $conn->prepare($sql);
     
     if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
+        error_log("Prepare failed: " . $conn->error);
+        die("Database error. Please try again later.");
     }
 
     $stmt->bind_param("ss", $accountNo, $lastName);
@@ -24,16 +30,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Store user data in session
         $_SESSION['user'] = $user;
         $_SESSION['user_type'] = 'customer';
-        $_SESSION['userId'] = $user['c_id']; // Set userId
-        $_SESSION['username'] = $user['c_fname'] . '_' . $user['c_lname']; // Set username (e.g., Latifah_Sims)
+        $_SESSION['userId'] = $user['c_id'];
+        $_SESSION['username'] = $user['c_fname'] . '_' . $user['c_lname'];
 
         // Log the successful login
         $username = $user['c_fname'] . ' ' . $user['c_lname'];
-        $log_description = "user \"$username\" has successfully logged in";
+        $log_description = "has successfully logged in";
+        $log_type = $username;
         
-        $log_stmt = $conn->prepare("INSERT INTO tbl_logs (l_description, l_stamp) VALUES (?, NOW())");
-        $log_stmt->bind_param("s", $log_description);
-        $log_stmt->execute();
+        $log_stmt = $conn->prepare("INSERT INTO tbl_logs (l_description, l_type, l_stamp) VALUES (?, ?, NOW())");
+        if (!$log_stmt) {
+            error_log("Log prepare failed: " . $conn->error);
+            die("Logging error. Please try again later.");
+        }
+        $log_stmt->bind_param("ss", $log_description, $log_type);
+        if (!$log_stmt->execute()) {
+            error_log("Log execute failed: " . $log_stmt->error);
+        } else {
+            error_log("Logged: l_type='$log_type', l_description='$log_description'");
+        }
         $log_stmt->close();
 
         header("Location: portal.php");

@@ -242,16 +242,16 @@ try {
                     $row = $result->fetch_assoc();
                     $expectedFullName = trim($row['u_fname'] . ' ' . $row['u_lname']);
                     if (strtolower($technicianFullName) !== strtolower($expectedFullName)) {
-                        throw new Exception('Invalid full name. Please enter your correct first and last name');
+                        throw new Exception('Invalid full name. Please enter your correct technician name');
                     }
                 } else {
-                    throw new Exception('Technician not found');
+                    throw new Exception("technician \"$firstName $lastName\"");
                 }
                 $stmt->close();
 
                 if ($type === 'regular') {
                     // Fetch ticket details
-                    $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_date 
+                    $sql = "SELECT t_ref, t_aname, t_subject, t_details 
                            FROM tbl_ticket 
                            WHERE t_ref = ? AND t_status = 'open' AND t_status != 'archived' AND t_details NOT LIKE 'ARCHIVED:%'";
                     $stmt = $conn->prepare($sql);
@@ -267,14 +267,14 @@ try {
                         $stmt->close();
 
                         // Insert into closed tickets table
-                        $sqlInsert = "INSERT INTO tbl_close_regular (te_id, t_aname, te_technician, t_subject, t_status, t_details, t_date) 
-                                     VALUES (?, ?, ?, ?, 'Closed', ?, ?)";
+                        $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_status, t_details) 
+                                     VALUES (?, ?, ?, ?, 'Closed', ?)";
                         $stmtInsert = $conn->prepare($sqlInsert);
                         if (!$stmtInsert) {
                             throw new Exception("Prepare failed for insert closed regular: " . $conn->error);
                         }
-                        $stmtInsert->bind_param("ssssss", $ticket['t_ref'], $ticket['t_aname'], $technicianFullName, 
-                                              $ticket['t_subject'], $ticket['t_details'], $ticket['t_date']);
+                        $stmtInsert->bind_param("sssss", $ticket['t_ref'], $ticket['t_aname'], $technicianFullName, 
+                                              $ticket['t_subject'], $ticket['t_details']);
                         $stmtInsert->execute();
                         $stmtInsert->close();
 
@@ -289,13 +289,14 @@ try {
                         $stmtDelete->close();
 
                         // Log action
-                        $logDescription = "Technician $technicianFullName closed regular ticket ref $id";
-                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                        $logType = $firstName . ' ' . $lastName;
+                        $logDescription = "closed regular ticket ref#$id";
+                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
                             throw new Exception("Prepare failed for log: " . $conn->error);
                         }
-                        $stmtLog->bind_param("s", $logDescription);
+                        $stmtLog->bind_param("ss", $logType, $logDescription);
                         $stmtLog->execute();
                         $stmtLog->close();
                     } else {
@@ -303,14 +304,14 @@ try {
                     }
                 } else {
                     // Handle support ticket closure
-                    $sql = "SELECT id, s_ref, c_id, c_fname, c_lname, s_subject, s_message 
+                    $sql = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message 
                            FROM tbl_supp_tickets 
-                           WHERE id = ? AND s_status = 'Open' AND s_message NOT LIKE 'ARCHIVED:%'";
+                           WHERE s_ref = ? AND s_status = 'Open' AND s_message NOT LIKE 'ARCHIVED:%'";
                     $stmt = $conn->prepare($sql);
                     if (!$stmt) {
                         throw new Exception("Prepare failed for support ticket fetch: " . $conn->error);
                     }
-                    $stmt->bind_param("i", $id);
+                    $stmt->bind_param("s", $id);
                     $stmt->execute();
                     $result = $stmt->get_result();
 
@@ -332,23 +333,24 @@ try {
                         $stmtInsert->close();
 
                         // Delete from open support tickets
-                        $sqlDelete = "DELETE FROM tbl_supp_tickets WHERE id = ?";
+                        $sqlDelete = "DELETE FROM tbl_supp_tickets WHERE s_ref = ?";
                         $stmtDelete = $conn->prepare($sqlDelete);
                         if (!$stmtDelete) {
                             throw new Exception("Prepare failed for delete support ticket: " . $conn->error);
                         }
-                        $stmtDelete->bind_param("i", $id);
+                        $stmtDelete->bind_param("s", $id);
                         $stmtDelete->execute();
                         $stmtDelete->close();
 
                         // Log action
-                        $logDescription = "Technician $technicianFullName closed support ticket ID $id";
-                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                        $logType = $firstName . ' ' . $lastName;
+                        $logDescription = "closed support ticket ref#$id";
+                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
                             throw new Exception("Prepare failed for log: " . $conn->error);
                         }
-                        $stmtLog->bind_param("s", $logDescription);
+                        $stmtLog->bind_param("ss", $logType, $logDescription);
                         $stmtLog->execute();
                         $stmtLog->close();
                     } else {
@@ -389,7 +391,7 @@ try {
                                WHERE t_ref = ? AND t_status != 'archived' AND t_details NOT LIKE 'ARCHIVED:%'";
                     } else {
                         $sql = "UPDATE tbl_supp_tickets SET s_message = CONCAT('ARCHIVED:', s_message) 
-                               WHERE id = ? AND s_message NOT LIKE 'ARCHIVED:%'";
+                               WHERE s_ref = ? AND s_message NOT LIKE 'ARCHIVED:%'";
                     }
                 } elseif ($action === 'unarchive') {
                     if ($type === 'regular') {
@@ -397,37 +399,34 @@ try {
                                WHERE t_ref = ? AND t_details LIKE 'ARCHIVED:%'";
                     } else {
                         $sql = "UPDATE tbl_supp_tickets SET s_message = REPLACE(s_message, 'ARCHIVED:', '') 
-                               WHERE id = ? AND s_message LIKE 'ARCHIVED:%'";
+                               WHERE s_ref = ? AND s_message LIKE 'ARCHIVED:%'";
                     }
                 } elseif ($action === 'delete') {
                     if ($type === 'regular') {
                         $sql = "DELETE FROM tbl_ticket WHERE t_ref = ? AND t_details LIKE 'ARCHIVED:%'";
                     } else {
-                        $sql = "DELETE FROM tbl_supp_tickets WHERE id = ? AND s_message LIKE 'ARCHIVED:%'";
+                        $sql = "DELETE FROM tbl_supp_tickets WHERE s_ref = ? AND s_message LIKE 'ARCHIVED:%'";
                     }
                 }
 
                 $stmt = $conn->prepare($sql);
                 if (!$stmt) {
-                    error_log("Prepare failed for $action on $type ticket ID $id: " . $conn->error);
+                    error_log("Prepare failed for $action on $type ticket ref#$id: " . $conn->error);
                     throw new Exception("Prepare failed for $action: " . $conn->error);
                 }
-                if ($type === 'regular') {
-                    $stmt->bind_param("s", $id);
-                } else {
-                    $stmt->bind_param("i", $id);
-                }
-
+                $stmt->bind_param("s", $id);
                 if ($stmt->execute()) {
                     if ($stmt->affected_rows > 0) {
-                        $logDescription = "Technician $firstName $lastName performed $action on $type ticket ID $id";
-                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
+                        // Log action
+                        $logType = $firstName . ' ' . $lastName;
+                        $logDescription = $action . "ed " . $type . " ticket ref#$id";
+                        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
                             error_log("Prepare failed for log: " . $conn->error);
                             throw new Exception("Prepare failed for log: " . $conn->error);
                         }
-                        $stmtLog->bind_param("s", $logDescription);
+                        $stmtLog->bind_param("ss", $logType, $logDescription);
                         $stmtLog->execute();
                         $stmtLog->close();
 
@@ -447,11 +446,11 @@ try {
                         header("Location: technicianD.php?" . http_build_query($redirectParams));
                         exit;
                     } else {
-                        error_log("No rows affected for $action on $type ticket ID $id");
+                        error_log("No rows affected for $action on $type ticket ref#$id");
                         throw new Exception("No changes made. Ticket may already be in the requested state or does not exist");
                     }
                 } else {
-                    error_log("Execute failed for $action on $type ticket ID $id: " . $stmt->error);
+                    error_log("Execute failed for $action on $type ticket ref#$id: " . $stmt->error);
                     throw new Exception("Failed to execute $action on ticket");
                 }
                 $stmt->close();
@@ -537,14 +536,14 @@ try {
         $supportActivePage = min($supportActivePage, $totalSupportActivePages);
         $supportActiveOffset = max(0, ($supportActivePage - 1) * $limit);
 
-        $sqlSupportActive = "SELECT id AS t_id, s_ref, c_id, c_fname, c_lname, s_subject, s_message AS t_details, s_status AS t_status 
+        $sqlSupportActive = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message AS t_details, s_status AS t_status 
                            FROM tbl_supp_tickets 
                            WHERE (s_message NOT LIKE 'ARCHIVED:%' OR s_message IS NULL) 
                            AND s_status IN ('Open', 'Closed')";
         if ($searchTerm) {
             $sqlSupportActive .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        $sqlSupportActive .= " ORDER BY id DESC LIMIT ? OFFSET ?";
+        $sqlSupportActive .= " ORDER BY s_ref DESC LIMIT ? OFFSET ?";
         $stmtSupportActive = $conn->prepare($sqlSupportActive);
         if (!$stmtSupportActive) {
             $errorMessage .= "Prepare failed for support active tickets: " . $conn->error . " ";
@@ -632,13 +631,13 @@ try {
         $supportArchivedPage = min($supportArchivedPage, $totalSupportArchivedPages);
         $supportArchivedOffset = max(0, ($supportArchivedPage - 1) * $limit);
 
-        $sqlSupportArchived = "SELECT id AS t_id, s_ref, c_id, c_fname, c_lname, s_subject, s_message AS t_details, s_status AS t_status 
+        $sqlSupportArchived = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message AS t_details, s_status AS t_status 
                              FROM tbl_supp_tickets 
                              WHERE s_message LIKE 'ARCHIVED:%'";
         if ($searchTerm) {
             $sqlSupportArchived .= " AND (CONCAT(c_fname, ' ', c_lname) LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR s_ref LIKE ?)";
         }
-        $sqlSupportArchived .= " ORDER BY id DESC LIMIT ? OFFSET ?";
+        $sqlSupportArchived .= " ORDER BY s_ref DESC LIMIT ? OFFSET ?";
         $stmtSupportArchived = $conn->prepare($sqlSupportArchived);
         if (!$stmtSupportArchived) {
             $errorMessage .= "Prepare failed for support archived tickets: " . $conn->error . " ";
@@ -775,7 +774,7 @@ try {
                     <h2>Close Ticket</h2>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to close ticket #<span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
+                    <p>Are you sure you want to close ticket ref#<span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
                     <form method="POST" id="closeForm">
                         <input type="hidden" name="action" value="close">
                         <input type="hidden" name="id" id="closeFormId">
@@ -854,7 +853,7 @@ try {
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
                                                     <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                    <span class='archive-btn' onclick='openModal(\"archive\", \"regular\", {\"id\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
+                                                    <span class='archive-btn' onclick='openModal(\"archive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
                                                 </td>
                                               </tr>";
                                     }
@@ -868,13 +867,13 @@ try {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($regularActivePage > 1) {
-                                echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=regular®ularActivePage=" . ($regularActivePage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $regularActivePage of $totalRegularActivePages</span>";
                             if ($regularActivePage < $totalRegularActivePages) {
-                                echo "<a href='?tab=regular&regularActivePage=" . ($regularActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=regular®ularActivePage=" . ($regularActivePage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -916,8 +915,8 @@ try {
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
                                                     <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                    <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"regular\", {\"id\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
-                                                    <span class='delete-btn' onclick='openModal(\"delete\", \"regular\", {\"id\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
+                                                    <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                    <span class='delete-btn' onclick='openModal(\"delete\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                 </td>
                                               </tr>";
                                     }
@@ -931,13 +930,13 @@ try {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($regularArchivedPage > 1) {
-                                echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=regularArchived®ularArchivedPage=" . ($regularArchivedPage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $regularArchivedPage of $totalRegularArchivedPages</span>";
                             if ($regularArchivedPage < $totalRegularArchivedPages) {
-                                echo "<a href='?tab=regularArchived&regularArchivedPage=" . ($regularArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=regularArchived®ularArchivedPage=" . ($regularArchivedPage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -965,7 +964,7 @@ try {
                         <table class="tickets-table" id="support-active-tickets">
                             <thead>
                                 <tr>
-                                    <th>Ticket No.</th>
+                                    <th>Ticket Ref</th>
                                     <th>Customer ID</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
@@ -980,8 +979,7 @@ try {
                                     while ($row = $resultSupportActive->fetch_assoc()) {
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
-                                            'id' => $row['t_id'],
-                                            'ref' => $row['s_ref'] ?? $row['t_id'],
+                                            'ref' => $row['s_ref'],
                                             'c_id' => $row['c_id'] ?? '',
                                             'aname' => ($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? ''),
                                             'subject' => $row['s_subject'] ?? '',
@@ -990,17 +988,17 @@ try {
                                             'isArchived' => strpos($row['t_details'] ?? '', 'ARCHIVED:') === 0
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? $row['t_id']) . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref']) . "</td>
                                                 <td>" . htmlspecialchars($row['c_id'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars(($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? '')) . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars($display_details) . "</td>
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . 
-                                                (strtolower($row['t_status']) === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars(($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? ''), ENT_QUOTES, 'UTF-8') . "\", \"support\")'" : "'") . 
+                                                (strtolower($row['t_status']) === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars(($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? ''), ENT_QUOTES, 'UTF-8') . "\", \"support\")'" : "'") . 
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
                                                     <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                    <span class='archive-btn' onclick='openModal(\"archive\", \"support\", {\"id\": \"" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
+                                                    <span class='archive-btn' onclick='openModal(\"archive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
                                                 </td>
                                               </tr>";
                                     }
@@ -1014,13 +1012,13 @@ try {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($supportActivePage > 1) {
-                                echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $supportActivePage of $totalSupportActivePages</span>";
                             if ($supportActivePage < $totalSupportActivePages) {
-                                echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=support&supportActivePage=" . ($supportActivePage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -1033,7 +1031,7 @@ try {
                         <table class="tickets-table" id="support-archived-tickets">
                             <thead>
                                 <tr>
-                                    <th>Ticket No.</th>
+                                    <th>Ticket Ref</th>
                                     <th>Customer ID</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
@@ -1048,8 +1046,7 @@ try {
                                     while ($row = $resultSupportArchived->fetch_assoc()) {
                                         $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
                                         $ticketData = json_encode([
-                                            'id' => $row['t_id'],
-                                            'ref' => $row['s_ref'] ?? $row['t_id'],
+                                            'ref' => $row['s_ref'],
                                             'c_id' => $row['c_id'] ?? '',
                                             'aname' => ($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? ''),
                                             'subject' => $row['s_subject'] ?? '',
@@ -1058,7 +1055,7 @@ try {
                                             'isArchived' => true
                                         ], JSON_HEX_QUOT | JSON_HEX_TAG);
                                         echo "<tr>
-                                                <td>" . htmlspecialchars($row['s_ref'] ?? $row['t_id']) . "</td>
+                                                <td>" . htmlspecialchars($row['s_ref']) . "</td>
                                                 <td>" . htmlspecialchars($row['c_id'] ?? '') . "</td>
                                                 <td>" . htmlspecialchars(($row['c_fname'] ?? '') . ' ' . ($row['c_lname'] ?? '')) . "</td>
                                                 <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
@@ -1066,8 +1063,8 @@ try {
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                 <td class='action-buttons'>
                                                     <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                    <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"support\", {\"id\": \"" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
-                                                    <span class='delete-btn' onclick='openModal(\"delete\", \"support\", {\"id\": \"" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
+                                                    <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                    <span class='delete-btn' onclick='openModal(\"delete\", \"support\", {\"ref\": \"" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                 </td>
                                               </tr>";
                                     }
@@ -1081,13 +1078,13 @@ try {
                             <?php
                             $paginationParams = "&search=" . urlencode($searchTerm);
                             if ($supportArchivedPage > 1) {
-                                echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage - 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                                echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $supportArchivedPage of $totalSupportArchivedPages</span>";
                             if ($supportArchivedPage < $totalSupportArchivedPages) {
-                                echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage + 1) . "$paginationParams' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                                echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -1244,7 +1241,7 @@ function showViewModal(type, data) {
             `;
         } else {
             html = `
-                <p><strong>Ticket No.:</strong> ${data.ref}</p>
+                <p><strong>Ticket Ref:</strong> ${data.ref}</p>
                 <p><strong>Customer ID:</strong> ${data.c_id}</p>
                 <p><strong>Customer Name:</strong> ${data.aname}</p>
                 <p><strong>Subject:</strong> ${data.subject}</p>
@@ -1252,7 +1249,7 @@ function showViewModal(type, data) {
                 <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
             `;
             footer.innerHTML = `
-                ${data.status.toLowerCase() === 'open' && !data.isArchived ? `<button class="modal-btn confirm" onclick="openCloseModal('${data.id}', '${data.aname}', 'support')">Close Ticket</button>` : ''}
+                ${data.status.toLowerCase() === 'open' && !data.isArchived ? `<button class="modal-btn confirm" onclick="openCloseModal('${data.ref}', '${data.aname}', 'support')">Close Ticket</button>` : ''}
                 <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
             `;
         }
@@ -1272,11 +1269,11 @@ function openModal(action, type, data) {
         const modalFooter = modal.querySelector('.modal-footer');
 
         const actionText = action.charAt(0).toUpperCase() + action.slice(1);
-        modalHeader.innerHTML = `<h2>${actionText} Ticket #${data.id}</h2>`;
+        modalHeader.innerHTML = `<h2>${actionText} Ticket ref#${data.ref}</h2>`;
         modalBody.innerHTML = `<p>Are you sure you want to ${action} this ticket?</p>`;
         modalFooter.innerHTML = `
             <button class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
-            <button class="modal-btn confirm" onclick="submitAction('${action}', '${type}', '${data.id}')">Confirm</button>
+            <button class="modal-btn confirm" onclick="submitAction('${action}', '${type}', '${data.ref}')">Confirm</button>
         `;
 
         modal.style.display = 'block';
@@ -1286,11 +1283,11 @@ function openModal(action, type, data) {
     }
 }
 
-function openCloseModal(id, aname, type) {
+function openCloseModal(ref, aname, type) {
     try {
-        document.getElementById('closeTicketIdDisplay').textContent = id;
+        document.getElementById('closeTicketIdDisplay').textContent = ref;
         document.getElementById('closeTicketName').textContent = aname;
-        document.getElementById('closeFormId').value = id;
+        document.getElementById('closeFormId').value = ref;
         document.getElementById('closeFormType').value = type;
         document.getElementById('closeModal').style.display = 'block';
         document.body.classList.add('modal-open');
@@ -1299,10 +1296,10 @@ function openCloseModal(id, aname, type) {
     }
 }
 
-function submitAction(action, type, id) {
+function submitAction(action, type, ref) {
     try {
         document.getElementById('actionFormAction').value = action;
-        document.getElementById('actionFormId').value = id;
+        document.getElementById('actionFormId').value = ref;
         document.getElementById('actionFormType').value = type;
         document.getElementById('actionForm').submit();
     } catch (e) {
