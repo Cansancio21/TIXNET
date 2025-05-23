@@ -41,6 +41,7 @@ $avatarPath = $_SESSION['avatarPath'];
         <ul>
             <li><a href="portal.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="suppT.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
+              <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Reject Tickets</span></a></li>
         </ul>
         <footer>
             <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -68,10 +69,7 @@ $avatarPath = $_SESSION['avatarPath'];
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <a href="settings.php" class="settings-link">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
+               
             </div>
         </div>
 

@@ -132,7 +132,7 @@ try {
         $totalPages = max(1, ceil($totalTickets / $limit));
 
         // Fetch tickets
-        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details 
+        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
                        FROM tbl_close_regular";
         if ($whereClauses) {
             $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
@@ -155,6 +155,7 @@ try {
                 'subject' => $row['t_subject'] ?? '',
                 'details' => $row['t_details'] ?? '',
                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                'closed_date' => $row['te_date'] ?? 'N/A'
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
             echo "<tr>
                     <td>" . htmlspecialchars($row['t_ref']) . "</td>
@@ -163,6 +164,7 @@ try {
                     <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
                     <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
                     <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
+                    <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
                     <td class='action-buttons'>
                         <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
                         <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
@@ -170,7 +172,7 @@ try {
                   </tr>";
         }
         if ($resultTickets->num_rows === 0) {
-            echo "<tr><td colspan='7'>No closed regular tickets found.</td></tr>";
+            echo "<tr><td colspan='8'>No closed regular tickets found.</td></tr>";
         }
         $html = ob_get_clean();
         $stmtTickets->close();
@@ -211,7 +213,7 @@ try {
         }
 
         // Fetch all tickets for export
-        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details 
+        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
                        FROM tbl_close_regular";
         if ($whereClauses) {
             $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
@@ -233,6 +235,7 @@ try {
                 'Subject' => $row['t_subject'] ?? '',
                 'Details' => $row['t_details'] ?? '',
                 'Status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                'Closed Date' => $row['te_date'] ?? 'N/A'
             ];
         }
         $stmtTickets->close();
@@ -329,7 +332,7 @@ try {
     $offset = ($page - 1) * $limit;
 
     // Fetch tickets
-    $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details 
+    $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
                    FROM tbl_close_regular";
     if ($whereClauses) {
         $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
@@ -361,7 +364,6 @@ try {
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
@@ -613,6 +615,7 @@ try {
                         <th>Subject</th>
                         <th>Ticket Details</th>
                         <th>Status</th>
+                        <th>Closed Date</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -627,6 +630,7 @@ try {
                                 'subject' => $row['t_subject'] ?? '',
                                 'details' => $row['t_details'] ?? '',
                                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                                'closed_date' => $row['te_date'] ?? 'N/A'
                             ], JSON_HEX_QUOT | JSON_HEX_TAG);
                             echo "<tr>
                                     <td>" . htmlspecialchars($row['t_ref']) . "</td>
@@ -635,6 +639,7 @@ try {
                                     <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
                                     <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
                                     <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
+                                    <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
                                     <td class='action-buttons'>
                                         <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
                                         <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
@@ -642,7 +647,7 @@ try {
                                   </tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='7'>No closed regular tickets found or an error occurred.</td></tr>";
+                        echo "<tr><td colspan='8'>No closed regular tickets found or an error occurred.</td></tr>";
                     }
                     ?>
                 </tbody>
@@ -777,6 +782,7 @@ function showViewModal(data) {
         <p><strong>Subject:</strong> ${data.subject}</p>
         <p><strong>Message:</strong> ${data.details}</p>
         <p><strong>Status:</strong> <span class="status-closed">${data.status}</span></p>
+        <p><strong>Closed Date:</strong> ${data.closed_date}</p>
     `;
     document.getElementById('viewTicketModal').style.display = 'block';
     document.body.classList.add('modal-open');
@@ -893,3 +899,4 @@ function exportTable(format) {
 </script>
 </body>
 </html>
+

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 17, 2025 at 09:05 PM
+-- Generation Time: May 23, 2025 at 08:16 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -43,8 +43,9 @@ CREATE TABLE `tbl_archive` (
 --
 
 INSERT INTO `tbl_archive` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `u_password`, `u_type`, `u_status`) VALUES
-(26, 'Xyla', 'Salinas', 'qiko@mailinator.com', 'qovalony', '$2y$10$1w/hBAF/J5QdrUtj4mtMhuBXuoPDIri6WAm4lYW.MXclYSDsOrit6', 'admin', 'pending'),
-(27, 'Fiona', 'Rogers', 'fiona@gmail.com', 'Fiona Chan', '$2y$10$mJbipq.7nSIizFJAXf04POmIqSQdEQcDGat7lBXb9rbFdm35aHoTu', 'staff', 'active');
+(52, 'Miriam', 'Cain', 'zirozak@mailinator.com', 'AdminTest', '$2y$10$QCyUE/GnyoYL.ot7nSz7OuX.3lf1BISAne/z9DUz1wNCBfutoIuAC', 'admin', 'active'),
+(16, 'Huh', 'Yun', 'huhjennifer@gmail.com', 'Rize', '$2y$10$Og60E6rElNb8jpKCV51OOeNb6Hx2iilWoYCxFH3NV42TjsPEQs2Ea', 'admin', 'active'),
+(17, 'John William', 'Mayor', 'jonwilyammayormita@gmail.com', 'Astark123', '$2y$10$TIr2Iy4HbODOaqgZ0akJbeibY.n8TCmEP5sbHGAfpbE1uYl2Mco1u', 'admin', 'pending');
 
 -- --------------------------------------------------------
 
@@ -65,11 +66,22 @@ CREATE TABLE `tbl_assets` (
 --
 
 INSERT INTO `tbl_assets` (`a_id`, `a_name`, `a_status`, `a_quantity`, `a_date`) VALUES
-(1, 'Ladder', 'Borrowing', 10, '2025-05-16'),
-(2, 'Modems', 'Deployment', 14, '2025-05-16'),
-(3, 'Wire', 'Borrowing', 16, '2025-05-16'),
-(4, 'Fiber Optic Cable', 'Deployment', 13, '2025-05-16'),
-(5, 'Example', 'Borrowing', 2, '2025-05-16');
+(1, 'Ladder', 'Borrowing', 1, '2025-05-16'),
+(2, 'Modemsss', 'Archived', 9, '2025-05-16'),
+(3, 'Wire', 'Archived', 16, '2025-05-16'),
+(4, 'Fiber Optic Cables', 'Archived', 13, '2025-05-16'),
+(5, 'Example', 'Archived', 3, '2025-05-16'),
+(6, 'example', 'Deployment', 2, '2025-05-21'),
+(7, 'fiber', 'Deployment', 10, '2025-05-14'),
+(8, 'fiber', 'Borrowing', 10, '2025-05-18'),
+(9, 'example', 'Borrowing', 2, '2025-05-13'),
+(10, 'optic', 'Deployment', 5, '2025-05-13'),
+(11, 'example', 'Borrowing', 2, '2025-05-13'),
+(12, 'knife', 'Borrowing', 9, '2025-05-19'),
+(13, 'Tester', 'Borrowing', 5, '2025-05-19'),
+(14, 'optal', 'Borrowing', 5, '2025-05-10'),
+(15, 'fibrics', 'Borrowing', 7, '2025-05-21'),
+(16, 'Test', 'Deployment', 15, '2025-05-23');
 
 -- --------------------------------------------------------
 
@@ -91,7 +103,7 @@ CREATE TABLE `tbl_borrowed` (
 --
 
 INSERT INTO `tbl_borrowed` (`b_id`, `b_assets_name`, `b_quantity`, `b_technician_name`, `b_date`, `b_technician_id`) VALUES
-(27, 'Modems', 1, 'Joelle Graves', '2025-05-17', 54);
+(31, 'Ladder', 10, 'Tatyana Hayden', '2025-05-23', 37);
 
 -- --------------------------------------------------------
 
@@ -100,13 +112,12 @@ INSERT INTO `tbl_borrowed` (`b_id`, `b_assets_name`, `b_quantity`, `b_technician
 --
 
 CREATE TABLE `tbl_close_regular` (
-  `t_id` int(50) NOT NULL,
+  `t_ref` varchar(200) NOT NULL,
   `t_aname` varchar(200) NOT NULL,
   `te_technician` varchar(200) NOT NULL,
   `t_subject` varchar(200) NOT NULL,
   `t_status` varchar(200) NOT NULL,
-  `t_details` varchar(200) NOT NULL,
-  `t_date` varchar(200) NOT NULL
+  `t_details` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -123,9 +134,17 @@ CREATE TABLE `tbl_close_supp` (
   `c_lname` varchar(200) NOT NULL,
   `s_subject` varchar(200) NOT NULL,
   `s_message` varchar(200) NOT NULL,
-  `s_status` varchar(200) NOT NULL,
-  `s_date` varchar(200) NOT NULL
+  `s_status` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_close_supp`
+--
+
+INSERT INTO `tbl_close_supp` (`s_ref`, `c_id`, `te_technician`, `c_fname`, `c_lname`, `s_subject`, `s_message`, `s_status`) VALUES
+('ref#-18-05-2025-189091', 9, 'haahays haha', 'Latifah', 'Sims', 'redlight', 'awaw', 'Closed'),
+('ref#-07-04-2025-484929', 9, 'haahays haha', 'Latifah', 'Sims', 'Critical', 'awaw', 'Closed'),
+('ref#-19-05-2025-710976', 9, 'haahays haha', 'Latifah', 'Sims', 'redlight', 'ygwedjfdjwe', 'Closed');
 
 -- --------------------------------------------------------
 
@@ -172,8 +191,10 @@ INSERT INTO `tbl_customer` (`c_id`, `c_fname`, `c_lname`, `c_purok`, `c_barangay
 (17, 'Justin', 'Peterson', 'Aladdin Klein', 'Fugiat laudantium h', '463', 'dokykutuko@mailinator.com', '1989-08-18', 'Marsden', 1234, '102038798i9mdk', 'Active', '1 Gbps Fiber', 'Customer-Owned'),
 (18, 'Andrew', 'Hurley', 'Purok Catleya', 'Pakigne', '2147483647', 'kajokupy@mailinator.com', '2025-05-17', 'One', 2, 'BC-BD-84-A5-CE', 'Active', '25 Mbps DSL', 'Customer-Owned'),
 (19, 'Duncan', 'William', 'Purok Tambis', 'Ward II', '09394578940', 'fadipobo@mailinator.com', '2025-05-17', 'Lp1 Np2', 2, 'A5-ER-BX-R4-DE', 'Active', '100 Mbps', 'ISP-Provided Modem/Router'),
-(20, 'Karleigh', 'Landry', 'Purok 11', 'Banhigan', '09567894567', 'pava@mailinator.com', '2025-05-17', 'Lp1 Np1', 1, 'AD-GH-DB-E3-CC', 'ARCHIVED:Active', '1 Gbps', 'Customer-Owned'),
-(21, 'Zachary', 'Beasley', 'Purok Wildflower', 'Banhigan', '09453458693', 'fyjuxyjo@mailinator.com', '2025-05-17', 'Lp1 Np6', 6, 'AS-DK-FK-B3-DW', 'Active', '50 Mbps', 'Customer-Owned');
+(20, 'Karleigh', 'Landry', 'Purok 11', 'Banhigan', '09567894567', 'pava@mailinator.com', '2025-05-17', 'Lp1 Np1', 1, 'AD-GH-DB-E3-CC', 'Active', '1 Gbps', 'Customer-Owned'),
+(21, 'Zachary', 'Beasley', 'Purok Wildflower', 'Banhigan', '09453458693', 'fyjuxyjo@mailinator.com', '2025-05-17', 'Lp1 Np6', 6, 'AS-DK-FK-B3-DW', 'Active', '50 Mbps', 'Customer-Owned'),
+(22, 'cheska', 'malisorn', 'mangga1', 'san isidro', '646286437', 'cheska@gmsil.com', '2025-05-19', 'Lp1 Np1', 1, 'hekjhke', 'Active', '100 Mbps', 'Customer-Owned'),
+(23, 'Ann', 'Daniel', 'Colette Shepard', 'Consequatur neque a', '231', 'cytineci@mailinator.com', '2021-10-26', 'Lp1 Np5', 2, 'QuisJEVE', 'Active', '100 Mbps', 'Customer-Owned');
 
 -- --------------------------------------------------------
 
@@ -195,7 +216,7 @@ CREATE TABLE `tbl_deployed` (
 --
 
 INSERT INTO `tbl_deployed` (`d_id`, `d_assets_name`, `d_quantity`, `d_technician_name`, `d_date`, `d_technician_id`) VALUES
-(1, 'Modem', 5, 'Tatyana Hayden', '2025-04-21', 37);
+(1, 'Modem', 6, 'Tatyana Hayden', '2025-04-21', 37);
 
 -- --------------------------------------------------------
 
@@ -204,8 +225,8 @@ INSERT INTO `tbl_deployed` (`d_id`, `d_assets_name`, `d_quantity`, `d_technician
 --
 
 CREATE TABLE `tbl_logs` (
-  `I_id` int(50) NOT NULL,
   `l_stamp` varchar(200) NOT NULL,
+  `l_type` varchar(200) NOT NULL,
   `l_description` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -213,29 +234,19 @@ CREATE TABLE `tbl_logs` (
 -- Dumping data for table `tbl_logs`
 --
 
-INSERT INTO `tbl_logs` (`I_id`, `l_stamp`, `l_description`) VALUES
-(0, '2025-04-07 00:14:29', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-04-07 00:15:56', 'user \"Latifah Sims\" created ticket with ref#-07-04-2025-484929'),
-(0, '2025-05-03 20:32:50', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-05-13 16:42:14', 'user \"Donovan Montgomery\" has successfully logged in'),
-(0, '2025-05-13 17:03:36', 'user \"Donovan Montgomery\" has successfully logged in'),
-(0, '2025-05-13 17:17:26', 'user \"Donovan Montgomery\" has successfully logged in'),
-(0, '2025-05-13 17:21:38', 'user \"Donovan Montgomery\" has successfully logged in'),
-(0, '2025-05-13 17:30:11', 'Staff Germaine has successfully logged in'),
-(0, '2025-05-15 17:24:56', 'Staff Germaine archived ticket ID 13'),
-(0, '2025-05-15 17:48:03', 'Staff Germaine archived ticket ID 4'),
-(0, '2025-05-15 18:16:24', 'Staff Germaine has successfully logged in'),
-(0, '2025-05-15 21:52:10', 'user \"Donovan Montgomery\" has successfully logged in'),
-(0, '2025-05-16 16:24:04', 'Staff Aiah edited ticket ID 14 subject'),
-(0, '2025-05-17 16:38:36', 'Staff Aiah added ticket for Duncan William'),
-(0, '2025-05-17 18:18:56', 'user \"Zachary Beasley\" has successfully logged in'),
-(0, '2025-05-17 18:19:37', 'user \"Zachary Beasley\" has successfully logged in'),
-(0, '2025-05-17 18:21:00', 'user \"Karleigh Landry\" has successfully logged in'),
-(0, '2025-05-17 22:55:17', 'Staff awaww has successfully logged in'),
-(0, '2025-05-18 01:18:09', 'Staff awaww archived ticket ID 1'),
-(0, '2025-05-18 01:48:05', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-05-18 02:06:49', 'user \"Latifah Sims\" has successfully logged in'),
-(0, '2025-05-18 02:09:34', 'user \"Latifah Sims\" has successfully logged in');
+INSERT INTO `tbl_logs` (`l_stamp`, `l_type`, `l_description`) VALUES
+('2025-05-23 12:03:03', 'Staff Zeph Patel', 'Staff Zeph Patel archived ticket ref#-22-05-2025-107976'),
+('2025-05-23 12:07:17', 'Technician Joelle Graves', 'Unarchived regular ticket ref#ref#-22-05-2025-107976'),
+('2025-05-23 12:31:04', 'Technician Joelle Graves', 'Archived regular ticket ref#ref#-22-05-2025-107976'),
+('2025-05-23 12:31:19', 'Technician Joelle Graves', 'Unarchived regular ticket ref#ref#-22-05-2025-107976'),
+('2025-05-23 12:33:03', 'Technician Joelle Graves', 'Archived support ticket ref#ref#-22-05-2025-483623'),
+('2025-05-23 13:39:02', 'Ann Daniel', 'has successfully logged in'),
+('2025-05-23 13:47:36', 'customer Ann Daniel', 'created ticket ref#-23-05-2025-114488'),
+('2025-05-23 13:48:45', 'customer Ann Daniel', 'archived ticket ref#-23-05-2025-114488'),
+('2025-05-23 13:49:21', 'customer Ann Daniel', 'unarchived ticket ref#-23-05-2025-114488'),
+('2025-05-23 13:53:49', 'customer Ann Daniel', 'archived ticket ref#-23-05-2025-114488'),
+('2025-05-23 13:55:54', 'customer Ann Daniel', 'unarchived ticket ref#-23-05-2025-114488'),
+('2025-05-23 13:57:34', 'Staff Aiah Love', 'Staff Aiah has successfully logged in');
 
 -- --------------------------------------------------------
 
@@ -257,7 +268,6 @@ CREATE TABLE `tbl_returned` (
 --
 
 INSERT INTO `tbl_returned` (`r_id`, `r_assets_name`, `r_quantity`, `r_technician_name`, `r_technician_id`, `r_date`) VALUES
-(1, 'Modems', 5, 'Tatyana Hayden', 37, '2025-03-31'),
 (2, 'Example', 5, 'Tatyana Hayden', 37, '2025-03-31'),
 (3, 'Modems', 5, 'Tatyana Hayden', 37, '2025-03-31'),
 (4, 'Example', 3, 'Tatyana Hayden', 37, '2025-03-31'),
@@ -286,7 +296,10 @@ INSERT INTO `tbl_returned` (`r_id`, `r_assets_name`, `r_quantity`, `r_technician
 (39, 'Ladder', 1, 'Kolehe Kai', 41, '2025-05-16'),
 (43, 'Example', 2, 'Kolehe Kai', 41, '2025-05-16'),
 (44, 'Fiber Optic Cable', 2, 'Yumi Chan', 45, '2025-05-16'),
-(45, 'Fiber Optic Cable', 1, 'Yumi Chan', 45, '2025-05-16');
+(45, 'Fiber Optic Cable', 1, 'Yumi Chan', 45, '2025-05-16'),
+(46, 'Example', 1, 'Tatyana Hayden', 37, '2025-05-19'),
+(47, 'knife', 4, 'Tatyana Hayden', 37, '2025-05-19'),
+(48, 'Tester', 3, 'Kolehe Kai', 41, '2025-05-19');
 
 -- --------------------------------------------------------
 
@@ -302,29 +315,19 @@ CREATE TABLE `tbl_supp_tickets` (
   `s_subject` varchar(200) NOT NULL,
   `s_message` varchar(200) NOT NULL,
   `s_status` varchar(200) NOT NULL,
-  `id` int(11) NOT NULL,
-  `s_date` varchar(200) NOT NULL
+  `id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_supp_tickets`
 --
 
-INSERT INTO `tbl_supp_tickets` (`c_id`, `c_lname`, `c_fname`, `s_ref`, `s_subject`, `s_message`, `s_status`, `id`, `s_date`) VALUES
-(0, 'awawawa', 'ref#-23-03-2025-211213', 'aqaqaqaqaq', '0', '', '', 1, ''),
-(0, 'awawa', 'ref#-23-03-2025-558320', 'awaw', '1', '', '', 2, ''),
-(0, 'awawa', 'ref#-23-03-2025-590610', 'awawawawaw', '0', '', '', 3, ''),
-(0, '', 'ref#-23-03-2025-155334', 'awaw', '1', '', '', 4, ''),
-(0, '', 'ref#-23-03-2025-702429', 'aw', '1', '', '', 5, ''),
-(0, '', 'ref#-23-03-2025-707144', 'awaw', '1', '', '', 6, ''),
-(8, 'awawa', 'awawaw', 'ref#-23-03-2025-610925', 'awaw', '1', '', 7, ''),
-(8, 'awawa', 'awawaw', 'ref#-23-03-2025-469749', 'awawaw', '1', '', 8, ''),
-(8, 'awawa', 'awawaw', 'ref#-23-03-2025-859139', 'awawaw', '1', '', 9, ''),
-(10, 'Mcdaniel', 'Mohammad', 'ref#-23-03-2025-786879', 'awawawaw', '1', '', 10, ''),
-(9, 'Sims', 'Latifah', 'ref#-07-04-2025-484929', 'Critical', 'awaw', 'Open', 11, ''),
-(15, 'Montgomery', 'Donovan', '', 'Critical', 'rtyhtrhrthth', 'Open', 12, ''),
-(15, 'Montgomery', 'Donovan', 'ref#-13-05-2025-618934', 'Minor', 'No wifi', 'Closed', 13, ''),
-(9, 'Sims', 'Latifah', 'ref#-18-05-2025-189091', 'redlight', 'awaw', 'Open', 14, '2025-05-17');
+INSERT INTO `tbl_supp_tickets` (`c_id`, `c_lname`, `c_fname`, `s_ref`, `s_subject`, `s_message`, `s_status`, `id`) VALUES
+(9, 'Sims', 'Latifah', 'ref#-22-05-2025-483623', 'no wifi', 'ARCHIVED:tungod sa uwan', 'Open', 20),
+(9, 'Sims', 'Latifah', 'ref#-22-05-2025-261353', 'no connection', 'kusogg kaayo ang uwan', 'Open', 21),
+(9, 'Sims', 'Latifah', 'ref#-22-05-2025-104028', 'no net', 'kussogg kaayo', 'Open', 22),
+(9, 'Sims', 'Latifah', 'ref#-22-05-2025-521587', 'redlight', 'stop', 'Open', 23),
+(23, 'Daniel', 'Ann', 'ref#-23-05-2025-114488', 'test', 'test lang ni para sa modal', 'Open', 24);
 
 -- --------------------------------------------------------
 
@@ -347,7 +350,9 @@ CREATE TABLE `tbl_techborrowed` (
 INSERT INTO `tbl_techborrowed` (`b_assets_name`, `b_quantity`, `b_technician_name`, `b_date`, `b_technician_id`) VALUES
 ('Example', 6, 'Kolehe Kai', '2025-05-16', 41),
 ('Example', 6, 'Kolehe Kai', '2025-05-16', 41),
-('Modems', 1, 'Joelle Graves', '2025-05-17', 54);
+('Modems', 1, 'Joelle Graves', '2025-05-17', 54),
+('knife', 1, 'Tatyana Hayden', '2025-05-19', 37),
+('Ladder', 10, 'Tatyana Hayden', '2025-05-23', 37);
 
 -- --------------------------------------------------------
 
@@ -360,31 +365,16 @@ CREATE TABLE `tbl_ticket` (
   `t_aname` varchar(200) NOT NULL,
   `t_subject` varchar(200) NOT NULL,
   `t_status` varchar(200) NOT NULL,
-  `t_date` date NOT NULL,
-  `t_details` varchar(200) NOT NULL
+  `t_details` varchar(200) NOT NULL,
+  `t_ref` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_ticket`
 --
 
-INSERT INTO `tbl_ticket` (`t_id`, `t_aname`, `t_subject`, `t_status`, `t_date`, `t_details`) VALUES
-(1, 'Sydnee Kramer', 'Minor', 'open', '2025-03-10', 'ARCHIVED:its over now najud hahays'),
-(2, 'Portia Whitfield', 'Critical', 'archived', '2025-03-09', 'hahays sige nalang, naa ra lage para sa atoa unya'),
-(3, 'Samantha Hooper', 'Critical', 'archived', '2025-03-10', 'Ako e fight ang ako karapatan sa iyaha love'),
-(4, 'Shaeleigh Baker', 'Critical', 'archived', '2025-03-08', 'Balik kana plsssssssssss'),
-(5, 'Wilyam Sama', 'Minor', 'Open', '2025-03-16', 'nahutdan kog pang bayad sa amoa wifi, pwedi pa utang'),
-(6, 'Ryan', 'Critical', 'Closed', '2025-03-16', 'naboang naman ko oy'),
-(7, 'awawaaw', 'Critical', 'Open', '2000-02-21', 'Kung tayo ? tayo'),
-(8, 'awawawaw', 'Critical', 'Open', '2000-02-21', 'relapse time'),
-(9, 'Gwapo', 'Critical', 'Open', '2025-03-20', 'dinajud mada ang gibati'),
-(10, 'Finn Melton', 'Minor', 'Closed', '2013-08-12', 'Adipisicing molestia'),
-(11, 'Hedy Rogers', 'Minor', 'Closed', '1987-07-25', 'Ullam magni culpa fu'),
-(12, 'Cyrus Steele', 'Critical', 'archived', '2016-07-03', 'Aut qui quo earum se'),
-(13, 'Erin Finley', 'Critical', 'archived', '2025-04-10', 'back to being friends hahays'),
-(14, 'Lunea Mendez', 'Redlight', 'Open', '2025-04-10', 'example rani love ha'),
-(15, 'Leila Swanson', 'Moderate', 'Open', '2025-05-01', 'testing lang'),
-(16, 'Duncan William', 'Redlight', 'Open', '2025-05-17', 'the wire is broken');
+INSERT INTO `tbl_ticket` (`t_id`, `t_aname`, `t_subject`, `t_status`, `t_details`, `t_ref`) VALUES
+(19, 'Haley Waller', 'redlight', 'Open', 'awawaw', 'ref#-22-05-2025-107976');
 
 -- --------------------------------------------------------
 
@@ -408,8 +398,6 @@ CREATE TABLE `tbl_user` (
 --
 
 INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `u_password`, `u_type`, `u_status`) VALUES
-(16, 'Huh', 'Yunjin', 'huhjennifer@gmail.com', 'Rizee', '$2y$10$Og60E6rElNb8jpKCV51OOeNb6Hx2iilWoYCxFH3NV42TjsPEQs2Ea', 'admin', 'active'),
-(17, 'John William', 'Mayormita', 'jonwilyammayormita@gmail.com', 'Astark', '$2y$10$TIr2Iy4HbODOaqgZ0akJbeibY.n8TCmEP5sbHGAfpbE1uYl2Mco1u', 'admin', 'pending'),
 (18, 'Scarlett', 'Williams', 'bukeke@mailinator.com', 'kogicosa', 'Pa$$w0rd!', 'admin', 'pending'),
 (19, 'Rose', 'Donovan', 'lywawusype@mailinator.com', 'fuqum', '$2y$10$IVgruo96Y8NbSfhn/CYqKOn6Ma..swAN1NphEeL/DAOb0tqkYhnPe', 'Admin', 'Pending'),
 (20, 'Rize', 'Chan', 'Rize@gmail.com', 'Rizee', '$2y$10$.Pr5z4b2D4EWEq5SbYozlepjWFxEAhGeBpThqWi4O793b0rkGp80m', 'admin', 'Active'),
@@ -417,6 +405,8 @@ INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `
 (22, 'John', 'Wilyam', 'jonwilyammayormita@gmail.com', 'Stark', '$2y$10$z.cDRaq6kxiXAB6CAXHM4OUch5jFsrGbRYlwdQ6SONixDKcSrb6C6', 'admin', 'active'),
 (23, 'Ryan', 'Cansancio', 'jhonsepayla@yahoo.com', 'Ryan', '$2y$10$PxP0Kuq6wRU4J0QXLxuwFerGro3.cQoL6nc9shd0KIlUSKeix0if6', 'admin', 'Active'),
 (25, 'John Wilyam', 'Wilyam', 'xugecev@mailinator.com', 'WilyamSama', '$2y$10$izLTdpzNFvJ7mfjs014Jj.7IzygMHQ6wCABcpbDFIn3PaP5/Ihs1O', 'admin', 'pending'),
+(26, 'Xyla', 'Salinas', 'qiko@mailinator.com', 'qovalony', '$2y$10$1w/hBAF/J5QdrUtj4mtMhuBXuoPDIri6WAm4lYW.MXclYSDsOrit6', 'admin', 'pending'),
+(27, 'Fiona', 'Rogers', 'fiona@gmail.com', 'Fiona Chan', '$2y$10$mJbipq.7nSIizFJAXf04POmIqSQdEQcDGat7lBXb9rbFdm35aHoTu', 'staff', 'active'),
 (28, 'Illana', 'Alston', 'sijirugy@mailinator.com', 'meminubof', '$2y$10$RRcEmlzVVhhi6Uk.4Hh24OLfN0KkdCiJ4q5bnIcUKav7z4n8E85dq', 'admin', 'pending'),
 (29, 'Brianna', 'Macias', 'dixypof@mailinator.com', 'Test', '$2y$10$b6e7YnYWZmwukVMoYV7X.eNkszNxKp3dHnr7dV4MYZ7kf57BClCli', 'staff', 'active'),
 (30, 'Ursula', 'Walls', 'qofowoxoto@mailinator.com', 'Meowa', '$2y$10$VH3kXpwA6guV8aV4wg30Ne.grXF14qCOK9jImO7BjQzFhER3wGQye', 'admin', 'active'),
@@ -427,7 +417,7 @@ INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `
 (35, 'awawawa', 'wawawawawa', 'waw@gmail.com', 'oicnasnac123', '$2y$10$HrYeqM5sk0e8gTZaRnJDau0JSPQp1NAe6UC4r4NllomMSaFbPvFJG', 'admin', 'active'),
 (36, 'Nattyy De Coco', 'Tillman', 'rage@mailinator.com', 'Natty', '$2y$10$JJd2ZIQG6nEBu8dZ7SRULufGWNQb9fl/OSeXzFi63/T6UguImRE/G', 'staff', 'active'),
 (37, 'Tatyana', 'Hayden', 'jimeruveby@mailinator.com', 'Test ni ha', '$2y$10$GiKnS6yTtPo6qudbPLqITeo4fFbcBUjN2PucdtFhfPJnjYrQbyJP6', 'technician', 'active'),
-(38, 'awaw', 'awawa', 'wwawaw@gmail.com', 'hahaha123', '$2y$10$S.xL.mPyVp/dlHpgSrbm7ugtLIrR9XYhNhj1mm6egp0GN4.drzP7u', 'admin', 'active'),
+(38, 'awaw', 'awawa', 'wwawaw@gmail.com', 'hahaha123', '$2y$10$sWiqat3sALnS5uxgTFEDpuCC0Rh6Jguk1HA0zNVfvbqbJgpN7eWj2', 'admin', 'active'),
 (39, 'awaww', 'awawaww', 'wawa@gmail.com', 'haha12', '$2y$10$xwO0/0PFHhAk7weRGYyilefdTDQZomFIeH1HWRGswsasu2TLE86Vy', 'staff', 'active'),
 (40, 'Mikha', 'Lim', 'mikhamylove@gmail.com', 'Mikha Lim', '$2y$10$wgKdbJ5BKYDxrU0GcdOTiuHchprGX8eKjWkB.cTtONksqZKRshZ4S', 'staff', 'active'),
 (41, 'Kolehe', 'Kai', 'kolohekai@gmail.com', 'Kolohe', '$2y$10$p0uaBuH3RfB6BxHsbgIguevieEhZ9CplkIFXB50PetTP.0eFfmfkm', 'technician', 'active'),
@@ -436,12 +426,17 @@ INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `
 (44, 'Admin', 'Test', 'admin@gmail.com', 'Admin', '$2y$10$LBq.HvsUTSzqerTOqSIfa.TGAsjEa3VokSXfB4NpNHhnQNRAC.dPO', 'admin', 'active'),
 (45, 'Yumi', 'Chan', 'sohynyq@gmail.com', 'Yumi Chan', '$2y$10$GInrYkcHcu9PIrbehLTksO0MmcG4lAAZXC7Tgfiy0iaDXBJQ5mo0S', 'technician', 'active'),
 (51, 'Aiah', 'Love', 'aiahlove@gmail.com', 'Aiahkins', '$2y$10$zthsh5racOm7RvvGDHj2i.xQV4jHp/.yS9gemChTZtsHfABSb/WsO', 'staff', 'active'),
-(52, 'Miriam', 'Cain', 'zirozak@mailinator.com', 'AdminTest', '$2y$10$QCyUE/GnyoYL.ot7nSz7OuX.3lf1BISAne/z9DUz1wNCBfutoIuAC', 'admin', 'active'),
 (53, 'Zeph', 'Patel', 'huhezeru@mailinator.com', 'ADMINN', '$2y$10$rCAUF7yizAqKOlXGNmlf5OuO.wX.X5ZV2I4FBrBHMR3J3.qRo6V2u', 'admin', 'active'),
 (54, 'Joelle', 'Graves', 'vefud@mailinator.com', 'TestT', '$2y$10$YcCrLftfHHg/JVNrXCJsO.x0pJ3vXRtukqGjj8OS00jDuA2JQez3i', 'technician', 'active'),
 (55, 'Germaine', 'Gray', 'williammayormita69@gmail.com', 'Jawil', '$2y$10$8ZbZIaaUs001K4sgyso0VeizbeCokz.6bTY2hIzonOsr3.lLhZYWy', 'staff', 'active'),
 (64, 'Samantha', 'Holloway', 'ruvixir@mailinator.com', 'Kysecu', '$2y$10$wUkZRXsNrZoYjgFYOX.HCecyTc2xzvPuP2VqrB7cprW7M7ZVmUUz.', 'admin', 'active'),
-(65, 'haahays', 'haha', 'ryancansanco7@gmail.com', 'tech12', '$2y$10$qUzZa9kDhvkiXKNyO/7P3.5ZSm7ZMsxzVBd6wk2h1ro8fcOhv6oju', 'technician', 'active');
+(65, 'haahays', 'haha', 'ryancansanco7@gmail.com', 'tech12', '$2y$10$qUzZa9kDhvkiXKNyO/7P3.5ZSm7ZMsxzVBd6wk2h1ro8fcOhv6oju', 'technician', 'active'),
+(66, 'haha', 'hahah', 'ryancansanco7@gmail.com', 'techs', '$2y$10$DX/P7vKhwur7pt0n/2Y8f.qWbIwhm6/bYR5tcE5afBbYq3Vvvjb22', 'technician', 'active'),
+(67, 'cha', 'hae', 'ryancansanco7@gmail.com', 'cha12', '$2y$10$yS2zmOWYPzWjIedtnrBuveQkMns4h.nOiks1ENdaqJHlilyh9rIzm', 'staff', 'active'),
+(68, 'Stephen', 'Silva', 'Stephensilva@gmail.com', 'Stephen', '$2y$10$iLzCtJL1.gX/0CPTFGj9ae5SkSMlYH.BQ9xcow73jaPLPEoBr81RC', 'admin', 'active'),
+(69, 'awawawawaaw', 'awawawwaw', 'haysss@gmail.com', 'ryan12345', '$2y$10$FJwstGNN0uVUz45URai4iu3U4uk2uMEvoSAeo1VFvDhtT8Wy463mm', 'admin', 'active'),
+(70, 'awawaw', 'awawawawaw', 'awawawwaw@gmail.com', 'rizalday', '$2y$10$skuNrLDcfpRX0Vp5tn7oeuZqQUGwJ/UA3.72m26eHrQGZ0njlMVO2', 'admin', 'active'),
+(71, 'awawaww', 'awaww', 'wwawaw@gmail.com', 'sprite', '$2y$10$6KdLZORtkdIXT3U4MNuBwONFhlBS/S82HJZf/aueW/GEzHJI.1riC', 'admin', 'active');
 
 --
 -- Indexes for dumped tables
@@ -503,49 +498,49 @@ ALTER TABLE `tbl_user`
 -- AUTO_INCREMENT for table `tbl_assets`
 --
 ALTER TABLE `tbl_assets`
-  MODIFY `a_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `a_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `tbl_borrowed`
 --
 ALTER TABLE `tbl_borrowed`
-  MODIFY `b_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `b_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- AUTO_INCREMENT for table `tbl_customer`
 --
 ALTER TABLE `tbl_customer`
-  MODIFY `c_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `c_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `tbl_deployed`
 --
 ALTER TABLE `tbl_deployed`
-  MODIFY `d_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `d_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_returned`
 --
 ALTER TABLE `tbl_returned`
-  MODIFY `r_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `r_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT for table `tbl_supp_tickets`
 --
 ALTER TABLE `tbl_supp_tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `tbl_ticket`
 --
 ALTER TABLE `tbl_ticket`
-  MODIFY `t_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `t_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `tbl_user`
 --
 ALTER TABLE `tbl_user`
-  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
+  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

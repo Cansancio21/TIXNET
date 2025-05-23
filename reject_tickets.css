@@ -557,6 +557,17 @@ tr:hover td {
     transition: all 0.3s;
 }
 
+.modal-btn.delete {
+    background-color: var(--primary);
+    color: white;
+}
+
+.modal-btn.delete:hover {
+    background-color: var(--secondary); /* This is the darker shade from your variables */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
 .modal-btn.confirm {
     background: var(--primary);
     color: white;

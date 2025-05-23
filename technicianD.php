@@ -1237,8 +1237,8 @@ function openModal(action, type, data) {
         modal.classList.add(`${action}-modal`);
 
         const actionText = action.charAt(0).toUpperCase() + action.slice(1);
-        modalHeader.innerHTML = `<h2>${actionText} Ticket ref#${data.ref}</h2>`;
-        modalBody.innerHTML = `<p>Are you sure you want to ${action} this ticket?</p>`;
+        modalHeader.innerHTML = `<h2>${actionText} Ticket </h2>`;
+        modalBody.innerHTML = `<p>Are you sure you want to ${action} this ticket ${data.ref}</p>`;
         modalFooter.innerHTML = `
             <button class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
             <button class="modal-btn confirm" onclick="submitAction('${action}', '${type}', '${data.ref}')">Confirm</button>

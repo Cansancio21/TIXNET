@@ -54,7 +54,7 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
-// Fetch customers for dropdown and filter
+// Fetch customers for filter and search
 $sqlCustomers = "SELECT c_fname, c_lname FROM tbl_customer ORDER BY c_fname, c_lname";
 $resultCustomers = $conn->query($sqlCustomers);
 $customers = [];
@@ -608,6 +608,50 @@ $conn->close();
         th .filter-btn {
             background: transparent !important;
         }
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            z-index: 1000;
+            display: none;
+        }
+        .autocomplete-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        .autocomplete-suggestion:hover {
+            background: #f0f0f0;
+        }
+        .modal-form input[type="text"], .modal-form textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .modal-form #account_name {
+            box-shadow: none;
+        }
+        .modal-form textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .error {
+            color: red;
+            font-size: 12px;
+            margin-top: 5px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -617,6 +661,7 @@ $conn->close();
         <ul>
             <li><a href="staffD.php" class="active"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
+            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
@@ -879,19 +924,12 @@ $conn->close();
             <label for="account_name">Account Name</label>
             <?php if (empty($customers)): ?>
                 <p class="error">No customers available. Please add customers in the Customers section.</p>
-                <select name="account_name" id="account_name" disabled>
-                    <option value="" selected>No customers available</option>
-                </select>
+                <input type="text" name="account_name" id="account_name" disabled placeholder="No customers available">
             <?php else: ?>
-                <select name="account_name" id="account_name" required>
-                    <option value="" disabled <?php echo empty($accountname) ? 'selected' : ''; ?>>Select a customer</option>
-                    <?php foreach ($customers as $customer): ?>
-                        <option value="<?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>" 
-                                <?php echo $accountname === $customer['full_name'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="autocomplete-container">
+                    <input type="text" name="account_name" id="account_name" placeholder="Search for a customer..." value="<?php echo htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                    <div class="autocomplete-suggestions" id="account_name_suggestions"></div>
+                </div>
             <?php endif; ?>
             <span class="error" id="account_name_error"><?php echo htmlspecialchars($accountnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
@@ -925,6 +963,10 @@ $conn->close();
             <input type="hidden" name="edit_ticket" value="1">
             <input type="hidden" name="ajax" value="true">
             <input type="hidden" name="t_ref" id="edit_t_ref">
+
+            <label for="edit_ticket_ref">Ticket Reference</label>
+            <input type="text" name="ticket_ref" id="edit_ticket_ref" readonly>
+            <span class="error" id="edit_ticket_ref_error"></span>
 
             <label for="edit_account_name">Account Name</label>
             <input type="text" name="account_name" id="edit_account_name" required>
@@ -983,6 +1025,7 @@ let defaultPageActive = <?php echo json_encode($pageActive); ?>;
 let defaultPageArchived = <?php echo json_encode($pageArchived); ?>;
 let currentAccountFilter = '';
 const userType = '<?php echo $userType; ?>';
+const customers = <?php echo json_encode(array_column($customers, 'full_name')); ?>;
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Page loaded, initializing staffD.php, userType=' + userType);
@@ -1002,6 +1045,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput.value || currentAccountFilter) {
         console.log('Search input or account filter present, triggering searchTickets');
         searchTickets(tab === 'active' ? defaultPageActive : defaultPageArchived, tab);
+    }
+
+    // Initialize autocomplete for account name
+    const accountInput = document.getElementById('account_name');
+    const suggestionsContainer = document.getElementById('account_name_suggestions');
+    if (accountInput && suggestionsContainer) {
+        accountInput.addEventListener('input', function() {
+            const query = this.value.trim().toLowerCase();
+            suggestionsContainer.innerHTML = '';
+            if (query.length === 0) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+
+            const matches = customers.filter(customer => 
+                customer.toLowerCase().includes(query)
+            );
+
+            if (matches.length > 0) {
+                matches.forEach(match => {
+                    const suggestion = document.createElement('div');
+                    suggestion.className = 'autocomplete-suggestion';
+                    suggestion.textContent = match;
+                    suggestion.addEventListener('click', () => {
+                        accountInput.value = match;
+                        suggestionsContainer.innerHTML = '';
+                        suggestionsContainer.style.display = 'none';
+                    });
+                    suggestionsContainer.appendChild(suggestion);
+                });
+                suggestionsContainer.style.display = 'block';
+            } else {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!accountInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+
+        // Hide suggestions when pressing Enter
+        accountInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                suggestionsContainer.style.display = 'none';
+            }
+        });
     }
 
     document.getElementById('addTicketForm').addEventListener('submit', function(e) {
@@ -1285,6 +1378,7 @@ function showDeleteModal(ref, aname) {
 
 function showEditTicketModal(ref, aname, subject, status, details) {
     document.getElementById('edit_t_ref').value = ref;
+    document.getElementById('edit_ticket_ref').value = ref;
     document.getElementById('edit_account_name').value = aname;
     document.getElementById('edit_ticket_subject').value = subject;
     document.getElementById('edit_ticket_status').value = status;
@@ -1298,9 +1392,12 @@ function showAddTicketModal() {
     const form = document.getElementById('addTicketForm');
     form.reset();
     document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
-    const accountNameSelect = document.getElementById('account_name');
-    if (accountNameSelect) {
-        accountNameSelect.value = '';
+    const accountInput = document.getElementById('account_name');
+    const suggestionsContainer = document.getElementById('account_name_suggestions');
+    if (accountInput && suggestionsContainer) {
+        accountInput.value = '<?php echo htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8'); ?>';
+        suggestionsContainer.innerHTML = '';
+        suggestionsContainer.style.display = 'none';
     }
 
     const date = new Date();
@@ -1316,6 +1413,11 @@ function showAddTicketModal() {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    const suggestionsContainer = document.getElementById('account_name_suggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.innerHTML = '';
+        suggestionsContainer.style.display = 'none';
+    }
 }
 </script>
 </body>

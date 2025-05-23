@@ -126,12 +126,12 @@ try {
         $stmtCount->close();
 
         // Fetch closed support tickets
-        $sql = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status 
+        $sql = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date 
                 FROM tbl_close_supp";
         if ($whereClauses) {
             $sql .= " WHERE " . implode(' AND ', $whereClauses);
         }
-        $sql .= " ORDER BY s_ref ASC LIMIT ? OFFSET ?";
+        $sql .= " ORDER BY s_date DESC LIMIT ? OFFSET ?";
         $stmt = $conn->prepare($sql);
         $params[] = $limit;
         $params[] = $offset;
@@ -149,7 +149,8 @@ try {
                 'technician' => $row['te_technician'] ?? '',
                 'subject' => $row['s_subject'] ?? '',
                 'message' => $row['s_message'] ?? '',
-                'status' => $row['s_status'] ?? ''
+                'status' => $row['s_status'] ?? '',
+                'date_closed' => $row['s_date'] ?? ''
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
             echo "<tr>
                     <td>" . htmlspecialchars($row['s_ref']) . "</td>
@@ -159,6 +160,7 @@ try {
                     <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
                     <td>" . htmlspecialchars($row['s_message'] ?? '') . "</td>
                     <td class='status-closed'>" . htmlspecialchars($row['s_status'] ?? '') . "</td>
+                    <td>" . htmlspecialchars($row['s_date'] ?? '') . "</td>
                     <td class='action-buttons'>
                         <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
                         <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
@@ -166,7 +168,7 @@ try {
                   </tr>";
         }
         if ($result->num_rows === 0) {
-            echo "<tr><td colspan='8'>No closed support tickets found.</td></tr>";
+            echo "<tr><td colspan='9'>No closed support tickets found.</td></tr>";
         }
         $html = ob_get_clean();
         $stmt->close();
@@ -207,12 +209,12 @@ try {
         }
 
         // Fetch all tickets for export
-        $sqlTickets = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status 
+        $sqlTickets = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date 
                        FROM tbl_close_supp";
         if ($whereClauses) {
             $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
         }
-        $sqlTickets .= " ORDER BY s_ref ASC";
+        $sqlTickets .= " ORDER BY s_date DESC";
         $stmtTickets = $conn->prepare($sqlTickets);
         if ($params) {
             $stmtTickets->bind_param($types, ...$params);
@@ -229,7 +231,8 @@ try {
                 'Technician' => $row['te_technician'] ?? '',
                 'Subject' => $row['s_subject'] ?? '',
                 'Details' => $row['s_message'] ?? '',
-                'Status' => $row['s_status'] ?? ''
+                'Status' => $row['s_status'] ?? '',
+                'Date Closed' => $row['s_date'] ?? ''
             ];
         }
         $stmtTickets->close();
@@ -324,12 +327,12 @@ try {
 
     // Fetch closed support tickets
     $closedTickets = [];
-    $sql = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status 
+    $sql = "SELECT s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date 
             FROM tbl_close_supp";
     if ($whereClauses) {
         $sql .= " WHERE " . implode(' AND ', $whereClauses);
     }
-    $sql .= " ORDER BY s_ref ASC LIMIT ? OFFSET ?";
+    $sql .= " ORDER BY s_date DESC LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
     $params[] = $limit;
     $params[] = $offset;
@@ -386,80 +389,7 @@ $conn->close();
         th .filter-btn {
             background: transparent !important;
         }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: #fff;
-            margin: 10% auto;
-            padding: 20px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-        .modal-header {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        .modal-header h2 {
-            margin: 0;
-            font-size: 1.5em;
-        }
-        .modal-body {
-            margin: 20px 0;
-        }
-        .modal-footer {
-            text-align: right;
-            margin-top: 15px;
-        }
-        .modal-btn {
-            padding: 8px 20px;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            margin-left: 10px;
-            transition: all 0.3s;
-        }
-        .modal-btn.cancel {
-            background: var(--primary);
-            color: var(--light);
-        }
-        .modal-btn.confirm {
-            background: var(--primary);
-            color: white;
-        }
-        .modal-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        .modal-form label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-        .modal-form select {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        #customerFilterModal .modal-content,
-        #technicianFilterModal .modal-content {
-            margin-top: 165px;
-        }
+      
     </style>
 </head>
 <body>
@@ -622,19 +552,20 @@ $conn->close();
                 <thead>
                     <tr>
                         <th>Ticket No.</th>
-                        <th>Customer ID</th>
+                        <th>ID</th>
                         <th>Customer Name<button class="filter-btn" onclick="showCustomerFilterModal()"><i class='bx bx-filter'></i></button></th>
                         <th>Technician<button class="filter-btn" onclick="showTechnicianFilterModal()"><i class='bx bx-filter'></i></button></th>
                         <th>Subject</th>
                         <th>Ticket Details</th>
                         <th>Status</th>
+                        <th>Date Closed</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tickets-table-body">
                     <?php if ($result === null || $result->num_rows === 0): ?>
                         <tr>
-                            <td colspan="8">No closed support tickets found or an error occurred.</td>
+                            <td colspan="9">No closed support tickets found or an error occurred.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($closedTickets as $ticket): ?>
@@ -646,7 +577,8 @@ $conn->close();
                                 'technician' => $ticket['te_technician'] ?? '',
                                 'subject' => $ticket['s_subject'] ?? '',
                                 'message' => $ticket['s_message'] ?? '',
-                                'status' => $ticket['s_status'] ?? ''
+                                'status' => $ticket['s_status'] ?? '',
+                                'date_closed' => $ticket['s_date'] ?? ''
                             ], JSON_HEX_QUOT | JSON_HEX_TAG);
                             ?>
                             <tr>
@@ -657,6 +589,7 @@ $conn->close();
                                 <td><?php echo htmlspecialchars($ticket['s_subject'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($ticket['s_message'] ?? ''); ?></td>
                                 <td class="status-closed"><?php echo htmlspecialchars($ticket['s_status'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($ticket['s_date'] ?? ''); ?></td>
                                 <td class="action-buttons">
                                     <span class="view-btn" onclick='showViewModal(<?php echo $ticketData; ?>)' title="View"><i class="fas fa-eye"></i></span>
                                     <span class="delete-btn" onclick="openDeleteModal('<?php echo htmlspecialchars($ticket['s_ref'], ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></span>
@@ -798,6 +731,7 @@ function showViewModal(data) {
         <p><strong>Subject:</strong> ${data.subject}</p>
         <p><strong>Message:</strong> ${data.message}</p>
         <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
+        <p><strong>Date Closed:</strong> ${data.date_closed}</p>
     `;
     document.getElementById('viewTicketModal').style.display = 'block';
     document.body.classList.add('modal-open');

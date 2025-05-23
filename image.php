@@ -113,19 +113,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             background-color: #f8f9fa;
         }
         .outer-table-box {
-            width: 50%;
+            width: 90%;
             padding: 20px;
             margin: 20px;
-            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
+            gap: 20px;
         }
         .inner-table-box {
-            width: 80%;
-            height: 50px;
+            width: 70%;
+            height: 500px;
             padding: 10px;
-            margin-bottom: 20px;
+            overflow: hidden;
+            border-radius: 8px;
         }
         .inner-table-box img {
             width: 100%;
@@ -137,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             display: flex;
             justify-content: center;
             gap: 20px;
-            margin-top: 20px;
+            margin-bottom: 10px;
         }
         .button-container button {
             padding: 10px 20px;
@@ -164,14 +165,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         input[type="file"] {
             display: none;
         }
+        h2 {
+            margin: 0;
+            font-size: 24px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
     <div class="outer-table-box table-box glass-container">
         <h2>Manage Avatar</h2>
-        <div class="inner-table-box table-box glass-container">
-            <img id="previewImage" src="<?php echo htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8'); ?>" alt="Current Avatar">
-        </div>
         <div class="button-container">
             <form id="uploadForm" enctype="multipart/form-data" method="POST">
                 <input type="file" id="avatarInput" name="avatar" accept="image/*">
@@ -181,6 +184,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
                 <input type="file" id="generateInput" name="generated_image" accept="image/*">
                 <button type="button" id="generateBtn">Generate Image</button>
             </form>
+        </div>
+        <div class="inner-table-box table-box glass-container">
+            <img id="previewImage" src="<?php echo htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8'); ?>" alt="Current Avatar">
         </div>
     </div>
 
@@ -211,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             }
         });
 
-        // Upload button submits form if file is selected
+        // Upload button underlines form if file is selected
         document.getElementById('uploadBtn').addEventListener('click', () => {
             const avatarInput = document.getElementById('avatarInput');
             if (avatarInput.files.length > 0) {
@@ -219,7 +225,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
                 console.log('Uploading file:', avatarInput.files[0].name);
                 document.getElementById('uploadForm').submit();
             } else {
-                alert('Please select an image first using the Generate Image button.');
+                alert('Please select an image first using the Generate Image or Upload Image button.');
+            }
+        });
+
+        // Allow direct file selection via upload input
+        document.getElementById('avatarInput').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) { // Fixed: Changed |file) to (file)
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('previewImage').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                console.log('Direct upload file selected:', file.name);
             }
         });
     </script>

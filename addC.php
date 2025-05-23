@@ -50,11 +50,15 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
+// Set the subscription date explicitly to May 24, 2025 (format: mm/dd/yyyy)
+$currentDate = '05/24/2025';
+error_log("Form date set to: $currentDate"); // Debug log to confirm date
+
 // Initialize customer form variables
 $firstname = $lastname = $contact = $email = $dob = "";
 $napname = $napport = $macaddress = $status = "";
 $purok = $barangay = $plan = $equipment = "";
-$firstnameErr = $lastnameErr = $contactErr = $emailErr = $dobErr = "";
+$firstnameErr = $lastnameErr = $contactErr = $emailErr = "";
 $napnameErr = $napportErr = $macaddressErr = $statusErr = "";
 $purokErr = $barangayErr = $planErr = $equipmentErr = "";
 $hasError = false;
@@ -65,7 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $lastname = trim($_POST['lastname'] ?? '');
     $contact = trim($_POST['contact'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    $dob = trim($_POST['date'] ?? '');
+    $dob = trim($_POST['date'] ?? ''); // Expecting mm/dd/yyyy
     $napname = trim($_POST['napname'] ?? '');
     $napport = trim($_POST['napport'] ?? '');
     $macaddress = trim($_POST['macaddress'] ?? '');
@@ -88,13 +92,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $lastnameErr = "Last Name should not contain numbers.";
         $hasError = true;
     }
-  
     if (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
         $macaddressErr = "Mac Address should not contain special characters.";
-        $hasError = true;
-    }
-    if (empty($dob)) {
-        $dobErr = "Date is required.";
         $hasError = true;
     }
     if (empty($status)) {
@@ -117,9 +116,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $equipmentErr = "Equipment is required.";
         $hasError = true;
     }
+    if (empty($napname)) {
+        $napnameErr = "NAP Device is required.";
+        $hasError = true;
+    }
+    if (empty($napport)) {
+        $napportErr = "NAP Port is required.";
+        $hasError = true;
+    }
 
     // Insert into database if no errors
     if (!$hasError) {
+        // Convert date to MySQL format (YYYY-MM-DD)
+        $mysqlDate = DateTime::createFromFormat('m/d/Y', $dob)->format('Y-m-d');
+        error_log("Database date set to: $mysqlDate"); // Debug log for database date
+
         $sql = "INSERT INTO tbl_customer (c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -131,7 +142,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit();
         }
 
-        $stmt->bind_param("sssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $equipment);
+        $stmt->bind_param("sssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $mysqlDate, $napname, $napport, $macaddress, $status, $plan, $equipment);
 
         if ($stmt->execute()) {
             $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent.";
@@ -139,7 +150,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $firstname = $lastname = $contact = $email = $dob = "";
             $napname = $napport = $macaddress = $status = "";
             $purok = $barangay = $plan = $equipment = "";
-            header("Location: addC.php");
+            header("Location: customersT.php");
             exit();
         } else {
             $_SESSION['error'] = "Execution failed: " . $stmt->error;
@@ -170,6 +181,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
+            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php" class="active"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
@@ -208,10 +220,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
           
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
             <?php endif; ?>
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
         </div>
 
@@ -222,33 +234,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="firstname">First Name <span class="required">*</span></label>
-                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname); ?>" required>
-                        <span class="error"><?php echo $firstnameErr; ?></span>
+                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($firstnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="lastname">Last Name <span class="required">*</span></label>
-                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname); ?>" required>
-                        <span class="error"><?php echo $lastnameErr; ?></span>
+                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($lastnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="purok">Purok Name</label>
-                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok); ?>">
-                        <span class="error"><?php echo $purokErr; ?></span>
+                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?>">
+                        <span class="error"><?php echo htmlspecialchars($purokErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="barangay">Barangay <span class="required">*</span></label>
-                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay); ?>" required>
-                        <span class="error"><?php echo $barangayErr; ?></span>
+                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($barangayErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="contact">Contact Number <span class="required">*</span></label>
-                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact); ?>" required>
-                        <span class="error"><?php echo $contactErr; ?></span>
+                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($contactErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="email">Email Address <span class="required">*</span></label>
-                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email); ?>" required>
-                        <span class="error"><?php echo $emailErr; ?></span>
+                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($emailErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -257,8 +269,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="date">Subscription Date <span class="required">*</span></label>
-                        <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($dob); ?>" required>
-                        <span class="error"><?php echo $dobErr; ?></span>
+                        <input type="text" id="date" name="date" value="<?php echo htmlspecialchars($currentDate, ENT_QUOTES, 'UTF-8'); ?>" readonly required>
+                        <span class="error"></span>
                     </div>
                     <div class="form-group">
                         <label for="napname">NAP Device <span class="required">*</span></label>
@@ -273,7 +285,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="Lp1 Np7" <?php echo ($napname === 'Lp1 Np7') ? 'selected' : ''; ?>>Lp1 Np7</option>
                             <option value="Lp1 Np8" <?php echo ($napname === 'Lp1 Np8') ? 'selected' : ''; ?>>Lp1 Np8</option>
                         </select>
-                        <span class="error"><?php echo $napnameErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($napnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="napport">NAP Port <span class="required">*</span></label>
@@ -288,12 +300,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="7" <?php echo ($napport === '7') ? 'selected' : ''; ?>>7</option>
                             <option value="8" <?php echo ($napport === '8') ? 'selected' : ''; ?>>8</option>
                         </select>
-                        <span class="error"><?php echo $napportErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($napportErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="macaddress">MAC Address <span class="required">*</span></label>
-                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress); ?>" required>
-                        <span class="error"><?php echo $macaddressErr; ?></span>
+                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($macaddressErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="status">Customer Status <span class="required">*</span></label>
@@ -302,7 +314,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="Active" <?php echo ($status === 'Active') ? 'selected' : ''; ?>>Active</option>
                             <option value="Inactive" <?php echo ($status === 'Inactive') ? 'selected' : ''; ?>>Inactive</option>
                         </select>
-                        <span class="error"><?php echo $statusErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($statusErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -318,7 +330,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="100 Mbps" <?php echo ($plan === '100 Mbps') ? 'selected' : ''; ?>>100 Mbps</option>
                             <option value="1 Gbps" <?php echo ($plan === '1 Gbps') ? 'selected' : ''; ?>>1 Gbps</option>
                         </select>
-                        <span class="error"><?php echo $planErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($planErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="equipment">Equipment <span class="required">*</span></label>
@@ -327,7 +339,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="ISP-Provided Modem/Router" <?php echo ($equipment === 'ISP-Provided Modem/Router') ? 'selected' : ''; ?>>ISP-Provided Modem/Router</option>
                             <option value="Customer-Owned" <?php echo ($equipment === 'Customer-Owned') ? 'selected' : ''; ?>>Customer-Owned</option>
                         </select>
-                        <span class="error"><?php echo $equipmentErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($equipmentErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -349,6 +361,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Reset form if no validation errors
         <?php if (!$hasError && $_SERVER["REQUEST_METHOD"] == "POST"): ?>
             this.reset();
+            document.getElementById('date').value = '<?php echo htmlspecialchars($currentDate, ENT_QUOTES, 'UTF-8'); ?>';
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit Application';
         <?php endif; ?>

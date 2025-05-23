@@ -306,10 +306,8 @@ footer {
 
 .export-btn:hover {
     background-color: #7494ec;
-    
 }
 
-/* Export Dropdown */
 .export-container {
     position: relative;
     display: inline-block;
@@ -369,7 +367,6 @@ footer {
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
     border: none;
     outline: none;
-    
 }
 
 .add-user-btn:hover {
@@ -823,8 +820,10 @@ tr:hover td {
 
 .action-buttons {
     display: flex;
+    justify-content: center; /* Center buttons horizontally */
+    align-items: center; /* Center buttons vertically */
     gap: 5px;
-    padding: 23px 5px;
+    padding: 8px 5px; /* Adjusted padding for better vertical alignment */
 }
 
 .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .ticket-btn {
@@ -869,4 +868,3 @@ tr:hover td {
 .unarchive-btn:hover {
     background-color: #8e44ad;
 }
-
