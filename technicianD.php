@@ -245,7 +245,7 @@ try {
                         throw new Exception('Invalid full name. Please enter your correct technician name');
                     }
                 } else {
-                    throw new Exception("technician \"$firstName $lastName\"");
+                    throw new Exception("Technician not found: $firstName $lastName");
                 }
                 $stmt->close();
 
@@ -266,9 +266,9 @@ try {
                         $ticket = $result->fetch_assoc();
                         $stmt->close();
 
-                        // Insert into closed tickets table
-                        $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_status, t_details) 
-                                     VALUES (?, ?, ?, ?, 'Closed', ?)";
+                        // Insert into closed tickets table with te_date
+                        $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date) 
+                                     VALUES (?, ?, ?, ?, 'Closed', ?, NOW())";
                         $stmtInsert = $conn->prepare($sqlInsert);
                         if (!$stmtInsert) {
                             throw new Exception("Prepare failed for insert closed regular: " . $conn->error);
@@ -289,8 +289,8 @@ try {
                         $stmtDelete->close();
 
                         // Log action
-                        $logType = $firstName . ' ' . $lastName;
-                        $logDescription = "closed regular ticket ref#$id";
+                        $logType = "Technician $firstName $lastName";
+                        $logDescription = "Closed regular ticket ref#$id";
                         $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
@@ -319,9 +319,9 @@ try {
                         $ticket = $result->fetch_assoc();
                         $stmt->close();
 
-                        // Insert into closed support tickets table
-                        $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status) 
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, 'Closed')";
+                        // Insert into closed support tickets table with s_date
+                        $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date) 
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, 'Closed', NOW())";
                         $stmtInsert = $conn->prepare($sqlInsert);
                         if (!$stmtInsert) {
                             throw new Exception("Prepare failed for insert closed support: " . $conn->error);
@@ -343,8 +343,8 @@ try {
                         $stmtDelete->close();
 
                         // Log action
-                        $logType = $firstName . ' ' . $lastName;
-                        $logDescription = "closed support ticket ref#$id";
+                        $logType = "Technician $firstName $lastName";
+                        $logDescription = "Closed support ticket ref#$id";
                         $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
@@ -418,8 +418,8 @@ try {
                 if ($stmt->execute()) {
                     if ($stmt->affected_rows > 0) {
                         // Log action
-                        $logType = $firstName . ' ' . $lastName;
-                        $logDescription = $action . "ed " . $type . " ticket ref#$id";
+                        $logType = "Technician $firstName $lastName";
+                        $logDescription = ucfirst($action) . "d $type ticket ref#$id";
                         $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_type, l_description) VALUES (NOW(), ?, ?)";
                         $stmtLog = $conn->prepare($sqlLog);
                         if (!$stmtLog) {
@@ -666,7 +666,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISP Technician Dashboard</title>
-    <link rel="stylesheet" href="technicianSD.css">
+    <link rel="stylesheet" href="technicianTBD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -678,6 +678,7 @@ try {
         <ul>
             <li><a href="technicianD.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="techBorrowed.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
+            <li><a href="TechCustomers.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -749,46 +750,48 @@ try {
             </div>
         </div>
 
-        <!-- Modals -->
-        <div id="viewTicketModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Ticket Details</h2>
-                </div>
-                <div id="viewTicketContent"></div>
-                <div class="modal-footer"></div>
-            </div>
+       <!-- View Modal -->
+<div id="viewTicketModal" class="modal view-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Ticket Details</h2>
         </div>
+        <div id="viewTicketContent"></div>
+        <div class="modal-footer"></div>
+    </div>
+</div>
 
-        <div id="actionModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header"></div>
-                <div class="modal-body"></div>
-                <div class="modal-footer"></div>
-            </div>
-        </div>
+<!-- Action Modal (Archive, Delete, Unarchive) -->
+<div id="actionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"></div>
+        <div class="modal-body"></div>
+        <div class="modal-footer"></div>
+    </div>
+</div>
 
-        <div id="closeModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Close Ticket</h2>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to close ticket ref#<span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
-                    <form method="POST" id="closeForm">
-                        <input type="hidden" name="action" value="close">
-                        <input type="hidden" name="id" id="closeFormId">
-                        <input type="hidden" name="type" id="closeFormType">
-                        <input type="hidden" name="technicianFullName" id="closeFormTechnicianFullName" value="<?php echo htmlspecialchars($firstName . ' ' . $lastName); ?>">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                        <div class="modal-footer">
-                            <button type="button" class="modal-btn cancel" onclick="closeModal('closeModal')">Cancel</button>
-                            <button type="submit" class="modal-btn confirm">Confirm</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<!-- Close Modal -->
+<div id="closeModal" class="modal close-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Close Ticket</h2>
         </div>
+        <div class="modal-body">
+            <p>Are you sure you want to close ticket ref#<span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
+            <form method="POST" id="closeForm">
+                <input type="hidden" name="action" value="close">
+                <input type="hidden" name="id" id="closeFormId">
+                <input type="hidden" name="type" id="closeFormType">
+                <input type="hidden" name="technicianFullName" id="closeFormTechnicianFullName" value="<?php echo htmlspecialchars($firstName . ' ' . $lastName); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('closeModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
         <form id="actionForm" method="POST" style="display: none;">
             <input type="hidden" name="action" id="actionFormAction">
@@ -1221,52 +1224,17 @@ function searchTickets(page = 1) {
 
 const debouncedSearchTickets = debounce(searchTickets, 300);
 
-function showViewModal(type, data) {
-    try {
-        const content = document.getElementById('viewTicketContent');
-        const footer = document.getElementById('viewTicketModal').querySelector('.modal-footer');
-        const statusClass = `status-${data.status.toLowerCase().replace(' ', '-')}`;
-        let html = '';
-        if (type === 'regular') {
-            html = `
-                <p><strong>Ticket Ref:</strong> ${data.ref}</p>
-                <p><strong>Customer Name:</strong> ${data.aname}</p>
-                <p><strong>Subject:</strong> ${data.subject}</p>
-                <p><strong>Message:</strong> ${data.details}</p>
-                <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
-            `;
-            footer.innerHTML = `
-                ${data.status.toLowerCase() === 'open' && !data.isArchived ? `<button class="modal-btn confirm" onclick="openCloseModal('${data.ref}', '${data.aname}', 'regular')">Close Ticket</button>` : ''}
-                <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
-            `;
-        } else {
-            html = `
-                <p><strong>Ticket Ref:</strong> ${data.ref}</p>
-                <p><strong>Customer ID:</strong> ${data.c_id}</p>
-                <p><strong>Customer Name:</strong> ${data.aname}</p>
-                <p><strong>Subject:</strong> ${data.subject}</p>
-                <p><strong>Message:</strong> ${data.details}</p>
-                <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
-            `;
-            footer.innerHTML = `
-                ${data.status.toLowerCase() === 'open' && !data.isArchived ? `<button class="modal-btn confirm" onclick="openCloseModal('${data.ref}', '${data.aname}', 'support')">Close Ticket</button>` : ''}
-                <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
-            `;
-        }
-        content.innerHTML = html;
-        document.getElementById('viewTicketModal').style.display = 'block';
-        document.body.classList.add('modal-open');
-    } catch (e) {
-        console.error('Error in showViewModal:', e);
-    }
-}
-
 function openModal(action, type, data) {
     try {
         const modal = document.getElementById('actionModal');
         const modalHeader = modal.querySelector('.modal-header');
         const modalBody = modal.querySelector('.modal-body');
         const modalFooter = modal.querySelector('.modal-footer');
+
+        // Remove any existing action-specific classes
+        modal.classList.remove('archive-modal', 'delete-modal', 'unarchive-modal');
+        // Add the specific class based on action
+        modal.classList.add(`${action}-modal`);
 
         const actionText = action.charAt(0).toUpperCase() + action.slice(1);
         modalHeader.innerHTML = `<h2>${actionText} Ticket ref#${data.ref}</h2>`;
@@ -1285,14 +1253,60 @@ function openModal(action, type, data) {
 
 function openCloseModal(ref, aname, type) {
     try {
+        const modal = document.getElementById('closeModal');
+        // Ensure the close-modal class is present
+        modal.classList.add('close-modal');
+        
         document.getElementById('closeTicketIdDisplay').textContent = ref;
         document.getElementById('closeTicketName').textContent = aname;
         document.getElementById('closeFormId').value = ref;
         document.getElementById('closeFormType').value = type;
-        document.getElementById('closeModal').style.display = 'block';
+        modal.style.display = 'block';
         document.body.classList.add('modal-open');
     } catch (e) {
         console.error('Error in openCloseModal:', e);
+    }
+}
+
+function showViewModal(type, data) {
+    try {
+        const modal = document.getElementById('viewTicketModal');
+        const content = modal.querySelector('#viewTicketContent');
+        const footer = modal.querySelector('.modal-footer');
+        // Add view-modal class
+        modal.classList.add('view-modal');
+        
+        const statusClass = `status-${data.status.toLowerCase().replace(' ', '-')}`;
+        let html = '';
+        if (type === 'regular') {
+            html = `
+                <p><strong>Ticket Ref:</strong> ${data.ref}</p>
+                <p><strong>Customer Name:</strong> ${data.aname}</p>
+                <p><strong>Subject:</strong> ${data.subject}</p>
+                <p><strong>Message:</strong> ${data.details}</p>
+                <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
+            `;
+            footer.innerHTML = `
+                <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
+            `;
+        } else {
+            html = `
+                <p><strong>Ticket Ref:</strong> ${data.ref}</p>
+                <p><strong>Customer ID:</strong> ${data.c_id}</p>
+                <p><strong>Customer Name:</strong> ${data.aname}</p>
+                <p><strong>Subject:</strong> ${data.subject}</p>
+                <p><strong>Message:</strong> ${data.details}</p>
+                <p><strong>Status:</strong> <span class="${statusClass}">${data.status}</span></p>
+            `;
+            footer.innerHTML = `
+                <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
+            `;
+        }
+        content.innerHTML = html;
+        modal.style.display = 'block';
+        document.body.classList.add('modal-open');
+    } catch (e) {
+        console.error('Error in showViewModal:', e);
     }
 }
 

@@ -297,7 +297,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customersTB.css">
+    <link rel="stylesheet" href="techCustomers.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -308,11 +308,9 @@ if ($conn) {
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-            <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
-            <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
-            <li><a href="customersT.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
-            <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
-            <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
+            <li><a href="technicianD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
+            <li><a href="techBorrowed.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
+            <li><a href="TechCustomers.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -361,30 +359,7 @@ if ($conn) {
 
         <div class="table-box glass-container">
             <h2>TIMS Customers</h2>
-            <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
-                <div class="tab-buttons">
-                    <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_active') || !isset($_GET['tab']) ? 'active' : ''; ?>" onclick="showTab('customers_active')">
-                        Active (<?php echo $totalActive; ?>)
-                    </button>
-                    <button class="tab-btn <?php echo isset($_GET['tab']) && $_GET['tab'] === 'customers_archived' ? 'active' : ''; ?>" onclick="showTab('customers_archived')">
-                        Archived
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
-                <div class="customer-actions">
-                    <form action="addC.php" method="get" style="display: inline;">
-                        <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
-                    </form>
-                    <div class="export-container">
-                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                        <div class="export-dropdown">
-                            <button onclick="exportTable('excel')">Excel</button>
-                            <button onclick="exportTable('csv')">CSV</button>
-                        </div>
-                    </div>
-                </div>
+                
                 <table id="active-customers-table">
                     <thead>
                         <tr>
@@ -413,8 +388,6 @@ if ($conn) {
                                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>
                                             <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' href='editC.php?id=" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
-                                            <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                         </td>
                                       </tr>";
                             }

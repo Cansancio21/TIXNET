@@ -547,6 +547,68 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     exit();
 }
 
+// Handle AJAX export data request
+if (isset($_GET['action']) && $_GET['action'] === 'export_data' && isset($_GET['tab'])) {
+    $searchTerm = trim($_GET['search'] ?? '');
+    $filterName = trim($_GET['filter_name'] ?? '');
+    $filterStatus = trim($_GET['filter_status'] ?? '');
+    $tab = $_GET['tab'] === 'archive' ? 'archive' : 'active';
+
+    $statusCondition = $tab === 'active' ? "a_status != 'Archived'" : "a_status = 'Archived'";
+    $params = [];
+    $types = '';
+    $whereClauses = [$statusCondition];
+
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(a_name LIKE ? OR a_status LIKE ? OR a_quantity LIKE ? OR a_date LIKE ?)";
+        $searchWildcard = "%$searchTerm%";
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $types .= 'ssss';
+    }
+
+    if ($filterName !== '') {
+        $whereClauses[] = "a_name = ?";
+        $params[] = $filterName;
+        $types .= 's';
+    }
+
+    if ($filterStatus !== '') {
+        $whereClauses[] = "a_status = ?";
+        $params[] = $filterStatus;
+        $types .= 's';
+    }
+
+    $whereClause = implode(' AND ', $whereClauses);
+
+    // Fetch all assets for export
+    $sql = "SELECT a_id, a_name, a_status, a_quantity, a_date 
+            FROM tbl_assets 
+            WHERE $whereClause 
+            ORDER BY a_id ASC";
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $assets = [];
+    while ($row = $result->fetch_assoc()) {
+        $assets[] = [
+            'Asset ID' => $row['a_id'],
+            'Asset Name' => $row['a_name'],
+            'Status' => $row['a_status'],
+            'Quantity' => $row['a_quantity'],
+            'Date Registered' => $row['a_date'],
+        ];
+    }
+    $stmt->close();
+
+    header('Content-Type: application/json');
+    echo json_encode(['data' => $assets]);
+    exit();
+}
+
 // Pagination settings
 $limit = 10;
 
@@ -606,6 +668,9 @@ if ($conn) {
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <style>
         .filter-btn {
@@ -697,9 +762,17 @@ if ($conn) {
                         </button>
                     </div>
                 </div>
-                <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
-                <a href="exportAssets.php" class="export-btn"><i class="fas fa-download"></i> Export</a>
                 <div id="assets-active" class="tab-content">
+                <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
+                <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
+                <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
+               <div class="export-container">
+                    <button class="export-btn"><i class="fas fa-download"></i> Export</button>
+                    <div class="export-dropdown">
+                        <button onclick="exportTable('excel')">Excel</button>
+                        <button onclick="exportTable('csv')">CSV</button>
+                    </div>
+                </div>
                     <table id="assets-table">
                         <thead>
                             <tr>
@@ -815,8 +888,7 @@ if ($conn) {
                         <?php endif; ?>
                     </div>
                 </div>
-                <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
-                <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
+                
             </div>
         </div>
 
@@ -896,7 +968,6 @@ if ($conn) {
                         <select id="edit_asset_status" name="asset_status" required>
                             <option value="Borrowing">Borrowing</option>
                             <option value="Deployment">Deployment</option>
-                            <option value="Archived">Archived</option>
                         </select>
                         <span class="error" id="edit_asset_status_error"></span>
                     </div>
@@ -1306,6 +1377,52 @@ function updatePagination(currentPage, totalPages, tab, searchTerm, paginationId
     paginationContainer.innerHTML = paginationHtml;
 }
 
+function exportTable(format) {
+    const searchTerm = document.getElementById('searchInput').value;
+    const filterName = window.currentFilters?.name || '';
+    const filterStatus = window.currentFilters?.status || '';
+    const tab = document.getElementById('assets-active').style.display !== 'none' ? 'active' : 'archive';
+
+    const params = new URLSearchParams();
+    params.append('action', 'export_data');
+    params.append('tab', tab);
+    if (searchTerm) params.append('search', searchTerm);
+    if (filterName) params.append('filter_name', filterName);
+    if (filterStatus) params.append('filter_status', filterStatus);
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    const data = response.data;
+
+                    if (format === 'excel') {
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, tab === 'active' ? 'Active Assets' : 'Archived Assets');
+                        XLSX.writeFile(wb, `${tab}_assets.xlsx`);
+                    } else if (format === 'csv') {
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const csv = XLSX.utils.sheet_to_csv(ws);
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        saveAs(blob, `${tab}_assets.csv`);
+                    }
+                } catch (e) {
+                    console.error('Error during export:', e);
+                    alert('Error exporting data: ' + e.message);
+                }
+            } else {
+                console.error('Export request failed:', xhr.status, xhr.statusText);
+                alert('Error exporting data. Please try again.');
+            }
+        }
+    };
+    xhr.open('GET', `assetsT.php?${params.toString()}`, true);
+    xhr.send();
+}
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -1322,3 +1439,5 @@ const debouncedSearchAssets = debounce((page) => searchAssets(page), 300);
 </script>
 </body>
 </html>
+
+

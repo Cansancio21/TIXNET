@@ -513,7 +513,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Borrowed Assets</title>
-    <link rel="stylesheet" href="borrowedsT.css"> 
+    <link rel="stylesheet" href="borrowedSTaffs.css"> 
      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -606,7 +606,6 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
             <div class="borrowed">
                 <div class="button-container">
                     <a href="#" class="return-btn" onclick="showReturnAssetModal()"><i class="fas fa-undo"></i> Return</a>
-                    <a href="createTickets.php" class="export-btn"><i class="fas fa-download"></i> Export</a>
                 </div>
                 <table id="borrowedTable">
                     <thead>
@@ -643,7 +642,6 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                                     <td>" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                     <td class='action-buttons'>
                                         <a class='view-btn' onclick=\"showViewModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                        <a class='edit-btn' onclick=\"showEditModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                         <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['b_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                     </td>
                                   </tr>"; 

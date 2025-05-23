@@ -179,17 +179,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $statusClass = 'status-' . strtolower($row['t_status']);
-            $isClickable = (strtolower($row['t_status']) === 'open' && $tab === 'active');
-            $clickableAttr = $isClickable ? " status-clickable' onclick=\"showCloseModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}')\"" : "'";
-
             $output .= "<tr> 
                 <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                <td class='$statusClass$clickableAttr'>" . ucfirst(strtolower($row['t_status'])) . "</td>
+                <td class='$statusClass'>" . ucfirst(strtolower($row['t_status'])) . "</td>
                 <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                 <td class='action-buttons'>";
-            $output .= "<a class='view-btn' href='#' title='View'><i class='fas fa-eye'></i></a>";
+            $output .= "<a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>";
             if ($tab === 'active') {
                 $output .= "<a class='edit-btn' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                             <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
@@ -509,56 +506,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt->close();
         $tab = 'active';
-    } elseif (isset($_POST['close_ticket'])) {
-        $t_ref = $_POST['t_ref'];
-
-        $sqlTicket = "SELECT t_aname FROM tbl_ticket WHERE t_ref = ?";
-        $stmtTicket = $conn->prepare($sqlTicket);
-        $stmtTicket->bind_param("s", $t_ref);
-        $stmtTicket->execute();
-        $resultTicket = $stmtTicket->get_result();
-        $ticket = $resultTicket->fetch_assoc();
-        $stmtTicket->close();
-
-        if ($ticket) {
-            $t_aname = $ticket['t_aname'];
-            $sqlCustomer = "SELECT c_fname, c_lname FROM tbl_customer WHERE CONCAT(c_fname, ' ', c_lname) = ?";
-            $stmtCustomer = $conn->prepare($sqlCustomer);
-            $stmtCustomer->bind_param("s", $t_aname);
-            $stmtCustomer->execute();
-            $resultCustomer = $stmtCustomer->get_result();
-            if ($resultCustomer->num_rows > 0) {
-                $customer = $resultCustomer->fetch_assoc();
-                $userFirstName = $customer['c_fname'];
-                $userLastName = $customer['c_lname'];
-            } else {
-                $userFirstName = $t_aname;
-                $userLastName = '';
-            }
-            $stmtCustomer->close();
-
-            $sql = "UPDATE tbl_ticket SET t_status='closed' WHERE t_ref=?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $t_ref);
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Ticket closed successfully!";
-                $logDescription = "closed ticket $t_ref for user $userFirstName $userLastName";
-                $logType = "Staff $firstName $lastName";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-                $stmtLog = $conn->prepare($sqlLog);
-                $stmtLog->bind_param("ss", $logDescription, $logType);
-                $stmtLog->execute();
-                $stmtLog->close();
-            } else {
-                $_SESSION['error'] = "Error closing ticket: " . $stmt->error;
-                error_log("Error closing ticket: " . $stmt->error);
-            }
-            $stmt->close();
-        } else {
-            $_SESSION['error'] = "Ticket not found.";
-            error_log("Ticket not found for t_ref: $t_ref");
-        }
-        $tab = 'active';
     } elseif (isset($_POST['delete_ticket'])) {
         $t_ref = $_POST['t_ref'];
         $sql = "DELETE FROM tbl_ticket WHERE t_ref=? AND t_details LIKE 'ARCHIVED:%'";
@@ -637,7 +584,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffsD.css">
+    <link rel="stylesheet" href="staffDD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -752,17 +699,14 @@ $conn->close();
                         if ($resultActive->num_rows > 0) {
                             while ($row = $resultActive->fetch_assoc()) {
                                 $statusClass = 'status-' . strtolower($row['t_status']);
-                                $isClickable = (strtolower($row['t_status']) === 'open');
-                                $clickableAttr = $isClickable ? " status-clickable' onclick=\"showCloseModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}')\"" : "'";
-
                                 echo "<tr> 
                                         <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td class='$statusClass$clickableAttr>" . ucfirst(strtolower($row['t_status'])) . "</td>
+                                        <td class='$statusClass'>" . ucfirst(strtolower($row['t_status'])) . "</td>
                                         <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' href='#' title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='edit-btn' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                             <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                         </td>
@@ -821,7 +765,7 @@ $conn->close();
                                         <td class='status-" . strtolower($row['t_status']) . "'>" . ucfirst(strtolower($row['t_status'])) . "</td>
                                         <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' href='#' title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='restore-btn' onclick=\"showRestoreModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                             <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
@@ -913,24 +857,6 @@ $conn->close();
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Delete</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Close Ticket Modal -->
-<div id="closeModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Close Ticket</h2>
-        </div>
-        <form method="POST" id="closeForm">
-            <p>Confirm closing ticket <span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
-            <input type="hidden" name="t_ref" id="closeTicketId">
-            <input type="hidden" name="close_ticket" value="1">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('closeModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Close Ticket</button>
             </div>
         </form>
     </div>
@@ -1301,21 +1227,39 @@ function showTab(tab) {
 }
 
 function showViewModal(ref, aname, subject, status, details) {
-    console.log(`Opening view modal for ticket ref=${ref}`);
-    const escapeHTML = (str) => {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    };
+    console.log(`Opening view modal for ticket ref=${ref}, aname=${aname}, subject=${subject}, status=${status}, details=${details}`);
+    try {
+        const viewModal = document.getElementById('viewModal');
+        const viewContent = document.getElementById('viewContent');
+        if (!viewModal || !viewContent) {
+            console.error('View modal or content element not found');
+            alert('Error: Modal elements are missing.');
+            return;
+        }
 
-    document.getElementById('viewContent').innerHTML = `
-        <p><strong>Ticket Ref:</strong> ${escapeHTML(ref)}</p>
-        <p><strong>Account Name:</strong> ${escapeHTML(aname)}</p>
-        <p><strong>Subject:</strong> ${escapeHTML(subject)}</p>
-        <p><strong>Ticket Status:</strong> <span class="status-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></p>
-        <p><strong>Ticket Details:</strong> ${escapeHTML(details.replace(/^ARCHIVED:/, ''))}</p>
-    `;
-    document.getElementById('viewModal').style.display = 'block';
+        const escapeHTML = (str) => {
+            if (typeof str !== 'string') {
+                console.warn(`Non-string value passed to escapeHTML: ${str}`);
+                return '';
+            }
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+
+        viewContent.innerHTML = `
+            <p><strong>Ticket Ref:</strong> ${escapeHTML(ref)}</p>
+            <p><strong>Account Name:</strong> ${escapeHTML(aname)}</p>
+            <p><strong>Subject:</strong> ${escapeHTML(subject)}</p>
+            <p><strong>Ticket Status:</strong> <span class="status-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></p>
+            <p><strong>Ticket Details:</strong> ${escapeHTML(details)}</p>
+        `;
+        viewModal.style.display = 'block';
+        console.log('View modal displayed successfully');
+    } catch (error) {
+        console.error('Error in showViewModal:', error);
+        alert('An error occurred while opening the view modal.');
+    }
 }
 
 function showArchiveModal(ref, aname) {
@@ -1337,18 +1281,6 @@ function showDeleteModal(ref, aname) {
     document.getElementById('deleteTicketRef').innerText = ref;
     document.getElementById('deleteTicketName').innerText = aname;
     document.getElementById('deleteModal').style.display = 'block';
-}
-
-function showCloseModal(ref, aname, status) {
-    if (status.toLowerCase() === 'closed') {
-        alert("This ticket is already closed!");
-        return;
-    }
-    console.log(`Opening close modal for ticket ref=${ref}, Account Name=${aname}`);
-    document.getElementById('closeTicketId').value = ref;
-    document.getElementById('closeTicketIdDisplay').innerText = ref;
-    document.getElementById('closeTicketName').innerText = aname;
-    document.getElementById('closeModal').style.display = 'block';
 }
 
 function showEditTicketModal(ref, aname, subject, status, details) {

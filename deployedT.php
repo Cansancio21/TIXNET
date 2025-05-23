@@ -621,7 +621,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deployed Assets</title>
-    <link rel="stylesheet" href="deployedsT.css"> 
+    <link rel="stylesheet" href="deployedTTB.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -761,8 +761,8 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
                         <div class='action-buttons'>
                             <span class='view-btn' onclick='showViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>";
             if ($userType === 'admin') {
-                echo "<span class='edit-btn' onclick='showEditModal($assetData)' title='Edit'><i class='fas fa-edit'></i></span>
-                      <span class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
+                echo
+                      "<span class='delete-btn' onclick=\"showDeleteModal('{$row['d_id']}', '" . htmlspecialchars($row['d_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
             }
             echo "</div>
                     </td></tr>";

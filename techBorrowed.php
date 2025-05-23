@@ -138,7 +138,7 @@ $avatarPath = $_SESSION['avatarPath'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Borrowed Assets</title>
-    <link rel="stylesheet" href="techsBorrowed.css"> 
+    <link rel="stylesheet" href="techBorrowed.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -193,6 +193,7 @@ $avatarPath = $_SESSION['avatarPath'];
         <ul>
             <li><a href="technicianD.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="techBorrowed.php" class="active"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
+            <li><a href="TechCustomers.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
         </ul>
         <footer>
           <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -248,10 +249,6 @@ $avatarPath = $_SESSION['avatarPath'];
             <?php endif; ?>
 
             <div class="borrowed">
-                <div class="button-container">
-                    <a href="borrowA.php" class="borrow-btn"><i class="fas fa-plus"></i> Borrow</a>
-                    <a href="techreturn.php" class="return-btn"><i class="fas fa-undo"></i> Return</a>
-                </div>
                 <table id="borrowedTable">
                     <thead>
                         <tr>
@@ -277,7 +274,6 @@ $avatarPath = $_SESSION['avatarPath'];
                                         <td>" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>
                                             <a class='view-btn' onclick=\"showViewModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_quantity'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_technician_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['b_date'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a href='editBR.php?id={$row['b_id']}' class='edit-btn' title='Edit'><i class='fas fa-edit'></i></a>
                                             <a class='delete-btn' onclick=\"showDeleteModal('{$row['b_id']}', '" . htmlspecialchars($row['b_assets_name'] ?? 'Unknown Asset', ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
                                       </tr>"; 
