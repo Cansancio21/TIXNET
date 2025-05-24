@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 include 'db.php';
@@ -763,17 +762,18 @@ if ($conn) {
                         </button>
                     </div>
                 </div>
-                <div id="assets-active" class="tab-content">
-                <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
-                <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
-                <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
-               <div class="export-container">
-                    <button class="export-btn"><i class="fas fa-download"></i> Export</button>
-                    <div class="export-dropdown">
-                        <button onclick="exportTable('excel')">Excel</button>
-                        <button onclick="exportTable('csv')">CSV</button>
-                    </div>
-                </div>
+                <div class="button-group">
+    <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
+    <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
+    <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
+    <div class="export-container">
+        <button class="export-btn"><i class="fas fa-download"></i> Export</button>
+        <div class="export-dropdown">
+            <button onclick="exportTable('excel')">Excel</button>
+            <button onclick="exportTable('csv')">CSV</button>
+        </div>
+    </div>
+</div>
                     <table id="assets-table">
                         <thead>
                             <tr>
@@ -1440,5 +1440,3 @@ const debouncedSearchAssets = debounce((page) => searchAssets(page), 300);
 </script>
 </body>
 </html>
-
-
