@@ -3,7 +3,7 @@
     --secondary: #372fa7;
     --dark: #2d3436;
     --light: #f5f6fa;
-    --success: #4CAF50;
+    --success: #00b894;
     --danger: #d63031;
     --warning: #fdcb6e;
     --info: #0984e3;
@@ -49,7 +49,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    transition: width 0.3s ease;
 }
 
 .sidebar h2 {
@@ -108,7 +107,6 @@ body {
     border-radius: 8px;
     transition: all 0.3s;
     width: 100%;
-    font-size: clamp(0.875rem, 2vw, 1rem);
 }
 
 .sidebar ul li a:hover,
@@ -265,21 +263,20 @@ footer {
 }
 
 .user-details small {
-    color: #ffffff;
+    color: #fdfdfd;
     font-size: 12px;
     margin-left: -300px;
 }
 
-.table-box h2 {
-    margin-top: 15px;
-}
-
 .username {
     position: absolute;
-    left: 25px;
+    left: 20px;
     top: 25px;
-    font-weight: 500;
+    padding-bottom: 25px;
+    margin-bottom: 15px;
     color: var(--primary);
+    font-size: 20px;
+    font-weight: 500;
 }
 
 .admin-icon {
@@ -287,82 +284,16 @@ footer {
     margin-left: 5px;
 }
 
-.export-btn {
-    position: absolute;
-    top: -37px;
-    right: -1110px;
-    display: inline-flex;
-    align-items: center;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none;
-    outline: none;
-}
-
-.export-btn:hover {
-    background-color: #7494ec;
-}
-
-/* Export Dropdown */
-.export-container {
-    position: relative;
-    display: inline-block;
-}
-
-.export-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 1100px;
-    background: white;
-    min-width: 120px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: -75px;
-}
-
-.export-container:hover .export-dropdown {
-    display: block;
-}
-
-.export-dropdown button {
-    color: var(--dark);
-    padding: 10px 15px;
-    text-decoration: none;
-    display: block;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.export-dropdown button:hover {
-    background-color: var(--primary);
-    color: white;
-}
-
 .add-user-btn {
     position: absolute;
-    top: 100px;
+    top: 60px;
     right: 20px;
     display: inline-flex;
     align-items: center;
-    background-color: #cf752b;
+    background: var(--primary);
     color: white;
     padding: 10px 20px;
-    border-radius: 5px;
+    border-radius: 30px;
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
@@ -372,69 +303,65 @@ footer {
 
 .add-user-btn:hover {
     background-color: #7494ec;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
 }
 
 .add-user-btn i {
-    margin-right: 8px;
-}
-
-.export-btn i {
-    margin-right: 8px;
+    margin-right: 15px;
 }
 
 /* Tabs */
 .tab-buttons {
     display: flex;
-    margin-bottom: 10px;
-    margin-top: 15px;
+    gap: 10px;
+    margin: 55px 0 15px;
 }
 
 .tab-btn {
     padding: 8px 16px;
-    background: #f1f1f1;
+    background-color: #f1f1f1;
     border: none;
+    border-radius: 4px;
+    font-size: 14px;
     cursor: pointer;
-    margin-right: 5px;
-    border-radius: 4px 4px 0 0;
+    transition: background-color 0.3s;
     position: relative;
-    color: #333;
-    font-weight: 500;
-    transition: all 0.3s ease;
 }
 
 .tab-btn.active {
-    background: var(--success);
-    color: white;
+    background-color: #4CAF50;
+    color: #fff;
+}
+
+.tab-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.tab-btn.active:hover {
+    background-color: #45a049;
 }
 
 .tab-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff5722;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    background-color: #ff5722;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 8px;
     font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute;
+    top: -5px;
+    right: -5px;
 }
 
-#active-users-tab,
-#archived-users-tab {
+.active-tickets, .archived-tickets {
     display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
 }
 
-#active-users-tab.active,
-#archived-users-tab.active {
-    display: flex;
+.active-tickets.active, .archived-tickets.active {
+    display: block;
 }
 
+/* Table */
 .table-box {
     width: 100%;
     padding: 10px;
@@ -444,15 +371,14 @@ footer {
     position: relative;
     min-height: 60vh;
     overflow: visible;
-    margin-top: -15px;
+    margin-top: 5px;
 }
 
-/* Optimized Table Structure */
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
     table-layout: fixed;
+    margin-top: 50px;
 }
 
 thead {
@@ -468,6 +394,7 @@ th {
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
+    border: none;
 }
 
 th:first-child {
@@ -479,12 +406,15 @@ th:last-child {
 }
 
 td {
-    padding: 8px 5px;
+    padding: 10px;
     border-bottom: 1px solid #eee;
+    vertical-align: middle;
     text-align: center;
-    font-size: 0.9rem;
-    word-break: break-word;
-    line-height: 1.3;
+    overflow-wrap: break-word;
+    white-space: normal;
+    border-left: none;
+    border-right: none;
+    border-top: none;
 }
 
 tr:last-child td {
@@ -495,13 +425,119 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-/* Status Badges */
-.status-active {
-    color: var(--success) !important;
+/* Technician Table Column Widths */
+th:nth-child(1) { width: 150px; } /* First Name */
+th:nth-child(2) { width: 150px; } /* Last Name */
+th:nth-child(3) { width: 200px; } /* Email */
+th:nth-child(4) { width: 100px; } /* Type */
+th:nth-child(5) { width: 100px; } /* Status */
+th:nth-child(6) { width: 100px; } /* Action */
+
+td:nth-child(3) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 
-.status-inactive {
-    color: var(--danger) !important;
+td:nth-child(5) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(108, 92, 231, 0.05);
+}
+
+.delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+    background-color: #e55a00;
+    color: #fff;
+}
+
+.delete-btn i {
+    font-size: 16px;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 10px;
+    min-height: 50px;
+}
+
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    color: #fff;
+    transition: background-color 0.3s ease;
+}
+
+.view-btn {
+    background-color: #3498db;
+}
+
+.view-btn:hover {
+    background-color: #2980b9;
+}
+
+.edit-btn {
+    background-color: #2ecc71;
+}
+
+.edit-btn:hover {
+    background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+}
+
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.restore-btn {
+    background-color: #9b59b6;
+}
+
+.restore-btn:hover {
+    background-color: #8e44ad;
+}
+
+/* Status Badges */
+.status-open {
+    color: var(--success);
+}
+
+.status-closed {
+    color: var(--danger);
 }
 
 .status-pending {
@@ -509,25 +545,34 @@ tr:hover td {
     font-weight: 500;
 }
 
+.status-clickable {
+    cursor: pointer;
+}
+
+.status-clickable:hover {
+    text-decoration: underline;
+}
+
+/* Pagination */
 .pagination {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .pagination-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    text-decoration: none;
+    color: var(--primary);
+    font-size: 18px;
     width: 40px;
     height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     background: white;
-    color: var(--primary);
-    text-decoration: none;
-    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -535,8 +580,6 @@ tr:hover td {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -546,16 +589,14 @@ tr:hover td {
 }
 
 .current-page {
-    margin: 0 15px;
-    font-weight: 500;
-    color: var(--dark);
+    font-size: 14px;
+    color: #555;
 }
 
-/* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
@@ -567,7 +608,7 @@ tr:hover td {
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 10% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -602,7 +643,7 @@ tr:hover td {
 
 .modal-btn.cancel {
     background: var(--primary);
-    color: var(--light);
+    color: white;
 }
 
 .modal-btn:hover {
@@ -619,6 +660,7 @@ tr:hover td {
     border-radius: 5px;
 }
 
+/* Modal Form Textarea (Ticket Details) */
 .modal-form textarea {
     width: 100%;
     padding: 10px;
@@ -646,78 +688,39 @@ tr:hover td {
     margin-bottom: 10px;
 }
 
-#viewModal .modal-content {
-    margin: 7% auto;
-    max-width: 500px;
-}
-
-#addAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
-}
-
-#editAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
-}
-
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#archiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#unarchiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-/* View Modal Styling */
-.customer-details h3 {
-    margin-top: 20px;
-    margin-bottom: 15px;
-    font-size: 1.2em;
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.customer-details p {
-    margin: 8px 0;
-    font-size: 0.95em;
-    color: var(--dark);
-}
-
-.customer-details hr {
-    border: 0;
-    border-top: 1px solid #ddd;
-    margin: 20px 0;
-}
-
-/* Archive Header */
-.archive-header {
+/* Close Ticket Modal Input */
+.close-ticket-input {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
     margin-bottom: 15px;
 }
 
-.restore-all-btn {
-    padding: 8px 16px;
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: -65px;
-    margin-left: 17.5%;
+.ticket-id-input input {
+    width: 100px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
 }
 
-.restore-all-btn:hover {
-    background: #45a049;
+.ticket-id-input input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
+}
+
+/* Responsive design for Close Ticket Modal */
+@media (max-width: 480px) {
+    .close-ticket-input {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .ticket-id-input input {
+        width: 100%;
+    }
 }
 
 /* Alerts */
@@ -730,8 +733,8 @@ tr:hover td {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: -5px;
-    left: 5px;
+    top: 10px;
+    left: 15px;
     width: 100%;
     z-index: 1000;
 }
@@ -793,75 +796,4 @@ tr:hover td {
 
 .alert-hidden {
     opacity: 0;
-}
-
-.delete-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    background-color: #ff6200;
-    color: #fff;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.delete-btn:hover {
-    background-color: #e55a00;
-    color: #fff;
-}
-
-.delete-btn i {
-    font-size: 16px;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 5px;
-    padding: 23px 5px;
-}
-
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .ticket-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.view-btn {
-    background-color: #3498db;
-    color: #fff;
-}
-.view-btn:hover {
-    background-color: #2980b9;
-}
-
-.edit-btn {
-    background-color: #2ecc71;
-    color: #fff;
-}
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-    color: #fff;
-}
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.unarchive-btn {
-    background-color: #9b59b6;
-    color: #fff;
-}
-.unarchive-btn:hover {
-    background-color: #8e44ad;
 }

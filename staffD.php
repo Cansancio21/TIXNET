@@ -107,10 +107,10 @@ if (isset($_GET['aname']) && !empty($_GET['aname'])) {
             $logDescription = "Attempted to pre-fill invalid customer name: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
             $logType = "Staff $firstName $lastName";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("ss", $logDescription, $logType);
-            $stmtLog->execute();
-            $stmtLog->close();
+        $stmtLog = $conn->prepare($sqlLog);
+        $stmtLog->bind_param("ss", $logDescription, $logType);
+        $stmtLog->execute();
+        $stmtLog->close();
         }
     }
 }
@@ -584,12 +584,105 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffDD.css">
+    <link rel="stylesheet" href="staffsDD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
+        /* Tab Navigation Styles */
+        .tab-navigation {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            position: relative;
+            transition: all 0.3s ease;
+            margin-right: 5px;
+        }
+        
+        .tab-btn:hover {
+            color: var(--primary);
+        }
+        
+        .tab-btn.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .tab-badge {
+            background-color: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        
+        .add-user-btn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+            border: none;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .add-user-btn:hover {
+            background-color: #7494ec;
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+        }
+        
+        .add-user-btn i {
+            margin-right: 8px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        /* Filter button styles */
         .filter-btn {
             background: transparent !important;
             border: none;
@@ -601,17 +694,22 @@ $conn->close();
             padding: 0;
             outline: none;
         }
+        
         .filter-btn:hover {
             color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
             background: transparent !important;
         }
+        
         th .filter-btn {
             background: transparent !important;
         }
+        
+        /* Autocomplete styles */
         .autocomplete-container {
             position: relative;
             width: 100%;
         }
+        
         .autocomplete-suggestions {
             position: absolute;
             top: 100%;
@@ -623,29 +721,37 @@ $conn->close();
             z-index: 1000;
             display: none;
         }
+        
         .autocomplete-suggestion {
             padding: 8px 12px;
             cursor: pointer;
             font-size: 14px;
             color: #333;
         }
+        
         .autocomplete-suggestion:hover {
             background: #f0f0f0;
         }
-        .modal-form input[type="text"], .modal-form textarea {
+        
+        /* Modal form styles */
+        .modal-form input[type="text"], 
+        .modal-form textarea {
             width: 100%;
             padding: 8px;
             margin: 10px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        
         .modal-form #account_name {
             box-shadow: none;
         }
+        
         .modal-form textarea {
             height: 100px;
             resize: vertical;
         }
+        
         .error {
             color: red;
             font-size: 12px;
@@ -665,6 +771,7 @@ $conn->close();
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
+              <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -717,52 +824,64 @@ $conn->close();
                 <i class="fas fa-user-shield admin-icon"></i>
             </div>
 
-            <div class="active-tickets <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'active') || !isset($_GET['tab']) ? 'active' : ''; ?>">
-                <div class="tab-buttons">
-                    <button class="tab-btn" onclick="showTab('active')">Active (<?php echo $totalActive; ?>)</button>
-                    <button class="tab-btn" onclick="showTab('archived')">
-                        Archived
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
-                <button class="add-user-btn" onclick="showAddTicketModal()"><i class="fas fa-ticket-alt"></i> Add New Ticket</button>
-                <table id="active-tickets-table">
-                    <thead>
-                        <tr>
-                            <th>Ticket Ref</th>
-                            <th>Account Name <button class="filter-btn" onclick="showAccountFilterModal('active')" title="Filter by Account Name"><i class='bx bx-filter'></i></button></th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th>Ticket Details</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="active-table-body">
-                        <?php
-                        if ($resultActive->num_rows > 0) {
-                            while ($row = $resultActive->fetch_assoc()) {
-                                $statusClass = 'status-' . strtolower($row['t_status']);
-                                echo "<tr> 
-                                        <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td class='$statusClass'>" . ucfirst(strtolower($row['t_status'])) . "</td>
-                                        <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
-                                        <td class='action-buttons'>
-                                            <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
-                                            <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
-                                        </td>
-                                      </tr>";
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" onclick="showTab('active')">
+                    Active Tickets
+                    <?php if ($totalActive > 0): ?>
+                        <span class="tab-badge"><?php echo $totalActive; ?></span>
+                    <?php endif; ?>
+                </button>
+                <button class="tab-btn" onclick="showTab('archived')">
+                    Archived Tickets
+                    <?php if ($totalArchived > 0): ?>
+                        <span class="tab-badge"><?php echo $totalArchived; ?></span>
+                    <?php endif; ?>
+                </button>
+                <button class="add-user-btn" onclick="showAddTicketModal()">
+                    <i class="fas fa-ticket-alt"></i> Add New Ticket
+                </button>
+            </div>
+
+            <!-- Active Tickets Tab -->
+            <div id="active-tickets" class="tab-content active">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ticket Ref</th>
+                                <th>Account Name <button class="filter-btn" onclick="showAccountFilterModal('active')" title="Filter by Account Name"><i class='bx bx-filter'></i></button></th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Ticket Details</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="active-table-body">
+                            <?php
+                            if ($resultActive->num_rows > 0) {
+                                while ($row = $resultActive->fetch_assoc()) {
+                                    $statusClass = 'status-' . strtolower($row['t_status']);
+                                    echo "<tr> 
+                                            <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td class='$statusClass'>" . ucfirst(strtolower($row['t_status'])) . "</td>
+                                            <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
+                                            <td class='action-buttons'>
+                                                <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                <a class='edit-btn' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '{$row['t_status']}', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                                <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
+                                            </td>
+                                          </tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='6' style='text-align: center;'>No active tickets found.</td></tr>";
                             }
-                        } else {
-                            echo "<tr><td colspan='6' style='text-align: center;'>No active tickets found.</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
                 <div class="pagination" id="active-pagination">
                     <?php if ($pageActive > 1): ?>
                         <a href="?tab=active&page_active=<?php echo $pageActive - 1; ?>&page_archived=<?php echo $pageArchived; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
@@ -778,50 +897,44 @@ $conn->close();
                 </div>
             </div>
 
-            <div class="archived-tickets <?php echo isset($_GET['tab']) && $_GET['tab'] === 'archived' ? 'active' : ''; ?>">
-                <div class="tab-buttons">
-                    <button class="tab-btn" onclick="showTab('active')">Active (<?php echo $totalActive; ?>)</button>
-                    <button class="tab-btn" onclick="showTab('archived')">
-                        Archived
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
-                <table id="archived-tickets-table">
-                    <thead>
-                        <tr>
-                            <th>Ticket Ref</th>
-                            <th>Account Name <button class="filter-btn" onclick="showAccountFilterModal('archived')" title="Filter by Account Name"><i class='bx bx-filter'></i></button></th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th>Ticket Details</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="archived-table-body">
-                        <?php
-                        if ($resultArchived->num_rows > 0) {
-                            while ($row = $resultArchived->fetch_assoc()) {
-                                echo "<tr> 
-                                        <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td class='status-" . strtolower($row['t_status']) . "'>" . ucfirst(strtolower($row['t_status'])) . "</td>
-                                        <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
-                                        <td class='action-buttons'>
-                                            <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='restore-btn' onclick=\"showRestoreModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                            <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
-                                        </td>
-                                      </tr>";
+            <!-- Archived Tickets Tab -->
+            <div id="archived-tickets" class="tab-content">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ticket Ref</th>
+                                <th>Account Name <button class="filter-btn" onclick="showAccountFilterModal('archived')" title="Filter by Account Name"><i class='bx bx-filter'></i></button></th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Ticket Details</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archived-table-body">
+                            <?php
+                            if ($resultArchived->num_rows > 0) {
+                                while ($row = $resultArchived->fetch_assoc()) {
+                                    echo "<tr> 
+                                            <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                            <td class='status-" . strtolower($row['t_status']) . "'>" . ucfirst(strtolower($row['t_status'])) . "</td>
+                                            <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
+                                            <td class='action-buttons'>
+                                                <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                <a class='restore-btn' onclick=\"showRestoreModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                                                <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                                            </td>
+                                          </tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='6' style='text-align: center;'>No archived tickets found.</td></tr>";
                             }
-                        } else {
-                            echo "<tr><td colspan='6' style='text-align: center;'>No archived tickets found.</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
                 <div class="pagination" id="archived-pagination">
                     <?php if ($pageArchived > 1): ?>
                         <a href="?tab=archived&page_active=<?php echo $pageActive; ?>&page_archived=<?php echo $pageArchived - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
@@ -1288,35 +1401,32 @@ function applyAccountFilter() {
 
 function showTab(tab) {
     console.log('Switching to tab:', tab);
-    const activeSection = document.querySelector('.active-tickets');
-    const archivedSection = document.querySelector('.archived-tickets');
+    const activeSection = document.getElementById('active-tickets');
+    const archivedSection = document.getElementById('archived-tickets');
+    const activeBtn = document.querySelector('.tab-btn[onclick="showTab(\'active\')"]');
+    const archivedBtn = document.querySelector('.tab-btn[onclick="showTab(\'archived\')"]');
 
     if (tab === 'active') {
         activeSection.classList.add('active');
         archivedSection.classList.remove('active');
-        activeSection.style.display = 'block';
-        archivedSection.style.display = 'none';
+        activeBtn.classList.add('active');
+        archivedBtn.classList.remove('active');
         currentSearchPage = defaultPageActive;
     } else if (tab === 'archived') {
         activeSection.classList.remove('active');
         archivedSection.classList.add('active');
-        activeSection.style.display = 'none';
-        archivedSection.style.display = 'block';
+        activeBtn.classList.remove('active');
+        archivedBtn.classList.add('active');
         currentSearchPage = defaultPageArchived;
     }
-
-    document.querySelectorAll('.tab-btn').forEach(button => {
-        button.classList.remove('active');
-        if (button.onclick.toString().includes(`showTab('${tab}'`)) {
-            button.classList.add('active');
-        }
-    });
 
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('tab', tab);
     history.replaceState(null, '', '?' + urlParams.toString());
 
-    searchTickets(currentSearchPage, tab);
+    if (document.getElementById('searchInput').value || currentAccountFilter) {
+        searchTickets(currentSearchPage, tab);
+    }
 }
 
 function showViewModal(ref, aname, subject, status, details) {
@@ -1422,3 +1532,5 @@ function closeModal(modalId) {
 </script>
 </body>
 </html>
+
+

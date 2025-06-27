@@ -227,6 +227,19 @@ footer {
     color: #666;
 }
 
+/* Keep all existing .table-box styles exactly as they are */
+.table-box {
+    width: 100%;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    min-height: 60vh;
+    overflow: visible;
+    margin-top: -15px;
+}
+
 .user-profile {
     display: flex;
     align-items: center;
@@ -284,100 +297,91 @@ footer {
     margin-left: 5px;
 }
 
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+    position: relative;
+    margin-top: 70px;
+}
+
+/* Base Tab Style */
+.tab-btn {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7); /* Semi-transparent white */
+    transition: all 0.3s ease;
+    margin-right: 5px;
+    position: relative;
+}
+
+/* Active Tab */
+.tab-btn.active {
+    color: white !important; /* Solid white */
+    background-color: #4CAF50;
+    border-radius: 4px;
+}
+
+/* Inactive Tabs Hover */
+.tab-btn:not(.active):hover {
+    color: white;
+    background-color: rgba(255,255,255,0.05);
+}
+
+/* Badges */
+.tab-badge {
+    background-color: var(--danger); /* Use your red or other accent */
+    color: white;
+}
+
 .add-user-btn {
     position: absolute;
-    top: 60px;
-    right: 20px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     background: var(--primary);
     color: white;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 30px;
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
     border: none;
     outline: none;
+    font-size: 14px;
+    margin-right: 10px;
 }
 
 .add-user-btn:hover {
     background-color: #7494ec;
-    transform: translateY(-2px);
+    transform: translateY(-50%) scale(1.05);
     box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
 }
 
 .add-user-btn i {
-    margin-right: 15px;
+    margin-right: 8px;
 }
 
-/* Tabs */
-.tab-buttons {
-    display: flex;
-    gap: 10px;
-    margin: 55px 0 15px;
-}
-
-.tab-btn {
-    padding: 8px 16px;
-    background-color: #f1f1f1;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    position: relative;
-}
-
-.tab-btn.active {
-    background-color: #4CAF50;
-    color: #fff;
-}
-
-.tab-btn:hover {
-    background-color: #e0e0e0;
-}
-
-.tab-btn.active:hover {
-    background-color: #45a049;
-}
-
-.tab-badge {
-    background-color: #ff5722;
-    color: #fff;
-    border-radius: 10px;
-    padding: 2px 8px;
-    font-size: 12px;
-    position: absolute;
-    top: -5px;
-    right: -5px;
-}
-
-.active-tickets, .archived-tickets {
-    display: none;
-}
-
-.active-tickets.active, .archived-tickets.active {
-    display: block;
+.table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    margin-top: -40px;
 }
 
 /* Table */
-.table-box {
-    width: 100%;
-    padding: 10px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
-    min-height: 60vh;
-    overflow: visible;
-    margin-top: -15px;
-}
-
 table {
     width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 5px;
+    table-layout: auto;
 }
 
 thead {
@@ -449,36 +453,6 @@ td:nth-child(2), td:nth-child(5) {
     max-width: 0;
 }
 
-tr:last-child td {
-    border-bottom: none;
-}
-
-tr:hover td {
-    background: rgba(108, 92, 231, 0.05);
-}
-
-.delete-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    background-color: #ff6200;
-    color: #fff;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.delete-btn:hover {
-    background-color: #e55a00;
-    color: #fff;
-}
-
-.delete-btn i {
-    font-size: 16px;
-}
-
 /* Action Buttons */
 .action-buttons {
     display: flex;
@@ -531,6 +505,28 @@ tr:hover td {
 
 .restore-btn:hover {
     background-color: #8e44ad;
+}
+
+.delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+    background-color: #e55a00;
+    color: #fff;
+}
+
+.delete-btn i {
+    font-size: 16px;
 }
 
 /* Status Badges */
@@ -594,6 +590,7 @@ tr:hover td {
     color: #555;
 }
 
+/* Modal Styles */
 .modal {
     display: none;
     position: fixed;
@@ -652,30 +649,27 @@ tr:hover td {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Modal Forms */
 .modal-form input,
-.modal-form select {
+.modal-form select,
+.modal-form textarea {
     width: 100%;
     padding: 8px;
     margin: 5px 0 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
-}
-
-/* Modal Form Textarea (Ticket Details) */
-.modal-form textarea {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
     font-size: 14px;
-    resize: vertical;
-    min-height: 100px;
-    outline: none;
-    transition: border-color 0.3s ease;
 }
 
+.modal-form textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+.modal-form input:focus,
+.modal-form select:focus,
 .modal-form textarea:focus {
+    outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
 }
@@ -689,39 +683,57 @@ tr:hover td {
     margin-bottom: 10px;
 }
 
-/* Close Ticket Modal Input */
-.close-ticket-input {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 15px;
-}
-
-.ticket-id-input input {
-    width: 100px;
-    padding: 6px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-.ticket-id-input input:focus {
+/* Filter button styles */
+.filter-btn {
+    background: transparent !important;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--light, #f5f8fc);
+    margin-left: 5px;
+    vertical-align: middle;
+    padding: 0;
     outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
 }
 
-/* Responsive design for Close Ticket Modal */
-@media (max-width: 480px) {
-    .close-ticket-input {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .ticket-id-input input {
-        width: 100%;
-    }
+.filter-btn:hover {
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+    background: transparent !important;
+}
+
+th .filter-btn {
+    background: transparent !important;
+}
+
+/* Autocomplete styles */
+.autocomplete-container {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    z-index: 1000;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.autocomplete-suggestion {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.autocomplete-suggestion:hover {
+    background: #f0f0f0;
 }
 
 /* Alerts */
@@ -738,6 +750,8 @@ tr:hover td {
     left: 15px;
     width: 100%;
     z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
 }
 
 .alert-success {
@@ -750,6 +764,10 @@ tr:hover td {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
+}
+
+.alert-hidden {
+    opacity: 0;
 }
 
 .settings-link {

@@ -310,10 +310,11 @@ if ($conn) {
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
-               <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
+            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
             <li><a href="customersT.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
+              <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -617,12 +618,16 @@ function showTab(tab) {
     const archivedSection = document.getElementById('customers_archived');
     const tabButtons = document.querySelectorAll('.tab-btn');
 
+    // Remove active class from all buttons
     tabButtons.forEach(button => button.classList.remove('active'));
-    const activeButton = Array.from(tabButtons).find(button => button.onclick.toString().includes(`showTab('${tab}')`));
-    if (activeButton) {
-        activeButton.classList.add('active');
+
+    // Add active class to the correct button
+    const targetButton = Array.from(tabButtons).find(button => button.getAttribute('onclick').includes(`showTab('${tab}')`));
+    if (targetButton) {
+        targetButton.classList.add('active');
     }
 
+    // Show/hide sections
     if (tab === 'customers_active') {
         activeSection.style.display = 'block';
         archivedSection.style.display = 'none';
@@ -631,9 +636,13 @@ function showTab(tab) {
         archivedSection.style.display = 'block';
     }
 
+    // Update URL
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('tab', tab);
     history.replaceState(null, '', '?' + urlParams.toString());
+
+    // Refresh table content
+    updateTable();
 }
 
 function debounce(func, wait) {

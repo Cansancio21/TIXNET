@@ -699,10 +699,11 @@ if ($conn) {
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php" class="active"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
-               <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
+            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
+             <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -761,19 +762,20 @@ if ($conn) {
                             <?php endif; ?>
                         </button>
                     </div>
+                    <div class="button-group">
+                        <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
+                        <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
+                        <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
+                        <div class="export-container">
+                            <button class="export-btn"><i class="fas fa-download"></i> Export</button>
+                            <div class="export-dropdown">
+                                <button onclick="exportTable('excel')">Excel</button>
+                                <button onclick="exportTable('csv')">CSV</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="button-group">
-    <a href="#" class="borrow-btn" onclick="showBorrowAssetModal()"><i class="fas fa-plus"></i> Borrow</a>
-    <a href="#" class="deploy-btn" onclick="showDeployAssetModal()"><i class="fas fa-cogs"></i> Deploy</a>
-    <a href="#" class="add-btn" onclick="showAddAssetModal()"><i class="fas fa-plus"></i> Add Asset</a>
-    <div class="export-container">
-        <button class="export-btn"><i class="fas fa-download"></i> Export</button>
-        <div class="export-dropdown">
-            <button onclick="exportTable('excel')">Excel</button>
-            <button onclick="exportTable('csv')">CSV</button>
-        </div>
-    </div>
-</div>
+                <div id="assets-active" class="tab-content">
                     <table id="assets-table">
                         <thead>
                             <tr>
@@ -889,7 +891,6 @@ if ($conn) {
                         <?php endif; ?>
                     </div>
                 </div>
-                
             </div>
         </div>
 
@@ -1214,7 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function showAssetTab(tab) {
     const activeContent = document.getElementById('assets-active');
     const archiveContent = document.getElementById('assets-archive');
-    const buttons = document.querySelectorAll('.assets .tab-buttons .tab-btn');
+    const buttons = document.querySelectorAll('.tab-buttons .tab-btn');
 
     if (tab === 'active') {
         activeContent.style.display = 'block';
@@ -1333,10 +1334,9 @@ function applyFilter(tab, selectedName = null, selectedStatus = null) {
     searchAssets(1, tab, currentName, currentStatus);
 }
 
-function searchAssets(page = 1, tab = null, filterName = '', filterStatus = '') {
+function searchAssets(page = 1, tab = 'active', filterName = '', filterStatus = '') {
     const searchTerm = document.getElementById('searchInput').value;
-    const activeTab = tab || (document.getElementById('assets-active').style.display !== 'none' ? 'active' : 'archive');
-    const tbody = document.getElementById(activeTab === 'active' ? 'assets-table-body' : 'archived-assets-table-body');
+    const tbody = document.getElementById(tab === 'active' ? 'assets-table-body' : 'archived-assets-table-body');
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -1351,7 +1351,7 @@ function searchAssets(page = 1, tab = null, filterName = '', filterStatus = '') 
             }
         }
     };
-    const url = `assetsT.php?action=search&tab=${activeTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}` +
+    const url = `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}` +
                 `&filter_name=${encodeURIComponent(filterName)}&filter_status=${encodeURIComponent(filterStatus)}`;
     xhr.open('GET', url, true);
     xhr.send();

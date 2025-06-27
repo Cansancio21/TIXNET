@@ -4,6 +4,7 @@ include 'db.php';
 
 // Check if the user is logged in
 if (!isset($_SESSION['username'])) {
+    error_log("No session username found, redirecting to index.php");
     header("Location: index.php");
     exit();
 }
@@ -26,6 +27,12 @@ $avatarPath = $_SESSION['avatarPath'];
 // Fetch user data
 $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
 $stmt = $conn->prepare($sqlUser);
+if (!$stmt) {
+    error_log("Prepare failed for user query: " . $conn->error);
+    $_SESSION['error'] = "Database error occurred.";
+    header("Location: AllCustomersT.php?page_customer=1");
+    exit();
+}
 $stmt->bind_param("s", $_SESSION['username']);
 $stmt->execute();
 $resultUser = $stmt->get_result();
@@ -38,7 +45,7 @@ if ($resultUser->num_rows > 0) {
 } else {
     error_log("User not found for username: {$_SESSION['username']}");
     $_SESSION['error'] = "User not found.";
-    header("Location: index.php");
+    header("Location: AllCustomersT.php?page_customer=1");
     exit();
 }
 $stmt->close();
@@ -47,7 +54,7 @@ $stmt->close();
 $sqlCustomers = "SELECT c_id, c_fname, c_lname FROM tbl_customer ORDER BY c_fname, c_lname";
 $resultCustomers = $conn->query($sqlCustomers);
 $customers = [];
-if ($resultCustomers->num_rows > 0) {
+if ($resultCustomers && $resultCustomers->num_rows > 0) {
     while ($row = $resultCustomers->fetch_assoc()) {
         $customers[] = [
             'c_id' => $row['c_id'],
@@ -57,22 +64,7 @@ if ($resultCustomers->num_rows > 0) {
         ];
     }
 } else {
-    error_log("No customers found in tbl_customer");
-}
-
-// Fetch pending tickets for modals
-$sqlPendingTickets = "SELECT s_ref, c_fname, c_lname FROM tbl_customer_ticket WHERE s_status = 'Pending' ORDER BY s_ref";
-$resultPendingTickets = $conn->query($sqlPendingTickets);
-$pendingTickets = [];
-if ($resultPendingTickets->num_rows > 0) {
-    while ($row = $resultPendingTickets->fetch_assoc()) {
-        $pendingTickets[] = [
-            's_ref' => $row['s_ref'],
-            'customer_name' => $row['c_fname'] . ' ' . $row['c_lname']
-        ];
-    }
-} else {
-    error_log("No pending tickets found in tbl_customer_ticket");
+    error_log("No customers found in tbl_customer: " . ($resultCustomers ? "No rows" : $conn->error));
 }
 
 // Handle AJAX search request
@@ -106,6 +98,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
 
     $countSql = "SELECT COUNT(*) as total FROM tbl_customer_ticket WHERE $whereClause";
     $countStmt = $conn->prepare($countSql);
+    if (!$countStmt) {
+        error_log("Prepare failed for count query: " . $conn->error);
+        echo json_encode(['error' => 'Database error']);
+        exit();
+    }
     if ($paramTypes) {
         $countStmt->bind_param($paramTypes, ...$params);
     }
@@ -121,6 +118,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
             ORDER BY s_ref ASC 
             LIMIT ?, ?";
     $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log("Prepare failed for ticket query: " . $conn->error);
+        echo json_encode(['error' => 'Database error']);
+        exit();
+    }
     if ($paramTypes) {
         $stmt->bind_param($paramTypes . 'ii', ...array_merge($params, [$offset, $limit]));
     } else {
@@ -140,9 +142,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
-                <td class='action-buttons'>";
-            $output .= "<a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>";
-            $output .= "</td></tr>";
+                <td class='action-buttons'>
+                    <a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='action-btn check' href='#' onclick=\"approveTicket('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Approve'><i class='fas fa-check'></i></a>
+                    <a class='action-btn x' href='#' onclick=\"showRejectModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Reject'><i class='fas fa-times'></i></a>
+                </td></tr>";
         }
     } else {
         $output = "<tr><td colspan='7' style='text-align: center;'>No customer tickets found.</td></tr>";
@@ -162,19 +166,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $pageCustomer = isset($_GET['page_customer']) ? (int)$_GET['page_customer'] : 1;
+    $pageCustomer = isset($_GET['page_customer']) ? max(1, (int)$_GET['page_customer']) : 1;
 
     if (isset($_POST['approve_ticket'])) {
         $ticket_ref = $_POST['ticket_ref'];
-        $staff_fname = trim($_POST['staff_fname']);
-        error_log("Approving ticket s_ref: $ticket_ref by staff: $staff_fname");
-
-        if (empty($staff_fname)) {
-            $_SESSION['error'] = "Staff first name is required.";
-            error_log("Approval failed: Staff first name empty for s_ref $ticket_ref");
-            header("Location: AllCustomersT.php?page_customer=$pageCustomer");
-            exit();
-        }
+        error_log("Approving ticket s_ref: $ticket_ref by staff: $firstName $lastName");
 
         // Start a transaction
         $conn->begin_transaction();
@@ -184,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message FROM tbl_customer_ticket WHERE s_ref = ? AND s_status = 'Pending'";
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
-                throw new Exception("Prepare failed: " . $conn->error);
+                throw new Exception("Prepare failed for ticket fetch: " . $conn->error);
             }
             $stmt->bind_param("s", $ticket_ref);
             $stmt->execute();
@@ -199,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sqlCheck = "SELECT s_ref FROM tbl_supp_tickets WHERE s_ref = ?";
             $stmtCheck = $conn->prepare($sqlCheck);
             if (!$stmtCheck) {
-                throw new Exception("Prepare failed for duplicate check: " . $conn->error);
+                throw new Exception("Prepare failed for duplicate check in tbl_supp_tickets: " . $conn->error);
             }
             $stmtCheck->bind_param("s", $ticket_ref);
             $stmtCheck->execute();
@@ -222,8 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$stmtInsert->execute()) {
                 throw new Exception("Error inserting into tbl_supp_tickets: " . $stmtInsert->error);
             }
-            $supportTicketRef = $ticket['s_ref'];
-            error_log("Ticket inserted into tbl_supp_tickets with s_ref: $supportTicketRef");
+            error_log("Ticket inserted into tbl_supp_tickets with s_ref: $ticket_ref");
             $stmtInsert->close();
 
             // Update tbl_customer_ticket
@@ -242,8 +237,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtUpdate->close();
 
             // Log the action
-            $logDescription = "Staff $staff_fname approved customer ticket {$ticket['s_ref']} for customer {$ticket['c_fname']} {$ticket['c_lname']}";
-            $logType = "Staff $staff_fname";
+            $logDescription = "Staff $firstName $lastName approved customer ticket {$ticket['s_ref']} for customer {$ticket['c_fname']} {$ticket['c_lname']}";
+            $logType = "Staff $firstName $lastName";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
             $stmtLog = $conn->prepare($sqlLog);
             if (!$stmtLog) {
@@ -258,18 +253,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Commit the transaction
             $conn->commit();
             $_SESSION['message'] = "Ticket approved successfully!";
-
-            // Redirect to AllCustomersT.php with current page
-            header("Location: AllCustomersT.php?page_customer=$pageCustomer");
-            exit();
         } catch (Exception $e) {
             // Rollback the transaction on error
             $conn->rollback();
             $_SESSION['error'] = $e->getMessage();
             error_log("Approval failed for s_ref $ticket_ref: " . $e->getMessage());
-            header("Location: AllCustomersT.php?page_customer=$pageCustomer");
-            exit();
         }
+        header("Location: AllCustomersT.php?page_customer=$pageCustomer");
+        exit();
     } elseif (isset($_POST['reject_ticket'])) {
         $ticket_ref = $_POST['ticket_ref'];
         $remarks = trim($_POST['s_remarks'] ?? '');
@@ -300,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sqlCheck = "SELECT s_ref FROM tbl_reject_ticket WHERE s_ref = ?";
             $stmtCheck = $conn->prepare($sqlCheck);
             if (!$stmtCheck) {
-                throw new Exception("Prepare failed for duplicate check: " . $conn->error);
+                throw new Exception("Prepare failed for duplicate check in tbl_reject_ticket: " . $conn->error);
             }
             $stmtCheck->bind_param("s", $ticket_ref);
             $stmtCheck->execute();
@@ -364,7 +355,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error'] = $e->getMessage();
             error_log("Rejection failed for s_ref $ticket_ref: " . $e->getMessage());
         }
-
         header("Location: AllCustomersT.php?page_customer=$pageCustomer");
         exit();
     }
@@ -379,6 +369,12 @@ $pageCustomer = isset($_GET['page_customer']) ? max(1, (int)$_GET['page_customer
 $offsetCustomer = ($pageCustomer - 1) * $limit;
 $totalCustomerQuery = "SELECT COUNT(*) AS total FROM tbl_customer_ticket WHERE s_status = 'Pending'";
 $totalCustomerResult = $conn->query($totalCustomerQuery);
+if (!$totalCustomerResult) {
+    error_log("Error in total customer query: " . $conn->error);
+    $_SESSION['error'] = "Database error occurred.";
+    header("Location: AllCustomersT.php?page_customer=$pageCustomer");
+    exit();
+}
 $totalCustomerRow = $totalCustomerResult->fetch_assoc();
 $totalCustomer = $totalCustomerRow['total'];
 $totalCustomerPages = ceil($totalCustomer / $limit);
@@ -390,6 +386,12 @@ $sqlCustomer = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message, s_st
                 ORDER BY s_ref ASC 
                 LIMIT ?, ?";
 $stmtCustomer = $conn->prepare($sqlCustomer);
+if (!$stmtCustomer) {
+    error_log("Prepare failed for customer tickets query: " . $conn->error);
+    $_SESSION['error'] = "Database error occurred.";
+    header("Location: AllCustomersT.php?page_customer=$pageCustomer");
+    exit();
+}
 $stmtCustomer->bind_param("ii", $offsetCustomer, $limit);
 $stmtCustomer->execute();
 $resultCustomer = $stmtCustomer->get_result();
@@ -429,68 +431,49 @@ $conn->close();
             display: flex;
             gap: 8px;
         }
-        .action-buttons-container {
-            display: flex;
-            flex-direction: row;
-            gap: 8px;
-            padding: 5px;
-            position: absolute;
-            right: 20px;
-            top: 10px;
-        }
         .action-btn {
-            padding: 6px 10px;
+            padding: 6px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 15px;
             font-weight: 500;
             transition: background-color 0.2s;
-            width: 80px;
             text-align: center;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
         }
-        .action-btn.approve {
+        .action-btn.check {
             background-color: #28a745;
-            color: white;
         }
-        .action-btn.reject {
+        .action-btn.x {
             background-color: #dc3545;
-            color: white;
         }
-        .action-btn:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
+        .action-btn:hover:not(:disabled) {
+            opacity: 0.8;
         }
-        .action-btn.approve:hover:not(:disabled) {
-            background-color: #218838;
-        }
-        .action-btn.reject:hover:not(:disabled) {
-            background-color: #c82333;
-        }
-        .modal-form input[type="text"], .modal-form select, .modal-form textarea {
+        .modal-form textarea {
             width: 100%;
             padding: 8px;
             margin: 10px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
-        }
-        .modal-form textarea {
             height: 100px;
             resize: vertical;
         }
-       
-      
         @media (max-width: 600px) {
-            .action-buttons-container {
+            .action-buttons {
                 flex-direction: column;
                 gap: 5px;
-                right: 10px;
-                top: 5px;
             }
             .action-btn {
-                width: 60px;
-                font-size: 11px;
-                padding: 5px 8px;
+                width: 25px;
+                height: 25px;
+                font-size: 12px;
             }
             .alert {
                 font-size: 12px;
@@ -510,6 +493,7 @@ $conn->close();
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
+              <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -551,10 +535,6 @@ $conn->close();
 
         <div class="table-box glass-container">
             <div class="username"></div>
-            <div class="action-buttons-container">
-                <button class="action-btn approve" id="approveButton" onclick="showApproveModal()">Approve</button>
-                <button class="action-btn reject" id="rejectButton" onclick="showRejectModal()">Reject</button>
-            </div>
             <div class="customer-tickets active">
                 <table id="customer-tickets-table">
                     <thead>
@@ -583,6 +563,8 @@ $conn->close();
                                         <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
                                         <td class='action-buttons'>
                                             <a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='action-btn check' href='#' onclick=\"approveTicket('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Approve'><i class='fas fa-check'></i></a>
+                                            <a class='action-btn x' href='#' onclick=\"showRejectModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Reject'><i class='fas fa-times'></i></a>
                                         </td>
                                       </tr>";
                             }
@@ -623,33 +605,6 @@ $conn->close();
     </div>
 </div>
 
-<!-- Approve Ticket Modal -->
-<div id="approveModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Approve Customer Ticket</h2>
-        </div>
-        <form method="POST" id="approveForm" class="modal-form">
-            <label for="ticket_ref">Select Ticket to Approve:</label>
-            <select name="ticket_ref" id="approveTicketRef" required>
-                <option value="">Select a ticket</option>
-                <?php foreach ($pendingTickets as $ticket): ?>
-                    <option value="<?php echo htmlspecialchars($ticket['s_ref'], ENT_QUOTES, 'UTF-8'); ?>">
-                        <?php echo htmlspecialchars($ticket['s_ref'] . ' - ' . $ticket['customer_name'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <label for="staff_fname">Staff First Name:</label>
-            <input type="text" name="staff_fname" id="staffFname" placeholder="Staff First Name" required>
-            <input type="hidden" name="approve_ticket" value="1">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('approveModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Approve</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- Reject Ticket Modal -->
 <div id="rejectModal" class="modal">
     <div class="modal-content">
@@ -657,17 +612,9 @@ $conn->close();
             <h2>Reject Customer Ticket</h2>
         </div>
         <form method="POST" id="rejectForm" class="modal-form">
-            <label for="ticket_ref">Select Ticket to Reject:</label>
-            <select name="ticket_ref" id="rejectTicketRef" required>
-                <option value="">Select a ticket</option>
-                <?php foreach ($pendingTickets as $ticket): ?>
-                    <option value="<?php echo htmlspecialchars($ticket['s_ref'], ENT_QUOTES, 'UTF-8'); ?>">
-                        <?php echo htmlspecialchars($ticket['s_ref'] . ' - ' . $ticket['customer_name'], ENT_QUOTES, 'UTF-8'); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <input type="hidden" name="ticket_ref" id="rejectTicketRef">
             <label for="s_remarks">Remarks:</label>
-            <textarea name="s_remarks" id="s_remarks" placeholder="Enter reason for rejection"></textarea>
+            <textarea name="s_remarks" id="s_remarks" placeholder="Enter reason for rejection" required></textarea>
             <input type="hidden" name="reject_ticket" value="1">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('rejectModal')">Cancel</button>
@@ -705,25 +652,18 @@ $conn->close();
 <script>
 function showNotification(message, type) {
     const container = document.getElementById('alertContainer');
-    // Clear existing notifications
     container.innerHTML = '';
-    
-    // Create notification div
     const notification = document.createElement('div');
     notification.className = `alert alert-${type}`;
     notification.textContent = message;
-    
-    // Append to container
     container.appendChild(notification);
-    
-    // Fade out and remove after 3 seconds
     setTimeout(() => {
         notification.classList.add('fade-out');
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
             }
-        }, 500); // Match transition duration
+        }, 500);
     }, 3000);
 }
 
@@ -744,23 +684,28 @@ function showCustomerViewModal(s_ref, s_ref2, c_id, customerName, s_subject, s_m
     document.getElementById('customerViewModal').style.display = 'block';
 }
 
-function showApproveModal() {
-    const ticketSelect = document.getElementById('approveTicketRef');
-    if (ticketSelect.options.length <= 1) {
-        showNotification('No pending tickets available to approve.', 'error');
-        return;
-    }
-    document.getElementById('staffFname').value = '';
-    document.getElementById('approveModal').style.display = 'block';
+function showRejectModal(s_ref) {
+    document.getElementById('rejectTicketRef').value = s_ref;
+    document.getElementById('s_remarks').value = '';
+    document.getElementById('rejectModal').style.display = 'block';
 }
 
-function showRejectModal() {
-    const ticketSelect = document.getElementById('rejectTicketRef');
-    if (ticketSelect.options.length <= 1) {
-        showNotification('No pending tickets available to reject.', 'error');
-        return;
-    }
-    document.getElementById('rejectModal').style.display = 'block';
+function approveTicket(s_ref) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'AllCustomersT.php?page_customer=<?php echo $pageCustomer; ?>';
+    const ticketInput = document.createElement('input');
+    ticketInput.type = 'hidden';
+    ticketInput.name = 'ticket_ref';
+    ticketInput.value = s_ref;
+    form.appendChild(ticketInput);
+    const approveInput = document.createElement('input');
+    approveInput.type = 'hidden';
+    approveInput.name = 'approve_ticket';
+    approveInput.value = '1';
+    form.appendChild(approveInput);
+    document.body.appendChild(form);
+    form.submit();
 }
 
 let searchTimeout;
@@ -779,8 +724,12 @@ function fetchTickets(page, searchTerm = '', accountFilter = '') {
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
             const response = JSON.parse(xhr.responseText);
-            document.getElementById('customer-table-body').innerHTML = response.html;
-            updatePagination(response.currentPage, response.totalPages, searchTerm, accountFilter);
+            if (response.error) {
+                showNotification(response.error, 'error');
+            } else {
+                document.getElementById('customer-table-body').innerHTML = response.html;
+                updatePagination(response.currentPage, response.totalPages, searchTerm, accountFilter);
+            }
         }
     };
     xhr.send();
@@ -823,6 +772,10 @@ document.getElementById('accountFilterForm')?.addEventListener('submit', functio
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
     showNotification("<?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); ?>", 'error');
+    // Refresh table after showing error message
+    setTimeout(() => {
+        fetchTickets(<?php echo $pageCustomer; ?>, document.getElementById('searchInput').value, document.getElementById('account_filter')?.value || '');
+    }, 3000);
     <?php unset($_SESSION['error']); ?>
 <?php endif; ?>
 </script>
