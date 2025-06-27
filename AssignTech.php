@@ -60,9 +60,15 @@ if (!$stmt) {
 if (isset($_POST['assign_ticket'])) {
     $t_ref = trim($_POST['t_ref']);
     $technician_email = trim($_POST['technician_email']);
-    
+    $ticket_type = trim($_POST['ticket_type']);
+
     // Check if ticket is already assigned to this technician
-    $sqlCheck = "SELECT COUNT(*) FROM tbl_ticket WHERE t_ref = ? AND technician_email = ?";
+    $sqlCheck = "";
+    if (strpos($ticket_type, ' ') === false) { // Regular ticket (t_aname is typically a single name)
+        $sqlCheck = "SELECT COUNT(*) FROM tbl_ticket WHERE t_ref = ? AND technician_email = ?";
+    } else { // Support ticket (c_fname + c_lname)
+        $sqlCheck = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE s_ref = ? AND technician_email = ?";
+    }
     $stmtCheck = $conn->prepare($sqlCheck);
     $stmtCheck->bind_param("ss", $t_ref, $technician_email);
     $stmtCheck->execute();
@@ -75,8 +81,13 @@ if (isset($_POST['assign_ticket'])) {
         exit();
     }
 
-    // Update tbl_ticket with technician_email
-    $sqlAssign = "UPDATE tbl_ticket SET technician_email = ? WHERE t_ref = ?";
+    // Update ticket with technician_email
+    $sqlAssign = "";
+    if (strpos($ticket_type, ' ') === false) {
+        $sqlAssign = "UPDATE tbl_ticket SET technician_email = ? WHERE t_ref = ?";
+    } else {
+        $sqlAssign = "UPDATE tbl_supp_tickets SET technician_email = ? WHERE s_ref = ?";
+    }
     $stmtAssign = $conn->prepare($sqlAssign);
     if (!$stmtAssign) {
         error_log("Assign query prepare failed: " . $conn->error);
@@ -85,7 +96,7 @@ if (isset($_POST['assign_ticket'])) {
     }
     $stmtAssign->bind_param("ss", $technician_email, $t_ref);
     if ($stmtAssign->execute()) {
-        $logDescription = "Assigned ticket $t_ref to technician $technician_email by $firstName $lastName";
+        $logDescription = "Assigned ticket $t_ref to technician $technician_email by $firstName $lastName (Person: $ticket_type)";
         $logType = "Staff $firstName $lastName";
         $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
         $stmtLog = $conn->prepare($sqlLog);
@@ -101,77 +112,77 @@ if (isset($_POST['assign_ticket'])) {
 }
 
 // Handle AJAX ticket search for assign modal
-if (isset($_GET['action']) && $_GET['action'] === 'search_tickets' && isset($_GET['search'])) {
-    $searchTerm = $_GET['search'];
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    $limit = 10;
-    $offset = ($page - 1) * $limit;
+if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
+    $searchTerm = isset($_GET['search']) ? $_GET['search'] : '';
 
     $searchTerm = $conn->real_escape_string($searchTerm);
     $likeSearch = '%' . $searchTerm . '%';
 
-    // Show all non-archived tickets if search term is "Regular Tickets" (case-insensitive)
-    if (strtolower($searchTerm) === 'regular tickets') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%'";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details 
-                FROM tbl_ticket 
-                WHERE t_details NOT LIKE 'ARCHIVED:%'
-                LIMIT ?, ?";
-        $stmtCount = $conn->prepare($sqlCount);
-        $stmtCount->execute();
-        $countResult = $stmtCount->get_result();
-        $totalRow = $countResult->fetch_assoc();
-        $total = $totalRow['total'];
-        $stmtCount->close();
+    // Initialize query
+    $sql = "";
+    $params = [];
+    $paramTypes = "";
 
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ii", $offset, $limit);
+    // Handle specific search terms or default to all tickets
+    if ($searchTerm && strtolower($searchTerm) === 'regular tickets') {
+        $sql = "SELECT t_ref, IFNULL(t_aname, 'Unknown') AS ticket_type 
+                FROM tbl_ticket 
+                WHERE t_details NOT LIKE 'ARCHIVED:%'";
+    } elseif ($searchTerm && strtolower($searchTerm) === 'support tickets') {
+        $sql = "SELECT st.s_ref AS t_ref, IFNULL(CONCAT(c.c_fname, ' ', c.c_lname), 'Unknown') AS ticket_type 
+                FROM tbl_supp_tickets st 
+                JOIN tbl_customer c ON st.c_id = c.c_id";
     } else {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket 
-                     WHERE t_details NOT LIKE 'ARCHIVED:%' 
-                     AND t_ref LIKE ?";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details 
-                FROM tbl_ticket 
-                WHERE t_details NOT LIKE 'ARCHIVED:%' 
-                AND t_ref LIKE ?
-                LIMIT ?, ?";
-
-        $stmtCount = $conn->prepare($sqlCount);
-        $stmtCount->bind_param("s", $likeSearch);
-        $stmtCount->execute();
-        $countResult = $stmtCount->get_result();
-        $totalRow = $countResult->fetch_assoc();
-        $total = $totalRow['total'];
-        $stmtCount->close();
-
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sii", $likeSearch, $offset, $limit);
+        // Combined search across both tables (default to all if search term is empty)
+        $sql = "SELECT t_ref, ticket_type FROM (
+                    SELECT t_ref, IFNULL(t_aname, 'Unknown') AS ticket_type 
+                    FROM tbl_ticket 
+                    WHERE t_details NOT LIKE 'ARCHIVED:%' " . ($searchTerm ? "AND t_ref LIKE ?" : "") . "
+                    UNION
+                    SELECT st.s_ref AS t_ref, IFNULL(CONCAT(c.c_fname, ' ', c.c_lname), 'Unknown') AS ticket_type 
+                    FROM tbl_supp_tickets st 
+                    JOIN tbl_customer c ON st.c_id = c.c_id " . ($searchTerm ? "WHERE st.s_ref LIKE ?" : "") . "
+                ) AS combined
+                ORDER BY t_ref";
+        $paramTypes = $searchTerm ? "ss" : "";
+        $params = $searchTerm ? [$likeSearch, $likeSearch] : [];
     }
 
-    // Get total count for pagination
-    $totalPages = ceil($total / $limit);
+    // Debug: Log the query
+    error_log("Ticket search query: $sql, Params: " . json_encode($params));
 
     // Fetch search results
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log("Search query prepare failed: " . $conn->error);
+        echo json_encode(['success' => false, 'error' => 'Database error']);
+        exit();
+    }
+    if (!empty($params)) {
+        $stmt->bind_param($paramTypes, ...$params);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
+
+    // Debug: Log number of rows returned
+    error_log("Tickets returned: " . $result->num_rows);
 
     ob_start();
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            echo "<tr class='ticket-row' onclick=\"selectTicket('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "')\" style='cursor: pointer;'>
+            // Debug: Log each ticket
+            error_log("Ticket: " . json_encode($row));
+            echo "<tr class='ticket-row' onclick=\"selectTicket('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['ticket_type'], ENT_QUOTES, 'UTF-8') . "')\" style='cursor: pointer;'>
                     <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . htmlspecialchars($row['ticket_type'], ENT_QUOTES, 'UTF-8') . "</td>
                   </tr>";
         }
     } else {
-        echo "<tr><td style='text-align: center;'>No regular tickets found.</td></tr>";
+        echo "<tr><td colspan='2' style='text-align: center;'>No tickets found.</td></tr>";
     }
     $tableRows = ob_get_clean();
 
-    echo json_encode([
-        'html' => $tableRows,
-        'currentPage' => $page,
-        'totalPages' => $totalPages
-    ]);
+    echo json_encode(['html' => $tableRows]);
     $stmt->close();
     $conn->close();
     exit();
@@ -296,58 +307,122 @@ $conn->close();
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
-        .assign-btn {
-            color: #28a745;
-            margin: 0 5px;
-            text-decoration: none;
-            font-size: 16px;
-        }
-        .assign-btn:hover {
-            color: #218838;
-        }
-        .modal-content {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .modal-search-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .modal-search-container input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        .modal-search-container .search-icon {
-            font-size: 18px;
-            color: #666;
-        }
-        .table-box {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-        .ticket-row:hover {
-            background-color: #f0f0f0;
-        }
-        .ticket-row.selected {
-            background-color: #d4edda;
-        }
-        #tickets-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        #tickets-table thead {
-            display: none;
-        }
-        #tickets-table td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
+/* Modal Styling */
+
+.modal-header h2 {
+    font-size: 13px;
+    margin: 0 0 6px;
+}
+
+.modal-search-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.modal-search-container input {
+    flex: 1;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-right: 5px;
+    font-size: 11px;
+}
+
+.modal-search-container .search-icon {
+    font-size: 11px;
+    color: #666;
+}
+
+/* Table Box Styling for Assign Ticket Modal */
+#assignTicketModal .table-box {
+    width: 100%;
+    max-height: 120px; /* Further reduced to ensure footer visibility */
+    overflow-y: auto; /* Scroll only the table */
+    margin-bottom: 6px;
+    flex-grow: 1; /* Allow table to take available space */
+}
+
+#assignTicketModal #tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+#assignTicketModal #tickets-table thead {
+    position: sticky;
+    top: 0;
+    background: linear-gradient(135deg, var(--primary, #6c5ce7), var(--secondary, #a29bfe));
+    color: white;
+    z-index: 1;
+}
+
+#assignTicketModal #tickets-table th,
+#assignTicketModal #tickets-table td {
+    padding: 6px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    white-space: nowrap;
+}
+
+#assignTicketModal #tickets-table th:first-child,
+#assignTicketModal #tickets-table td:first-child {
+    min-width: 150px;
+}
+
+#assignTicketModal #tickets-table th:last-child,
+#assignTicketModal #tickets-table td:last-child {
+    min-width: 150px;
+}
+
+.ticket-row:hover {
+    background-color: rgba(108, 92, 231, 0.05);
+}
+
+.ticket-row.selected {
+    background-color: #d4edda;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    padding: 8px 0; /* Increased padding for visibility */
+    border-top: 1px solid #ddd; /* Visual separation */
+    flex-shrink: 0; /* Prevent footer from being compressed */
+    background: white; /* Ensure footer is visible */
+    z-index: 2; /* Ensure footer stays above other content */
+}
+
+.modal-btn {
+    padding: 6px 16px; /* Slightly larger for visibility */
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s;
+}
+
+.modal-btn.confirm {
+    background: var(--primary, #28a745); /* Green for Assign button */
+    color: white;
+}
+
+.modal-btn.cancel {
+    background: var(--secondary, #dc3545); /* Red for Cancel button */
+    color: white;
+}
+
+.modal-btn.confirm:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.modal-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
     </style>
 </head>
 <body>
@@ -481,19 +556,25 @@ $conn->close();
             <h2>Assign Ticket to <span id="assignTechnicianName"></span></h2>
         </div>
         <div class="modal-search-container">
-            <input type="text" id="ticketSearchInput" placeholder="Search tickets by reference or type 'Regular Tickets'..." onkeyup="debouncedSearchTickets()">
+            <input type="text" id="ticketSearchInput" placeholder="Search tickets by reference, 'Regular Tickets', or 'Support Tickets'..." onkeyup="debouncedSearchTickets()">
             <span class="search-icon"><i class="fas fa-search"></i></span>
         </div>
-        <div class="table-box glass-container">
+        <div class="table-box">
             <table id="tickets-table">
+                <thead>
+                    <tr>
+                        <th>Ticket No</th>
+                        <th>Name</th>
+                    </tr>
+                </thead>
                 <tbody id="tickets-tbody"></tbody>
             </table>
         </div>
-        <div class="pagination" id="tickets-pagination"></div>
         <form id="assignTicketForm" method="POST">
             <input type="hidden" name="assign_ticket" value="1">
             <input type="hidden" name="t_ref" id="assignTicketRef">
             <input type="hidden" name="technician_email" id="assignTechnicianEmail">
+            <input type="hidden" name="ticket_type" id="assignTicketType">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('assignTicketModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm" id="assignButton" disabled>Assign</button>
@@ -503,9 +584,6 @@ $conn->close();
 </div>
 
 <script>
-let currentSearchPage = 1;
-let currentTicketPage = 1;
-
 document.addEventListener('DOMContentLoaded', () => {
     // Handle alert messages
     const alerts = document.querySelectorAll('.alert');
@@ -533,7 +611,6 @@ function debounce(func, wait) {
 function searchTechnicians(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
     const tbody = document.getElementById('technicians-tbody');
-    currentSearchPage = page;
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -545,43 +622,19 @@ function searchTechnicians(page = 1) {
     xhr.send();
 }
 
-function searchTickets(page = 1) {
+function searchTickets() {
     const searchTerm = document.getElementById('ticketSearchInput').value;
     const tbody = document.getElementById('tickets-tbody');
-    const pagination = document.getElementById('tickets-pagination');
-    currentTicketPage = page;
 
-    fetch(`AssignTech.php?action=search_tickets&search=${encodeURIComponent(searchTerm)}&page=${page}`)
+    fetch(`AssignTech.php?action=search_tickets&search=${encodeURIComponent(searchTerm)}`)
         .then(response => response.json())
         .then(data => {
             tbody.innerHTML = data.html;
-            updateTicketPagination(data.currentPage, data.totalPages);
         })
         .catch(error => {
             console.error('Error searching tickets:', error);
-            tbody.innerHTML = '<tr><td>Error loading tickets.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2">Error loading tickets.</td></tr>';
         });
-}
-
-function updateTicketPagination(currentPage, totalPages) {
-    const paginationContainer = document.getElementById('tickets-pagination');
-    let paginationHtml = '';
-
-    if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchTickets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
-    }
-
-    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
-
-    if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchTickets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
-    }
-
-    paginationContainer.innerHTML = paginationHtml;
 }
 
 const debouncedSearchTechnicians = debounce(searchTechnicians, 300);
@@ -614,7 +667,6 @@ function closeModal(modalId) {
         document.getElementById('ticketSearchInput').value = '';
         document.getElementById('tickets-tbody').innerHTML = '';
         document.getElementById('assignButton').disabled = true;
-        currentTicketPage = 1;
     }
 }
 
@@ -634,11 +686,12 @@ function showAssignTicketModal(technicianEmail, technicianName) {
     document.getElementById('assignTechnicianEmail').value = technicianEmail;
     document.getElementById('assignTechnicianName').textContent = technicianName;
     document.getElementById('assignTicketModal').style.display = 'block';
-    searchTickets(1);
+    searchTickets();
 }
 
-function selectTicket(t_ref) {
+function selectTicket(t_ref, ticket_type) {
     document.getElementById('assignTicketRef').value = t_ref;
+    document.getElementById('assignTicketType').value = ticket_type;
     document.getElementById('assignButton').disabled = false;
 
     // Highlight selected row
@@ -696,3 +749,4 @@ document.getElementById('assignTicketForm').addEventListener('submit', function(
 </script>
 </body>
 </html>
+
