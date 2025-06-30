@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 23, 2025 at 08:16 PM
+-- Generation Time: Jun 30, 2025 at 08:12 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -139,15 +139,6 @@ CREATE TABLE `tbl_close_supp` (
   `s_date` varchar(200) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `tbl_close_supp`
---
-
-INSERT INTO `tbl_close_supp` (`s_ref`, `c_id`, `te_technician`, `c_fname`, `c_lname`, `s_subject`, `s_message`, `s_status`, `s_date`) VALUES
-('ref#-18-05-2025-189091', 9, 'haahays haha', 'Latifah', 'Sims', 'redlight', 'awaw', 'Closed', ''),
-('ref#-07-04-2025-484929', 9, 'haahays haha', 'Latifah', 'Sims', 'Critical', 'awaw', 'Closed', ''),
-('ref#-19-05-2025-710976', 9, 'haahays haha', 'Latifah', 'Sims', 'redlight', 'ygwedjfdjwe', 'Closed', '');
-
 -- --------------------------------------------------------
 
 --
@@ -228,7 +219,10 @@ INSERT INTO `tbl_customer_ticket` (`s_ref`, `c_id`, `c_fname`, `c_lname`, `s_sub
 ('ref#-23-05-2025-331671', 11, 'Lunea', 'Mendez', 'okaay kaayo', 'natuk an ko', 'Rejected'),
 ('ref#-23-05-2025-716828', 9, 'Latifah', 'Sims', 'okaay rako', 'bantay btw', 'Rejected'),
 ('ref#-23-05-2025-951343', 9, 'Latifah', 'Sims', 'okaay kaayo', 'bugnaw', 'Approved'),
-('ref#-23-05-2025-803167', 9, 'Latifah', 'Sims', 'qpal', 'okaay', 'Approved');
+('ref#-23-05-2025-803167', 9, 'Latifah', 'Sims', 'qpal', 'okaay', 'Approved'),
+('ref#-27-06-2025-928737', 1, 'awawawa', 'wawawawaw', 'test', 'testing purposes', 'Approved'),
+('ref#-27-06-2025-477366', 1, 'awawawa', 'wawawawaw', 'test', 'for testing', 'Approved'),
+('ref#-27-06-2025-980002', 1, 'awawawa', 'wawawawaw', 'test test', 'for testing purposes', 'Pending');
 
 -- --------------------------------------------------------
 
@@ -336,7 +330,20 @@ INSERT INTO `tbl_logs` (`l_stamp`, `l_type`, `l_description`) VALUES
 ('2025-05-24 01:37:22', 'customer Latifah Sims', 'created ticket ref#-23-05-2025-803167'),
 ('2025-05-24 01:38:04', 'Staff awaww', 'Staff awaww approved customer ticket ref#-23-05-2025-803167 for customer Latifah Sims'),
 ('2025-05-24 01:38:17', 'Latifah Sims', 'has successfully logged in'),
-('2025-05-24 01:51:54', 'Staff awaww awawaww', 'Staff awaww awawaww edited ticket ref#-22-05-2025-107976 subject');
+('2025-05-24 01:51:54', 'Staff awaww awawaww', 'Staff awaww awawaww edited ticket ref#-22-05-2025-107976 subject'),
+('2025-06-27 22:53:50', 'awawawa wawawawaw', 'has successfully logged in'),
+('2025-06-27 22:55:58', 'customer awawawa wawawawaw', 'created ticket ref#-27-06-2025-928737'),
+('2025-06-27 23:08:24', 'Staff Ray Quan', 'Staff Ray Quan approved customer ticket ref#-27-06-2025-928737 for customer awawawa wawawawaw'),
+('2025-06-27 23:09:50', 'awawawa wawawawaw', 'has successfully logged in'),
+('2025-06-27 23:10:19', 'customer awawawa wawawawaw', 'created ticket ref#-27-06-2025-477366'),
+('2025-06-27 23:25:50', 'Staff Ray Quan', 'Staff Ray Quan approved customer ticket ref#-27-06-2025-477366 for customer awawawa wawawawaw'),
+('2025-06-27 23:26:31', 'awawawa wawawawaw', 'has successfully logged in'),
+('2025-06-27 23:27:04', 'customer awawawa wawawawaw', 'created ticket ref#-27-06-2025-980002'),
+('2025-06-27 23:45:21', 'awawawa wawawawaw', 'has successfully logged in'),
+('2025-06-28 00:00:20', 'Lunea Mendez', 'has successfully logged in'),
+('2025-06-30 13:11:21', '', 'Admin xie123 deleted closed support ticket ID ref#-18-05-2025-189091'),
+('2025-06-30 13:11:24', '', 'Admin xie123 deleted closed support ticket ID ref#-07-04-2025-484929'),
+('2025-06-30 13:11:26', '', 'Admin xie123 deleted closed support ticket ID ref#-19-05-2025-710976');
 
 -- --------------------------------------------------------
 
@@ -448,7 +455,9 @@ INSERT INTO `tbl_supp_tickets` (`c_id`, `c_lname`, `c_fname`, `s_ref`, `s_subjec
 (11, 'Mendez', 'Lunea', 'ref#-23-05-2025-627429', 'redlight', 'no net', 'Open', 27),
 (9, 'Sims', 'Latifah', 'ref#-23-05-2025-758042', 'stop', 'okay nako bahala nani', 'Open', 28),
 (9, 'Sims', 'Latifah', 'ref#-23-05-2025-951343', 'okaay kaayo', 'bugnaw', 'Open', 29),
-(9, 'Sims', 'Latifah', 'ref#-23-05-2025-803167', 'qpal', 'okaay', 'Open', 30);
+(9, 'Sims', 'Latifah', 'ref#-23-05-2025-803167', 'qpal', 'okaay', 'Open', 30),
+(1, 'wawawawaw', 'awawawa', 'ref#-27-06-2025-928737', 'test', 'testing purposes', 'Open', 31),
+(1, 'wawawawaw', 'awawawa', 'ref#-27-06-2025-477366', 'test', 'for testing', 'Open', 32);
 
 -- --------------------------------------------------------
 
@@ -557,7 +566,13 @@ INSERT INTO `tbl_user` (`u_id`, `u_fname`, `u_lname`, `u_email`, `u_username`, `
 (68, 'Stephen', 'Silva', 'Stephensilva@gmail.com', 'Stephen', '$2y$10$iLzCtJL1.gX/0CPTFGj9ae5SkSMlYH.BQ9xcow73jaPLPEoBr81RC', 'admin', 'active'),
 (69, 'awawawawaaw', 'awawawwaw', 'haysss@gmail.com', 'ryan12345', '$2y$10$FJwstGNN0uVUz45URai4iu3U4uk2uMEvoSAeo1VFvDhtT8Wy463mm', 'admin', 'active'),
 (70, 'awawaw', 'awawawawaw', 'awawawwaw@gmail.com', 'rizalday', '$2y$10$skuNrLDcfpRX0Vp5tn7oeuZqQUGwJ/UA3.72m26eHrQGZ0njlMVO2', 'admin', 'active'),
-(71, 'awawaww', 'awaww', 'wwawaw@gmail.com', 'sprite', '$2y$10$6KdLZORtkdIXT3U4MNuBwONFhlBS/S82HJZf/aueW/GEzHJI.1riC', 'admin', 'active');
+(71, 'awawaww', 'awaww', 'wwawaw@gmail.com', 'sprite', '$2y$10$6KdLZORtkdIXT3U4MNuBwONFhlBS/S82HJZf/aueW/GEzHJI.1riC', 'admin', 'active'),
+(72, 'Ray', 'Quan', 'rayquan@gmail.com', 'Ray Quan', '$2y$10$RLxHYJDYEbnbKUG3SSh3/uSKKSpr7hJNK3w.7s6Az4Unw9dFtn0IW', 'staff', 'active'),
+(73, 'Pham', 'Hanny', 'hanny@gmail.com', 'Hanni', '$2y$10$XSj9STnj0nWrnUF1V5tBEuN7Wa1IjLyw523qyVGdUbaH2FSbCpzzK', 'technician', 'active'),
+(74, 'ryan', 'cansancio', 'ryan@gmail.com', 'joyuri', '$2y$10$AMaBJBi.DQbVYtHdHbvSledLRhCRT7YQUYiwGCXN/6j1JLahWjVy6', 'staff', 'active'),
+(75, 'joyuri', 'cansancio', 'ryan@gmail.com', 'xie123', '$2y$10$lITLq46Lz9/ARfv.bIFOI.rr/b9NyPhyzGYBgkl7/dTjsXX6lgRNS', 'admin', 'active'),
+(76, 'xiexie', 'Ryan', 'cansancio@gmail.com', 'ryanryan', '$2y$10$Twa624BuQNGvxsp3ZU.Z..ABQJpv2XACHo6nJy2cI5YoO9QaqLaei', 'staff', 'active'),
+(77, 'tech', 'admin', 'admin@gmail.com', 'techsss', '$2y$10$8ROUBP0Hkx6rcidFGZdGM.ZvzYMVZe0Z6lQNFtmfdGShBIhyF6p0G', 'technician', 'active');
 
 --
 -- Indexes for dumped tables
@@ -649,7 +664,7 @@ ALTER TABLE `tbl_returned`
 -- AUTO_INCREMENT for table `tbl_supp_tickets`
 --
 ALTER TABLE `tbl_supp_tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT for table `tbl_ticket`
@@ -661,7 +676,7 @@ ALTER TABLE `tbl_ticket`
 -- AUTO_INCREMENT for table `tbl_user`
 --
 ALTER TABLE `tbl_user`
-  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
+  MODIFY `u_id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
