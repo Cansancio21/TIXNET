@@ -564,7 +564,7 @@ $conn->close();
                                         <td class='action-buttons'>
                                             <a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='action-btn check' href='#' onclick=\"approveTicket('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Approve'><i class='fas fa-check'></i></a>
-                                            <a class='action-btn x' href='#' onclick=\"showRejectModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Reject'><i class='fas fa-times'></i></a>
+                                            <a class='action-btn x' href='#' onclick=\"showRejectModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Decline'><i class='fas fa-times'></i></a>
                                         </td>
                                       </tr>";
                             }
@@ -609,16 +609,16 @@ $conn->close();
 <div id="rejectModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Reject Customer Ticket</h2>
+            <h2>Decline Ticket</h2>
         </div>
         <form method="POST" id="rejectForm" class="modal-form">
             <input type="hidden" name="ticket_ref" id="rejectTicketRef">
             <label for="s_remarks">Remarks:</label>
-            <textarea name="s_remarks" id="s_remarks" placeholder="Enter reason for rejection" required></textarea>
+            <textarea name="s_remarks" id="s_remarks" placeholder="Enter reason for Decline" required></textarea>
             <input type="hidden" name="reject_ticket" value="1">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('rejectModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Reject</button>
+                <button type="submit" class="modal-btn confirm">Decline</button>
             </div>
         </form>
     </div>
