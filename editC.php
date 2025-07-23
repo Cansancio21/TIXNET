@@ -8,25 +8,25 @@ if (!isset($_SESSION['username'])) {
     exit(); 
 }
 
-// Check if the customer ID is provided
-if (!isset($_GET['id'])) {
-    $_SESSION['error'] = "No customer ID provided.";
+// Check if the customer account number is provided
+if (!isset($_GET['account_no'])) {
+    $_SESSION['error'] = "No customer account number provided.";
     header("Location: customersT.php");
     exit();
 }
 
-$customerId = $_GET['id'];
+$accountNo = $_GET['account_no'];
 
-// Fetch customer details based on the customer ID
-$sql = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
-        FROM tbl_customer WHERE c_id = ?";
+// Fetch customer details based on the customer account number
+$sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_coordinates, c_equipment 
+        FROM tbl_customer WHERE c_account_no = ?";
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
     $_SESSION['error'] = "Customer query preparation failed: " . $conn->error;
     header("Location: customersT.php");
     exit();
 }
-$stmt->bind_param("i", $customerId);
+$stmt->bind_param("s", $accountNo);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -38,9 +38,10 @@ if ($result->num_rows == 0) {
 $customer = $result->fetch_assoc();
 $stmt->close();
 
-// Debug: Log the c_napport and c_plan values to inspect their format
+// Debug: Log the c_napport, c_plan, and c_coordinates values to inspect their format
 error_log("c_napport value from database: '" . $customer['c_napport'] . "'");
 error_log("c_plan value from database: '" . $customer['c_plan'] . "'");
+error_log("c_coordinates value from database: '" . $customer['c_coordinates'] . "'");
 
 // Initialize variables for user data
 $username = $_SESSION['username'];
@@ -61,7 +62,7 @@ $avatarPath = $_SESSION['avatarPath'];
 // Fetch user data from the database
 if (!$conn) {
     $_SESSION['error'] = "Database connection failed: " . mysqli_connect_error();
-    header("Location: editC.php");
+    header("Location: editC.php?account_no=$accountNo");
     exit();
 }
 
@@ -69,7 +70,7 @@ $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
 $stmt = $conn->prepare($sqlUser);
 if (!$stmt) {
     $_SESSION['error'] = "User query preparation failed: " . $conn->error;
-    header("Location: editC.php");
+    header("Location: editC.php?account_no=$accountNo");
     exit();
 }
 $stmt->bind_param("s", $_SESSION['username']);
@@ -96,13 +97,13 @@ $macaddress = $customer['c_macaddress'];
 $status = $customer['c_status'];
 $purok = $customer['c_purok'];
 $barangay = $customer['c_barangay'];
-// Normalize c_plan: trim whitespace and convert to string
+$coordinates = $customer['c_coordinates'];
 $plan = trim((string)$customer['c_plan']);
 $equipment = $customer['c_equipment'];
 
 $firstnameErr = $lastnameErr = $contactErr = $emailErr = $dobErr = "";
 $napnameErr = $napportErr = $macaddressErr = $statusErr = "";
-$purokErr = $barangayErr = $planErr = $equipmentErr = "";
+$purokErr = $barangayErr = $coordinatesErr = $planErr = $equipmentErr = "";
 $hasError = false;
 
 // Handle form submission
@@ -118,40 +119,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $status = trim($_POST['status'] ?? '');
     $purok = trim($_POST['purok'] ?? '');
     $barangay = trim($_POST['barangay'] ?? '');
+    $coordinates = trim($_POST['coordinates'] ?? '');
     $plan = trim($_POST['plan'] ?? '');
     $equipment = trim($_POST['equipment'] ?? '');
 
     // Validate inputs
     if (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
-        $firstnameErr = "First Name should not contain numbers.";
-        $hasError = true;
-    }
-    if (!preg_match("/^[0-9]+$/", $contact)) {
-        $contactErr = "Contact must contain numbers only.";
+        $firstnameErr = "First Name should not contain numbers or special characters.";
         $hasError = true;
     }
     if (!preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
-        $lastnameErr = "Last Name should not contain numbers.";
+        $lastnameErr = "Last Name should not contain numbers or special characters.";
+        $hasError = true;
+    }
+    if (!preg_match("/^[0-9]{10,11}$/", $contact)) {
+        $contactErr = "Contact must be a valid 10-11 digit phone number.";
         $hasError = true;
     }
     if (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
-        $macaddressErr = "Mac Address should not contain special characters.";
+        $macaddressErr = "MAC Address should not contain special characters except colon or hyphen.";
         $hasError = true;
     }
     if (empty($dob)) {
-        $dobErr = "Date is required.";
+        $dobErr = "Subscription Date is required.";
         $hasError = true;
     }
     if (empty($status)) {
-        $statusErr = "Status is required.";
+        $statusErr = "Customer Status is required.";
         $hasError = true;
     }
-    if (empty($email)) {
-        $emailErr = "Email is required.";
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emailErr = "Valid email is required.";
         $hasError = true;
     }
     if (!preg_match("/^[a-zA-Z\s]+$/", $barangay)) {
         $barangayErr = "Barangay should contain letters only.";
+        $hasError = true;
+    }
+    if (!preg_match("/^-?\d{1,3}\.\d{5,},\s*-?\d{1,3}\.\d{5,}$/", $coordinates)) {
+        $coordinatesErr = "Coordinates must be in the format 'latitude,longitude' (e.g., 14.12345,121.67890).";
         $hasError = true;
     }
     if (empty($plan)) {
@@ -165,16 +171,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Update database if no errors
     if (!$hasError) {
-        $sqlUpdate = "UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_purok = ?, c_barangay = ?, c_contact = ?, c_email = ?, c_date = ?, c_napname = ?, c_napport = ?, c_macaddress = ?, c_status = ?, c_plan = ?, c_equipment = ? WHERE c_id = ?";
+        $sqlUpdate = "UPDATE tbl_customer SET c_fname = ?, c_lname = ?, c_purok = ?, c_barangay = ?, c_contact = ?, c_email = ?, c_date = ?, c_napname = ?, c_napport = ?, c_macaddress = ?, c_status = ?, c_plan = ?, c_coordinates = ?, c_equipment = ? WHERE c_account_no = ?";
         $stmtUpdate = $conn->prepare($sqlUpdate);
         if (!$stmtUpdate) {
             $_SESSION['error'] = "Prepare failed: " . $conn->error;
             error_log("SQL Prepare Error: " . $conn->error);
-            header("Location: editC.php?id=$customerId");
+            header("Location: editC.php?account_no=$accountNo");
             exit();
         }
 
-        $stmtUpdate->bind_param("sssssssssssssi", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $equipment, $customerId);
+        $stmtUpdate->bind_param("sssssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $dob, $napname, $napport, $macaddress, $status, $plan, $coordinates, $equipment, $accountNo);
 
         if ($stmtUpdate->execute()) {
             $_SESSION['message'] = "Customer updated successfully.";
@@ -183,7 +189,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $_SESSION['error'] = "Execution failed: " . $stmtUpdate->error;
             error_log("SQL Execution Error: " . $stmtUpdate->error);
-            header("Location: editC.php?id=$customerId");
+            header("Location: editC.php?account_no=$accountNo");
             exit();
         }
         $stmtUpdate->close();
@@ -205,7 +211,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
-        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
+        <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
@@ -249,10 +255,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
           
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
             <?php endif; ?>
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
         </div>
 
@@ -262,34 +268,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <form action="" method="POST" id="customerForm">
                 <div class="form-grid">
                     <div class="form-group">
+                        <label for="accountNo">Customer Account No.</label>
+                        <input type="text" id="accountNo" name="accountNo" value="<?php echo htmlspecialchars($accountNo, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+                    </div>
+                    <div class="form-group">
                         <label for="firstname">First Name <span class="required">*</span></label>
-                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname); ?>" required>
-                        <span class="error"><?php echo $firstnameErr; ?></span>
+                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($firstnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="lastname">Last Name <span class="required">*</span></label>
-                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname); ?>" required>
-                        <span class="error"><?php echo $lastnameErr; ?></span>
+                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($lastnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="purok">Purok Name</label>
-                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok); ?>">
-                        <span class="error"><?php echo $purokErr; ?></span>
+                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?>">
+                        <span class="error"><?php echo htmlspecialchars($purokErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="barangay">Barangay <span class="required">*</span></label>
-                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay); ?>" required>
-                        <span class="error"><?php echo $barangayErr; ?></span>
+                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($barangayErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="contact">Contact Number <span class="required">*</span></label>
-                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact); ?>" required>
-                        <span class="error"><?php echo $contactErr; ?></span>
+                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($contactErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="email">Email Address <span class="required">*</span></label>
-                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email); ?>" required>
-                        <span class="error"><?php echo $emailErr; ?></span>
+                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($emailErr, ENT_QUOTES, 'UTF-8'); ?></span>
+                    </div>
+                     <div class="form-group">
+                        <label for="coordinates">Coordinates <span class="required">*</span></label>
+                        <input type="text" id="coordinates" name="coordinates" placeholder="e.g., 14.12345,121.67890" value="<?php echo htmlspecialchars($coordinates, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($coordinatesErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -298,8 +313,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="date">Subscription Date <span class="required">*</span></label>
-                        <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($dob); ?>" required>
-                        <span class="error"><?php echo $dobErr; ?></span>
+                        <input type="date" id="date" name="date" value="<?php echo htmlspecialchars($dob, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($dobErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="napname">NAP Device <span class="required">*</span></label>
@@ -314,7 +329,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="Lp1 Np7" <?php echo ($napname === 'Lp1 Np7') ? 'selected' : ''; ?>>Lp1 Np7</option>
                             <option value="Lp1 Np8" <?php echo ($napname === 'Lp1 Np8') ? 'selected' : ''; ?>>Lp1 Np8</option>
                         </select>
-                        <span class="error"><?php echo $napnameErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($napnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="napport">NAP Port <span class="required">*</span></label>
@@ -329,12 +344,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="7" <?php echo ($napport === '7') ? 'selected' : ''; ?>>7</option>
                             <option value="8" <?php echo ($napport === '8') ? 'selected' : ''; ?>>8</option>
                         </select>
-                        <span class="error"><?php echo $napportErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($napportErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="macaddress">MAC Address <span class="required">*</span></label>
-                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress); ?>" required>
-                        <span class="error"><?php echo $macaddressErr; ?></span>
+                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($macaddressErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="status">Customer Status <span class="required">*</span></label>
@@ -343,7 +358,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="Active" <?php echo ($status === 'Active') ? 'selected' : ''; ?>>Active</option>
                             <option value="Inactive" <?php echo ($status === 'Inactive') ? 'selected' : ''; ?>>Inactive</option>
                         </select>
-                        <span class="error"><?php echo $statusErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($statusErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -354,12 +369,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label for="plan">Internet Plan <span class="required">*</span></label>
                         <select id="plan" name="plan" required>
                             <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Plan</option>
-                            <option value="25 Mbps" <?php echo ($plan === '25 Mbps') ? 'selected' : ''; ?>>25 Mbps</option>
-                            <option value="50 Mbps" <?php echo ($plan === '50 Mbps') ? 'selected' : ''; ?>>50 Mbps</option>
-                            <option value="100 Mbps" <?php echo ($plan === '100 Mbps') ? 'selected' : ''; ?>>100 Mbps</option>
-                            <option value="1 Gbps" <?php echo ($plan === '1 Gbps') ? 'selected' : ''; ?>>1 Gbps</option>
+                            <option value="Plan 999" <?php echo ($plan === 'Plan 999') ? 'selected' : ''; ?>>Plan 999</option>
+                            <option value="Plan 1499" <?php echo ($plan === 'Plan 1499') ? 'selected' : ''; ?>>Plan 1499</option>
+                            <option value="Plan 1999" <?php echo ($plan === 'Plan 1999') ? 'selected' : ''; ?>>Plan 1999</option>
+                            <option value="Plan 2999" <?php echo ($plan === 'Plan 2999') ? 'selected' : ''; ?>>Plan 2999</option>
                         </select>
-                        <span class="error"><?php echo $planErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($planErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="equipment">Equipment <span class="required">*</span></label>
@@ -368,7 +383,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="ISP-Provided Modem/Router" <?php echo ($equipment === 'ISP-Provided Modem/Router') ? 'selected' : ''; ?>>ISP-Provided Modem/Router</option>
                             <option value="Customer-Owned" <?php echo ($equipment === 'Customer-Owned') ? 'selected' : ''; ?>>Customer-Owned</option>
                         </select>
-                        <span class="error"><?php echo $equipmentErr; ?></span>
+                        <span class="error"><?php echo htmlspecialchars($equipmentErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 

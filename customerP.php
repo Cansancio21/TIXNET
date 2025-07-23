@@ -12,7 +12,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $accountNo = trim($_POST['accountNo']);
     $lastName = trim($_POST['lastName']);
 
-    $sql = "SELECT * FROM tbl_customer WHERE c_id = ? AND c_lname = ?";
+    // Updated query to use c_account_no instead of c_id
+    $sql = "SELECT * FROM tbl_customer WHERE c_account_no = ? AND c_lname = ?";
     $stmt = $conn->prepare($sql);
     
     if (!$stmt) {
@@ -30,7 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Store user data in session
         $_SESSION['user'] = $user;
         $_SESSION['user_type'] = 'customer';
-        $_SESSION['userId'] = $user['c_id'];
+        $_SESSION['userId'] = $user['c_id']; // Keep c_id for internal use
         $_SESSION['username'] = $user['c_fname'] . '_' . $user['c_lname'];
 
         // Log the successful login
@@ -67,8 +68,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <link rel="stylesheet" href="customerP.css">
+    <title>Customer Login</title>
+    <link rel="stylesheet" href="customersP.css">
 </head>
 <body>
 <div class="wrapper">
@@ -80,14 +81,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <form action="" method="POST">
                 <div class="form-group">
                     <label for="accountNo">Account No:</label>
-                    <input type="text" id="accountNo" name="accountNo" placeholder="Enter ID No." required>
+                    <input type="text" id="accountNo" name="accountNo" placeholder="Enter Account No." required>
                 </div>
                 <div class="form-group">
                     <label for="lastName">Last Name:</label>
                     <input type="text" id="lastName" name="lastName" placeholder="Enter last name" required>
                 </div>
                 <button type="submit">Login</button>
-                <p class="additional-info">Welcome to the Customer Portal!</p>
+                <p class="additional-info">Welcome to Tixnet Pro Customer Portal!</p>
             </form>
         </div>
     </div>

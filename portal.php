@@ -29,7 +29,7 @@ $avatarPath = $_SESSION['avatarPath'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Portal</title>
-    <link rel="stylesheet" href="portall.css">
+    <link rel="stylesheet" href="portalS.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -82,8 +82,8 @@ $avatarPath = $_SESSION['avatarPath'];
                     <h3>Basic Information</h3>
                     <table>
                         <tr>
-                            <th>ID No:</th>
-                            <td><?php echo htmlspecialchars($user['c_id'], ENT_QUOTES, 'UTF-8'); ?></td>
+                            <th>Account No:</th>
+                            <td><?php echo htmlspecialchars($user['c_account_no'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
                             <th>First Name:</th>
@@ -115,6 +115,10 @@ $avatarPath = $_SESSION['avatarPath'];
                         <tr>
                             <th>Email:</th>
                             <td><?php echo htmlspecialchars($user['c_email'], ENT_QUOTES, 'UTF-8'); ?></td>
+                        </tr>
+                         <tr>
+                            <th>Coordinates:</th>
+                            <td><?php echo htmlspecialchars($user['c_coordinates'], ENT_QUOTES, 'UTF-8'); ?></td>
                         </tr>
                         <tr>
                             <th>Subscription Date:</th>

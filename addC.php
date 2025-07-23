@@ -2,6 +2,15 @@
 session_start(); // Start session for login management
 include 'db.php';
 
+// Include PHPMailer classes
+require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
+require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
+require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
+
+// Use PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 // Check if the user is logged in
 if (!isset($_SESSION['username'])) {
     header("Location: index.php");
@@ -50,25 +59,34 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
-// Set the subscription date explicitly to May 24, 2025 (format: mm/dd/yyyy)
-$currentDate = '05/24/2025';
+// Set the subscription date to today's date or tomorrow's date dynamically
+// Option 1: Use today's date
+$currentDate = date('m/d/Y'); // Format: mm/dd/yyyy (e.g., 07/21/2025)
+// Option 2: Use tomorrow's date (uncomment the line below if preferred)
+// $currentDate = date('m/d/Y', strtotime('+1 day')); // Format: mm/dd/yyyy (e.g., 07/22/2025)
 error_log("Form date set to: $currentDate"); // Debug log to confirm date
 
+// Generate random 8-digit Customer Account Number
+$accountNo = sprintf("%08d", mt_rand(10000000, 99999999));
+
 // Initialize customer form variables
-$firstname = $lastname = $contact = $email = $dob = "";
+$accountNoErr = "";
+$firstname = $lastname = $contact = $email = $coordinates = $dob = "";
 $napname = $napport = $macaddress = $status = "";
-$purok = $barangay = $plan = $equipment = "";
-$firstnameErr = $lastnameErr = $contactErr = $emailErr = "";
+$purok = $barangay = $planType = $plan = $equipment = "";
+$accountNoErr = $firstnameErr = $lastnameErr = $contactErr = $emailErr = $coordinatesErr = "";
 $napnameErr = $napportErr = $macaddressErr = $statusErr = "";
-$purokErr = $barangayErr = $planErr = $equipmentErr = "";
+$purokErr = $barangayErr = $planTypeErr = $planErr = $equipmentErr = "";
 $hasError = false;
 
 // Handle customer registration form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $accountNo = trim($_POST['accountNo'] ?? '');
     $firstname = trim($_POST['firstname'] ?? '');
     $lastname = trim($_POST['lastname'] ?? '');
     $contact = trim($_POST['contact'] ?? '');
     $email = trim($_POST['email'] ?? '');
+    $coordinates = trim($_POST['coordinates'] ?? '');
     $dob = trim($_POST['date'] ?? ''); // Expecting mm/dd/yyyy
     $napname = trim($_POST['napname'] ?? '');
     $napport = trim($_POST['napport'] ?? '');
@@ -76,10 +94,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $status = trim($_POST['status'] ?? '');
     $purok = trim($_POST['purok'] ?? '');
     $barangay = trim($_POST['barangay'] ?? '');
+    $planType = trim($_POST['planType'] ?? '');
     $plan = trim($_POST['plan'] ?? '');
     $equipment = trim($_POST['equipment'] ?? '');
 
     // Validate inputs
+    if (!preg_match("/^[0-9]{8}$/", $accountNo)) {
+        $accountNoErr = "Account Number must be an 8-digit number.";
+        $hasError = true;
+    }
     if (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
         $firstnameErr = "First Name should not contain numbers.";
         $hasError = true;
@@ -100,17 +123,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $statusErr = "Status is required.";
         $hasError = true;
     }
-    if (empty($email)) {
-        $emailErr = "Email is required.";
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emailErr = "Valid email is required.";
+        $hasError = true;
+    }
+    if (empty($coordinates)) {
+        $coordinatesErr = "Coordinates are required.";
         $hasError = true;
     }
     if (!preg_match("/^[a-zA-Z\s]+$/", $barangay)) {
         $barangayErr = "Barangay should contain letters only.";
         $hasError = true;
     }
-    if (empty($plan)) {
-        $planErr = "Internet Plan is required.";
+    if (empty($planType) || !in_array($planType, ['Business Plan', 'Residential Plan'], true)) {
+        $planTypeErr = "Plan Type must be either 'Business Plan' or 'Residential Plan'.";
         $hasError = true;
+    }
+    if (empty($plan)) {
+        $planErr = "Product Plan is required.";
+        $hasError = true;
+    } else {
+        // Validate product plan based on plan type
+        $validBusinessPlans = ['Plan 999', 'Plan 1499', 'Plan 1799', 'Plan 1999', 'Plan 2500', 'Plan 3500'];
+        $validResidentialPlans = ['Plan 799', 'Plan 999', 'Plan 1299', 'Plan 1499'];
+        if ($planType === 'Business Plan' && !in_array($plan, $validBusinessPlans)) {
+            $planErr = "Invalid Business Plan selected.";
+            $hasError = true;
+        } elseif ($planType === 'Residential Plan' && !in_array($plan, $validResidentialPlans)) {
+            $planErr = "Invalid Residential Plan selected.";
+            $hasError = true;
+        }
     }
     if (empty($equipment)) {
         $equipmentErr = "Equipment is required.";
@@ -125,14 +167,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $hasError = true;
     }
 
+    // Check if account number already exists
+    $sqlCheckAccount = "SELECT c_account_no FROM tbl_customer WHERE c_account_no = ?";
+    $stmtCheck = $conn->prepare($sqlCheckAccount);
+    $stmtCheck->bind_param("s", $accountNo);
+    $stmtCheck->execute();
+    $resultCheck = $stmtCheck->get_result();
+    if ($resultCheck->num_rows > 0) {
+        $accountNoErr = "Account Number already exists.";
+        $hasError = true;
+    }
+    $stmtCheck->close();
+
     // Insert into database if no errors
     if (!$hasError) {
         // Convert date to MySQL format (YYYY-MM-DD)
         $mysqlDate = DateTime::createFromFormat('m/d/Y', $dob)->format('Y-m-d');
         error_log("Database date set to: $mysqlDate"); // Debug log for database date
 
-        $sql = "INSERT INTO tbl_customer (c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO tbl_customer (c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -142,14 +196,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit();
         }
 
-        $stmt->bind_param("sssssssssssss", $firstname, $lastname, $purok, $barangay, $contact, $email, $mysqlDate, $napname, $napport, $macaddress, $status, $plan, $equipment);
+        $stmt->bind_param("sssssssssssssss", $accountNo, $firstname, $lastname, $purok, $barangay, $contact, $email, $coordinates, $mysqlDate, $napname, $napport, $macaddress, $status, $plan, $equipment);
 
         if ($stmt->execute()) {
-            $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent.";
+            // Send confirmation email using PHPMailer
+            try {
+                $mail = new PHPMailer(true); // Enable exceptions
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host = 'smtp.gmail.com';
+                $mail->SMTPAuth = true;
+                $mail->Username = 'jonwilyammayormita@gmail.com'; // Your Gmail address
+                $mail->Password = 'mqkcqkytlwurwlks'; // Your Gmail App Password
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port = 587;
+
+                // Recipients
+                $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet Pro');
+                $mail->addAddress($email, "$firstname $lastname");
+
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = 'Welcome to TixNet Pro!';
+                $mail->Body = "
+                    <html>
+                    <head>
+                        <title>Welcome to TixNet Pro</title>
+                    </head>
+                    <body>
+                        <p>Dear $firstname $lastname,</p>
+                        <p>Thank you for registering with TixNet Pro. Your account details are:</p>
+                        <p><strong>Customer Account No.:</strong> $accountNo</p>
+                        <p><strong>Last Name:</strong> $lastname</p>
+                        <p><strong>Plan:</strong> $plan</p>
+                        <p><strong>Coordinates:</strong> $coordinates</p>
+                        <p>Please use these credentials to log in to our customer portal by clicking the link below:</p>
+                        <p><a href='http://localhost/TIMSSS/customerP.php'>Customer Portal</a></p>
+                        <p>Enter your Customer Account No. and Last Name to access your account.</p>
+                        <p>Best regards,<br>Team Jupiter</p>
+                    </body>
+                    </html>
+                ";
+                $mail->AltBody = "Dear $firstname $lastname,\n\nThank you for registering with TixNet Pro. Your account details are:\nCustomer Account No.: $accountNo\nLast Name: $lastname\nPlan: $plan\nCoordinates: $coordinates\n\nPlease use these credentials to log in to our customer portal at http://localhost/TIMSSS/customerP.php\n\nBest regards,\nTixNet Pro Team";
+
+                // Send the email
+                $mail->send();
+                $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent to $email.";
+            } catch (Exception $e) {
+                $_SESSION['error'] = "Customer registered, but failed to send confirmation email: " . $mail->ErrorInfo;
+                error_log("PHPMailer Error: " . $mail->ErrorInfo); // Log email error
+            }
+
             // Clear form variables
-            $firstname = $lastname = $contact = $email = $dob = "";
+            $accountNo = sprintf("%08d", mt_rand(10000000, 99999999)); // Generate new account number
+            $firstname = $lastname = $contact = $email = $coordinates = $dob = "";
             $napname = $napport = $macaddress = $status = "";
-            $purok = $barangay = $plan = $equipment = "";
+            $purok = $barangay = $planType = $plan = $equipment = "";
             header("Location: customersT.php");
             exit();
         } else {
@@ -173,11 +275,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        #productPlanContainer {
+            display: none;
+            margin-top: 20px;
+        }
+        .form-group select[required] + .error:empty::before {
+            content: "This field is required.";
+            color: red;
+            font-size: 12px;
+            display: none;
+        }
+        .form-group select[required]:invalid + .error::before {
+            display: block;
+        }
+    </style>
 </head>
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
-        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
+        <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
@@ -185,8 +302,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php" class="active"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-             <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
-           </ul>
+            <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+        </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
@@ -234,34 +351,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <form action="" method="POST" id="customerForm">
                 <div class="form-grid">
                     <div class="form-group">
+                        <label for="accountNo">Customer Account No. <span class="required">*</span></label>
+                        <input type="text" id="accountNo" name="accountNo" value="<?php echo htmlspecialchars($accountNo, ENT_QUOTES, 'UTF-8'); ?>" readonly required>
+                        <span class="error"><?php echo htmlspecialchars($accountNoErr, ENT_QUOTES, 'UTF-8'); ?></span>
+                    </div>
+                    <div class="form-group">
                         <label for="firstname">First Name <span class="required">*</span></label>
-                        <input type="text" id="firstname" name="firstname" placeholder="e.g., John" value="<?php echo htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="text" id="firstname" name="firstname" placeholder="Enter First Name" value="<?php echo htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($firstnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="lastname">Last Name <span class="required">*</span></label>
-                        <input type="text" id="lastname" name="lastname" placeholder="e.g., Doe" value="<?php echo htmlspecialchars($lastname, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="text" id="lastname" name="lastname" placeholder="Enter Last Name" value="<?php echo htmlspecialchars($lastname, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($lastnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="purok">Purok Name</label>
-                        <input type="text" id="purok" name="purok" placeholder="e.g., Purok 3" value="<?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?>">
+                        <input type="text" id="purok" name="purok" placeholder="Enter Purok Name" value="<?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?>">
                         <span class="error"><?php echo htmlspecialchars($purokErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="barangay">Barangay <span class="required">*</span></label>
-                        <input type="text" id="barangay" name="barangay" placeholder="e.g., San Isidro" value="<?php echo htmlspecialchars($barangay, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="text" id="barangay" name="barangay" placeholder="Enter Barangay" value="<?php echo htmlspecialchars($barangay, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($barangayErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="contact">Contact Number <span class="required">*</span></label>
-                        <input type="text" id="contact" name="contact" placeholder="e.g., 09123456789" value="<?php echo htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="text" id="contact" name="contact" placeholder="Enter Contact Number" value="<?php echo htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($contactErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="email">Email Address <span class="required">*</span></label>
-                        <input type="email" id="email" name="email" placeholder="e.g., john.doe@example.com" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="email" id="email" name="email" placeholder="Enter Email Address" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($emailErr, ENT_QUOTES, 'UTF-8'); ?></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="coordinates">Coordinates <span class="required">*</span></label>
+                        <input type="text" id="coordinates" name="coordinates" placeholder="Enter Coordinates (e.g., lat,lon)" value="<?php echo htmlspecialchars($coordinates, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <span class="error"><?php echo htmlspecialchars($coordinatesErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
@@ -305,7 +432,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                     <div class="form-group">
                         <label for="macaddress">MAC Address <span class="required">*</span></label>
-                        <input type="text" id="macaddress" name="macaddress" placeholder="e.g., 00:1A:2B:3C:4D:5E" value="<?php echo htmlspecialchars($macaddress, ENT_QUOTES, 'UTF-8'); ?>" required>
+                        <input type="text" id="macaddress" name="macaddress" placeholder="Enter Mac Address" value="<?php echo htmlspecialchars($macaddress, ENT_QUOTES, 'UTF-8'); ?>" required>
                         <span class="error"><?php echo htmlspecialchars($macaddressErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
@@ -323,15 +450,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <hr class="title-line">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="plan">Internet Plan <span class="required">*</span></label>
-                        <select id="plan" name="plan" required>
-                            <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Plan</option>
-                            <option value="25 Mbps" <?php echo ($plan === '25 Mbps') ? 'selected' : ''; ?>>25 Mbps</option>
-                            <option value="50 Mbps" <?php echo ($plan === '50 Mbps') ? 'selected' : ''; ?>>50 Mbps</option>
-                            <option value="100 Mbps" <?php echo ($plan === '100 Mbps') ? 'selected' : ''; ?>>100 Mbps</option>
-                            <option value="1 Gbps" <?php echo ($plan === '1 Gbps') ? 'selected' : ''; ?>>1 Gbps</option>
+                        <label for="planType">Internet Plan Type <span class="required">*</span></label>
+                        <select id="planType" name="planType" required>
+                            <option value="" <?php echo ($planType === '') ? 'selected' : ''; ?>>Select Plan Type</option>
+                            <option value="Business Plan" <?php echo ($planType === 'Business Plan') ? 'selected' : ''; ?>>Business Plan</option>
+                            <option value="Residential Plan" <?php echo ($planType === 'Residential Plan') ? 'selected' : ''; ?>>Residential Plan</option>
                         </select>
-                        <span class="error"><?php echo htmlspecialchars($planErr, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="error"><?php echo htmlspecialchars($planTypeErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="form-group">
                         <label for="equipment">Equipment <span class="required">*</span></label>
@@ -342,6 +467,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </select>
                         <span class="error"><?php echo htmlspecialchars($equipmentErr, ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
+                </div>
+                <div class="form-group" id="productPlanContainer">
+                    <label for="plan">Product Plan <span class="required">*</span></label>
+                    <select id="plan" name="plan" required>
+                        <option value="" <?php echo ($plan === '') ? 'selected' : ''; ?>>Select Product Plan</option>
+                        <!-- Options populated by JavaScript -->
+                    </select>
+                    <span class="error"><?php echo htmlspecialchars($planErr, ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
 
                 <div class="button-container">
@@ -363,6 +496,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <?php if (!$hasError && $_SERVER["REQUEST_METHOD"] == "POST"): ?>
             this.reset();
             document.getElementById('date').value = '<?php echo htmlspecialchars($currentDate, ENT_QUOTES, 'UTF-8'); ?>';
+            document.getElementById('accountNo').value = '<?php echo htmlspecialchars(sprintf("%08d", mt_rand(10000000, 99999999)), ENT_QUOTES, 'UTF-8'); ?>';
+            document.getElementById('productPlanContainer').style.display = 'none';
+            document.getElementById('plan').innerHTML = '<option value="" selected>Select Product Plan</option>';
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit Application';
         <?php endif; ?>
@@ -380,6 +516,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }, 1000); // Remove after fade-out completes
             }, 10000); // 10 seconds
         }
+
+        // Handle plan type selection
+        const planTypeSelect = document.getElementById('planType');
+        const productPlanContainer = document.getElementById('productPlanContainer');
+        const productPlanSelect = document.getElementById('plan');
+        const businessPlans = [
+            { value: 'Plan 999', text: 'Plan 999 (15 Mbps)' },
+            { value: 'Plan 1499', text: 'Plan 1499 (25 Mbps)' },
+            { value: 'Plan 1799', text: 'Plan 1799 (35 Mbps)' },
+            { value: 'Plan 1999', text: 'Plan 1999 (50 Mbps)' },
+            { value: 'Plan 2500', text: 'Plan 2500 (70 Mbps)' },
+            { value: 'Plan 3500', text: 'Plan 3500 (100 Mbps)' }
+        ];
+        const residentialPlans = [
+            { value: 'Plan 799', text: 'Plan 799 (20 Mbps)' },
+            { value: 'Plan 999', text: 'Plan 999 (50 Mbps)' },
+            { value: 'Plan 1299', text: 'Plan 1299 (100 Mbps)' },
+            { value: 'Plan 1499', text: 'Plan 1499 (150 Mbps)' }
+        ];
+
+        function updateProductPlanOptions() {
+            const planType = planTypeSelect.value;
+            productPlanSelect.innerHTML = '<option value="" selected>Select Product Plan</option>';
+            
+            if (planType === 'Business Plan') {
+                businessPlans.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.value;
+                    option.textContent = plan.text;
+                    if (plan.value === '<?php echo addslashes($plan); ?>') {
+                        option.selected = true;
+                    }
+                    productPlanSelect.appendChild(option);
+                });
+                productPlanContainer.style.display = 'block';
+            } else if (planType === 'Residential Plan') {
+                residentialPlans.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.value;
+                    option.textContent = plan.text;
+                    if (plan.value === '<?php echo addslashes($plan); ?>') {
+                        option.selected = true;
+                    }
+                    productPlanSelect.appendChild(option);
+                });
+                productPlanContainer.style.display = 'block';
+            } else {
+                productPlanContainer.style.display = 'none';
+            }
+        }
+
+        // Initialize product plan dropdown based on existing planType
+        updateProductPlanOptions();
+
+        // Update product plan dropdown on planType change
+        planTypeSelect.addEventListener('change', updateProductPlanOptions);
     });
 </script>
 </body>

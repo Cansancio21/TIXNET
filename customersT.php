@@ -46,26 +46,26 @@ if (isset($_GET['action'])) {
         if ($tab === 'active') {
             $sqlCount = "SELECT COUNT(*) AS total FROM tbl_customer 
                          WHERE (c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL) 
-                         AND (c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ?)";
-            $sql = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
+                         AND (c_account_no LIKE ? OR c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ? OR c_coordinates LIKE ? OR c_plan LIKE ?)";
+            $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                     FROM tbl_customer 
                     WHERE (c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL) 
-                    AND (c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ?) 
+                    AND (c_account_no LIKE ? OR c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ? OR c_coordinates LIKE ? OR c_plan LIKE ?) 
                     LIMIT ?, ?";
         } else {
             $sqlCount = "SELECT COUNT(*) AS total FROM tbl_customer 
                          WHERE c_status LIKE 'ARCHIVED:%' 
-                         AND (c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ?)";
-            $sql = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
+                         AND (c_account_no LIKE ? OR c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ? OR c_coordinates LIKE ? OR c_plan LIKE ?)";
+            $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                     FROM tbl_customer 
                     WHERE c_status LIKE 'ARCHIVED:%' 
-                    AND (c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ?) 
+                    AND (c_account_no LIKE ? OR c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ? OR c_coordinates LIKE ? OR c_plan LIKE ?) 
                     LIMIT ?, ?";
         }
 
         // Get total count for pagination
         $stmtCount = $conn->prepare($sqlCount);
-        $stmtCount->bind_param("ssssss", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
+        $stmtCount->bind_param("sssssssss", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
         $stmtCount->execute();
         $countResult = $stmtCount->get_result();
         $totalRow = $countResult->fetch_assoc();
@@ -75,7 +75,7 @@ if (isset($_GET['action'])) {
 
         // Fetch search results
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssssii", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
+        $stmt->bind_param("sssssssssii", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -84,29 +84,30 @@ if (isset($_GET['action'])) {
             while ($row = $result->fetch_assoc()) {
                 $displayStatus = $tab === 'archived' ? preg_replace('/^ARCHIVED:/', '', $row['c_status']) : ($row['c_status'] ?? '');
                 echo "<tr> 
-                        <td>{$row['c_id']}</td> 
+                        <td>" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td> 
+                        <td>" . htmlspecialchars($row['c_coordinates'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
                         <td class='action-buttons'>";
                 if ($tab === 'active') {
                     echo "
-                        <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                        <a class='edit-btn' href='editC.php?id=" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
-                        <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
+                        <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape($row['c_nextdue'] ?? '') . "', '" . jsEscape($row['c_lastdue'] ?? '') . "', '" . jsEscape($row['c_nextbill'] ?? '') . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                        <a class='edit-btn' href='editC.php?account_no=" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
+                        <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
                 } else {
                     echo "
-                        <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                        <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                        <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
+                        <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape($row['c_nextdue'] ?? '') . "', '" . jsEscape($row['c_lastdue'] ?? '') . "', '" . jsEscape($row['c_nextbill'] ?? '') . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                        <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                        <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
                 }
                 echo "</td></tr>";
             }
         } else {
-            echo "<tr><td colspan='8' style='text-align: center;'>No customers found.</td></tr>";
+            echo "<tr><td colspan='10' style='text-align: center;'>No customers found.</td></tr>";
         }
         $tableRows = ob_get_clean();
 
@@ -118,7 +119,7 @@ if (isset($_GET['action'])) {
         exit();
     } elseif ($_GET['action'] === 'get_all_active_customers') {
         // Fetch all active customers
-        $sql = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email 
+        $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_plan, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                 FROM tbl_customer 
                 WHERE c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL";
         $result = $conn->query($sql);
@@ -127,13 +128,21 @@ if (isset($_GET['action'])) {
         if ($result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
                 $customers[] = [
-                    'c_id' => $row['c_id'],
+                    'c_account_no' => $row['c_account_no'],
                     'c_fname' => $row['c_fname'],
                     'c_lname' => $row['c_lname'],
                     'c_purok' => $row['c_purok'],
                     'c_barangay' => $row['c_barangay'],
                     'c_contact' => $row['c_contact'],
-                    'c_email' => $row['c_email']
+                    'c_email' => $row['c_email'],
+                    'c_coordinates' => $row['c_coordinates'],
+                    'c_plan' => $row['c_plan'],
+                    'c_balance' => $row['c_balance'],
+                    'c_startdate' => $row['c_startdate'],
+                    'c_nextdue' => $row['c_nextdue'],
+                    'c_lastdue' => $row['c_lastdue'],
+                    'c_nextbill' => $row['c_nextbill'],
+                    'c_billstatus' => $row['c_billstatus']
                 ];
             }
         }
@@ -156,10 +165,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isAjax = isset($_POST['ajax']) && $_POST['ajax'] === 'true';
 
     if (isset($_POST['archive_customer'])) {
-        $id = $_POST['c_id'];
-        $sql = "SELECT c_status FROM tbl_customer WHERE c_id=?";
+        $account_no = $_POST['c_account_no'];
+        $sql = "SELECT c_status FROM tbl_customer WHERE c_account_no=?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $id);
+        $stmt->bind_param("s", $account_no);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
@@ -167,26 +176,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         $new_rem = 'ARCHIVED:' . $current_rem;
-        $sql = "UPDATE tbl_customer SET c_status=? WHERE c_id=?";
+        $sql = "UPDATE tbl_customer SET c_status=? WHERE c_account_no=?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Prepare failed for archive: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
-        $stmt->bind_param("si", $new_rem, $id);
+        $stmt->bind_param("ss", $new_rem, $account_no);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Customer archived successfully!";
         } else {
             $_SESSION['error'] = "Error archiving customer: " . $stmt->error;
-            error_log("Error archiving customer ID $id: " . $stmt->error);
+            error_log("Error archiving customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
     } elseif (isset($_POST['unarchive_customer'])) {
-        $id = $_POST['c_id'];
-        $sql = "SELECT c_status FROM tbl_customer WHERE c_id=?";
+        $account_no = $_POST['c_account_no'];
+        $sql = "SELECT c_status FROM tbl_customer WHERE c_account_no=?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $id);
+        $stmt->bind_param("s", $account_no);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
@@ -194,38 +203,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         $new_rem = preg_replace('/^ARCHIVED:/', '', $current_rem);
-        $sql = "UPDATE tbl_customer SET c_status=? WHERE c_id=?";
+        $sql = "UPDATE tbl_customer SET c_status=? WHERE c_account_no=?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Prepare failed for unarchive: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
-        $stmt->bind_param("si", $new_rem, $id);
+        $stmt->bind_param("ss", $new_rem, $account_no);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Customer unarchived successfully!";
         } else {
             $_SESSION['error'] = "Error unarchiving customer: " . $stmt->error;
-            error_log("Error unarchiving customer ID $id: " . $stmt->error);
+            error_log("Error unarchiving customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_active';
     } elseif (isset($_POST['delete_customer'])) {
-        $id = $_POST['c_id'];
-        $sql = "DELETE FROM tbl_customer WHERE c_id=? AND c_status LIKE 'ARCHIVED:%'";
+        $account_no = $_POST['c_account_no'];
+        $sql = "DELETE FROM tbl_customer WHERE c_account_no=? AND c_status LIKE 'ARCHIVED:%'";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Prepare failed for delete: " . $conn->error);
             die("Prepare failed: " . $conn->error);
         }
-        $stmt->bind_param("i", $id);
+        $stmt->bind_param("s", $account_no);
         if ($stmt->execute()) {
             $_SESSION['message'] = "Customer deleted permanently!";
         } else {
             $_SESSION['error'] = "Error deleting customer: " . $stmt->error;
-            error_log("Error deleting customer ID $id: " . $stmt->error);
+            error_log("Error deleting customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
+    } elseif (isset($_POST['activate_billing'])) {
+        $account_no = $_POST['c_account_no'];
+        $due_date = $_POST['due_date'];
+        $advance_days = (int)$_POST['advance_days'];
+
+        // Validate inputs
+        if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
+            $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
+        } elseif ($advance_days <= 0) {
+            $_SESSION['error'] = "Advance days must be a positive number.";
+        } else {
+            // Calculate dates
+            $start_date = date('Y-m-d'); // Current date
+            $due_date_obj = new DateTime($due_date);
+            $next_due = (clone $due_date_obj)->modify('+31 days');
+            
+            // Adjust for month-end (e.g., September 30 → October 1)
+            $day = $due_date_obj->format('d');
+            if ($day > 28) {
+                $next_due->modify('first day of next month');
+                if ($day == 31) {
+                    $next_due->modify('-1 day');
+                }
+            }
+            
+            $next_due_date = $next_due->format('Y-m-d');
+            $last_due_date = null; // Initially null
+            $next_bill_date = $next_due_date; // Align with next due date
+            $billing_status = 'Active';
+            $balance = 0.00; // Default balance
+
+            // Update database
+            $sql = "UPDATE tbl_customer 
+                    SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_billstatus = ? 
+                    WHERE c_account_no = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("dssssss", $balance, $start_date, $next_due_date, $last_due_date, $next_bill_date, $billing_status, $account_no);
+                if ($stmt->execute()) {
+                    $_SESSION['message'] = "Billing activated successfully for account $account_no!";
+                } else {
+                    $_SESSION['error'] = "Error activating billing: " . $stmt->error;
+                    error_log("Error activating billing for account_no $account_no: " . $stmt->error);
+                }
+                $stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed: " . $conn->error;
+                error_log("Prepare failed for activate billing: " . $conn->error);
+            }
+        }
     }
 
     if (!$isAjax) {
@@ -270,7 +329,7 @@ if ($conn) {
     $totalArchivedPages = ceil($totalArchived / $limit);
 
     // Fetch active customers
-    $sqlActive = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
+    $sqlActive = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                   FROM tbl_customer WHERE c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL LIMIT ?, ?";
     $stmtActive = $conn->prepare($sqlActive);
     $stmtActive->bind_param("ii", $offsetActive, $limit);
@@ -279,7 +338,7 @@ if ($conn) {
     $stmtActive->close();
 
     // Fetch archived customers
-    $sqlArchived = "SELECT c_id, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment 
+    $sqlArchived = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                     FROM tbl_customer WHERE c_status LIKE 'ARCHIVED:%' LIMIT ?, ?";
     $stmtArchived = $conn->prepare($sqlArchived);
     $stmtArchived->bind_param("ii", $offsetArchived, $limit);
@@ -297,7 +356,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customerT.css">
+    <link rel="stylesheet" href="customersT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -306,7 +365,7 @@ if ($conn) {
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
-        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
+        <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
             <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
@@ -314,7 +373,7 @@ if ($conn) {
             <li><a href="customersT.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-              <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+            <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -354,48 +413,49 @@ if ($conn) {
           
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo $_SESSION['message']; unset($_SESSION['message']); ?></div>
+                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
             <?php endif; ?>
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
         </div>
 
         <div class="table-box glass-container">
-            <h2>TIMS Customers</h2>
-            <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
-                <div class="tab-buttons">
-                    <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_active') || !isset($_GET['tab']) ? 'active' : ''; ?>" onclick="showTab('customers_active')">
-                        Active (<?php echo $totalActive; ?>)
-                    </button>
-                    <button class="tab-btn <?php echo isset($_GET['tab']) && $_GET['tab'] === 'customers_archived' ? 'active' : ''; ?>" onclick="showTab('customers_archived')">
-                        Archived
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
-                <div class="customer-actions">
-                    <form action="addC.php" method="get" style="display: inline;">
-                        <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
-                    </form>
-                    <div class="export-container">
-                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                        <div class="export-dropdown">
-                            <button onclick="exportTable('excel')">Excel</button>
-                            <button onclick="exportTable('csv')">CSV</button>
-                        </div>
+            <h2>Connected Customers</h2>
+            <div class="tab-buttons">
+                <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_active') || !isset($_GET['tab']) ? 'active' : ''; ?>" onclick="showTab('customers_active')">
+                    Active (<?php echo $totalActive; ?>)
+                </button>
+                <button class="tab-btn <?php echo isset($_GET['tab']) && $_GET['tab'] === 'customers_archived' ? 'active' : ''; ?>" onclick="showTab('customers_archived')">
+                    Archived
+                    <?php if ($totalArchived > 0): ?>
+                        <span class="tab-badge"><?php echo $totalArchived; ?></span>
+                    <?php endif; ?>
+                </button>
+            </div>
+            <div class="customer-actions">
+                <form action="addC.php" method="get" style="display: inline;">
+                    <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
+                </form>
+                <div class="export-container">
+                    <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                    <div class="export-dropdown">
+                        <button onclick="exportTable('excel')">Excel</button>
+                        <button onclick="exportTable('csv')">CSV</button>
                     </div>
                 </div>
+            </div>
+            <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
                 <table id="active-customers-table">
                     <thead>
                         <tr>
-                            <th>Customer ID</th>
+                            <th>Account No.</th>
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Purok</th>
                             <th>Barangay</th>
                             <th>Contact</th>
+                            <th>Coordinates</th>
                             <th>Email</th>
                             <th>Actions</th>
                         </tr>
@@ -406,22 +466,23 @@ if ($conn) {
                             while ($row = $resultActive->fetch_assoc()) {
                                 $displayStatus = ($row['c_status'] ?? '');
                                 echo "<tr> 
-                                        <td>{$row['c_id']}</td> 
+                                        <td>" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars($row['c_coordinates'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' href='editC.php?id=" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
-                                            <a class='archive-btn' onclick=\"showArchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
+                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape($row['c_nextdue'] ?? '') . "', '" . jsEscape($row['c_lastdue'] ?? '') . "', '" . jsEscape($row['c_nextbill'] ?? '') . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='edit-btn' href='editC.php?account_no=" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
+                                            <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                         </td>
                                       </tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='8' style='text-align: center;'>No active customers found.</td></tr>";
+                            echo "<tr><td colspan='10' style='text-align: center;'>No active customers found.</td></tr>";
                         }
                         ?>
                     </tbody>
@@ -439,29 +500,23 @@ if ($conn) {
                         <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                     <?php endif; ?>
                 </div>
+                <!-- Customer Details Section -->
+                <div id="customerDetailsActive" class="customer-details-section" style="display: none;">
+                    <div id="customerDetailsContentActive" class="customer-details"></div>
+                </div>
             </div>
 
             <div class="archived-customers" id="customers_archived" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_active') || !isset($_GET['tab']) ? 'style="display: none;"' : ''; ?>>
-                <div class="tab-buttons">
-                    <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_active') || !isset($_GET['tab']) ? 'active' : ''; ?>" onclick="showTab('customers_active')">
-                        Active (<?php echo $totalActive; ?>)
-                    </button>
-                    <button class="tab-btn <?php echo isset($_GET['tab']) && $_GET['tab'] === 'customers_archived' ? 'active' : ''; ?>" onclick="showTab('customers_archived')">
-                        Archived
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
                 <table id="archived-customers-table">
                     <thead>
                         <tr>
-                            <th>Customer ID</th>
+                            <th>Account No.</th>
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Purok</th>
                             <th>Barangay</th>
                             <th>Contact</th>
+                            <th>Coordinates</th>
                             <th>Email</th>
                             <th>Actions</th>
                         </tr>
@@ -472,22 +527,23 @@ if ($conn) {
                             while ($row = $resultArchived->fetch_assoc()) {
                                 $displayStatus = preg_replace('/^ARCHIVED:/', '', $row['c_status']);
                                 echo "<tr> 
-                                        <td>{$row['c_id']}</td> 
+                                        <td>" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_fname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_lname'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_purok'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_barangay'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['c_contact'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars($row['c_coordinates'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewModal('{$row['c_id']}', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='unarchive-btn' onclick=\"showUnarchiveModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
-                                            <a class='delete-btn' onclick=\"showDeleteModal('{$row['c_id']}', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape($row['c_nextdue'] ?? '') . "', '" . jsEscape($row['c_lastdue'] ?? '') . "', '" . jsEscape($row['c_nextbill'] ?? '') . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                                            <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
                                       </tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='8' style='text-align: center;'>No archived customers found.</td></tr>";
+                            echo "<tr><td colspan='9' style='text-align: center;'>No archived customers found.</td></tr>";
                         }
                         ?>
                     </tbody>
@@ -505,20 +561,11 @@ if ($conn) {
                         <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                     <?php endif; ?>
                 </div>
+                <!-- Customer Details Section -->
+                <div id="customerDetailsArchived" class="customer-details-section" style="display: none;">
+                    <div id="customerDetailsContentArchived" class="customer-details"></div>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- View Customer Modal -->
-<div id="viewModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Customer Details</h2>
-        </div>
-        <div id="viewContent"></div>
-        <div class="modal-footer">
-            <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
         </div>
     </div>
 </div>
@@ -531,7 +578,7 @@ if ($conn) {
         </div>
         <p>Are you sure you want to archive <span id="archiveCustomerName"></span>?</p>
         <form method="POST" id="archiveForm">
-            <input type="hidden" name="c_id" id="archiveCustomerId">
+            <input type="hidden" name="c_account_no" id="archiveCustomerId">
             <input type="hidden" name="archive_customer" value="1">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('archiveModal')">Cancel</button>
@@ -549,7 +596,7 @@ if ($conn) {
         </div>
         <p>Are you sure you want to unarchive <span id="unarchiveCustomerName"></span>?</p>
         <form method="POST" id="unarchiveForm">
-            <input type="hidden" name="c_id" id="unarchiveCustomerId">
+            <input type="hidden" name="c_account_no" id="unarchiveCustomerId">
             <input type="hidden" name="unarchive_customer" value="1">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('unarchiveModal')">Cancel</button>
@@ -567,11 +614,38 @@ if ($conn) {
         </div>
         <p>Are you sure you want to permanently delete <span id="deleteCustomerName"></span>? This action cannot be undone.</p>
         <form method="POST" id="deleteForm">
-            <input type="hidden" name="c_id" id="deleteCustomerId">
+            <input type="hidden" name="c_account_no" id="deleteCustomerId">
             <input type="hidden" name="delete_customer" value="1">
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Activate Billing Modal -->
+<div id="activateBillingModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Activate Billing</h2>
+        </div>
+        <form method="POST" id="activateBillingForm">
+            <input type="hidden" name="c_account_no" id="activateBillingCustomerId">
+            <p>Activate Billing Status for <span id="activateBillingCustomerName"></span></p>
+            <div class="modal-form">
+                <label for="start_date">Start Date:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo date('Y-m-d'); ?>" readonly>
+                <label for="due_date">Due Date:</label>
+                <input type="date" id="due_date" name="due_date" required onchange="calculateNextDueDate()">
+                <label for="advance_days">Advance Billing:</label>
+                <input type="number" id="advance_days" name="advance_days" min="1" required placeholder="Enter number of days">
+                <p class="billing-note"><strong>Note:</strong> The next due date is calculated as 31 days from the due date. If the due date is July 23, 2025, the next due date is August 23, 2025. If the due date is September 30, 2025, the next due date will be October 1, 2025, as September 31 does not exist.</p>
+                <input type="hidden" name="activate_billing" value="1">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('activateBillingModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Activate</button>
+                </div>
             </div>
         </form>
     </div>
@@ -616,12 +690,12 @@ window.addEventListener('beforeunload', () => {
 function showTab(tab) {
     const activeSection = document.getElementById('customers_active');
     const archivedSection = document.getElementById('customers_archived');
-    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabButtons = document.querySelectorAll('.tab-buttons .tab-btn');
 
     // Remove active class from all buttons
     tabButtons.forEach(button => button.classList.remove('active'));
 
-    // Add active class to the correct button
+    // Add active class to the clicked button
     const targetButton = Array.from(tabButtons).find(button => button.getAttribute('onclick').includes(`showTab('${tab}')`));
     if (targetButton) {
         targetButton.classList.add('active');
@@ -631,9 +705,11 @@ function showTab(tab) {
     if (tab === 'customers_active') {
         activeSection.style.display = 'block';
         archivedSection.style.display = 'none';
+        document.getElementById('customerDetailsArchived').style.display = 'none';
     } else if (tab === 'customers_archived') {
         activeSection.style.display = 'none';
         archivedSection.style.display = 'block';
+        document.getElementById('customerDetailsActive').style.display = 'none';
     }
 
     // Update URL
@@ -699,46 +775,107 @@ function updatePagination(currentPage, totalPages, tab, searchTerm) {
 
 const debouncedSearchCustomers = debounce(searchCustomers, 300);
 
-function showViewModal(id, fname, lname, purok, barangay, contact, email, date, napname, napport, macaddress, status, plan, equipment) {
-    document.getElementById('viewContent').innerHTML = `
-        <div class="customer-details">
-            <h3>Customer Profile</h3>
-            <p><strong>ID:</strong> ${id}</p>
-            <p><strong>Name:</strong> ${fname} ${lname}</p>
-            <p><strong>Purok:</strong> ${purok || 'N/A'}</p>
-            <p><strong>Barangay:</strong> ${barangay || 'N/A'}</p>
-            <p><strong>Contact:</strong> ${contact || 'N/A'}</p>
-            <p><strong>Email:</strong> ${email || 'N/A'}</p>
-            <h3>Advance Profile</h3>
-            <p><strong>Subscription Date:</strong> ${date || 'N/A'}</p>
-            <p><strong>NAP Name:</strong> ${napname || 'N/A'}</p>
-            <p><strong>NAP Port:</strong> ${napport || 'N/A'}</p>
-            <p><strong>MAC Address:</strong> ${macaddress || 'N/A'}</p>
-            <p><strong>Customer Status:</strong> ${status || 'N/A'}</p>
-            <h3>Service Details</h3>
-            <p><strong>Internet Plan:</strong> ${plan || 'N/A'}</p>
-            <p><strong>Equipment:</strong> ${equipment || 'N/A'}</p>
-        </div>
-    `;
-    document.getElementById('viewModal').style.display = 'block';
+function calculateNextDueDate() {
+    const dueDateInput = document.getElementById('due_date').value;
+    const nextDueDateInput = document.getElementById('next_due_date');
+    
+    if (dueDateInput) {
+        const dueDate = new Date(dueDateInput);
+        const nextDue = new Date(dueDate);
+        nextDue.setDate(dueDate.getDate() + 31);
+        
+        // Adjust for month-end
+        const day = dueDate.getDate();
+        if (day > 28) {
+            const nextMonth = nextDue.getMonth();
+            nextDue.setDate(1);
+            nextDue.setMonth(nextMonth + 1);
+            if (day === 31) {
+                nextDue.setDate(nextDue.getDate() - 1);
+            }
+        }
+        
+        nextDueDateInput.value = nextDue.toISOString().split('T')[0];
+    } else {
+        nextDueDateInput.value = '';
+    }
 }
 
-function showArchiveModal(id, name) {
-    document.getElementById('archiveCustomerId').value = id;
+function showViewDetails(account_no, fname, lname, purok, barangay, contact, email, coordinates, date, napname, napport, macaddress, status, plan, equipment, balance, startdate, nextdue, lastdue, nextbill, billstatus) {
+    const tab = document.getElementById('customers_active').style.display !== 'none' ? 'active' : 'archived';
+    const detailsSection = document.getElementById(`customerDetails${tab === 'active' ? 'Active' : 'Archived'}`);
+    const contentDiv = document.getElementById(`customerDetailsContent${tab === 'active' ? 'Active' : 'Archived'}`);
+
+    contentDiv.innerHTML = `
+    <div class="customer-details-container">
+        <div class="customer-details-inner">
+            <div class="customer-details-column">
+                <h3><i class="fas fa-user"></i> Account Details</h3>
+                <h4 class="account-no-header">Account No.: <span class="account-no-value">${account_no}</span></h4>
+                <div class="account-details-content">
+                    <p><strong>Name:</strong> ${fname} ${lname}</p>
+                    <p><strong>Purok:</strong> ${purok || 'N/A'}</p>
+                    <p><strong>Barangay:</strong> ${barangay || 'N/A'}</p>
+                    <p><strong>Contact:</strong> ${contact || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${email || 'N/A'}</p>
+                    <p><strong>Coordinates:</strong> ${coordinates || 'N/A'}</p>
+                    <p><strong>Customer Status:</strong> ${status || 'N/A'}</p>
+                </div>
+            </div>
+            <div class="subscription-details-column">
+                <h3><i class="fas fa-info-circle"></i> Subscription Details</h3>
+                <p><strong>Subscription Date:</strong> ${date || 'N/A'}</p>
+                <p><strong>Product Plan:</strong> ${plan || 'N/A'}</p>
+                <p><strong>Equipment:</strong> ${equipment || 'N/A'}</p>
+                <p><strong>NAP Name:</strong> ${napname || 'N/A'}</p>
+                <p><strong>NAP Port:</strong> ${napport || 'N/A'}</p>
+                <p><strong>MAC Address:</strong> ${macaddress || 'N/A'}</p>
+            </div>
+        </div>
+        <div class="service-details-inner">
+            <div class="customer-details-column">
+                <h3><i class="fas fa-cogs"></i> Service Details</h3>
+                <h4 class="balance-header">Balance: <span class="balance-value">${balance ? parseFloat(balance).toFixed(2) : '0.00'}</span></h4>
+                <p><strong>Start Date:</strong> ${startdate || ''}</p>
+                <p><strong>Next Due Date:</strong> ${nextdue || ''}</p>
+                <p><strong>Last Due Date:</strong> ${lastdue || ''}</p>
+                <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
+                <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
+                <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
+            </div>
+        </div>
+        <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
+    </div>
+    `;
+    detailsSection.style.display = 'block';
+}
+
+function hideViewDetails(sectionId) {
+    document.getElementById(sectionId).style.display = 'none';
+}
+
+function showArchiveModal(account_no, name) {
+    document.getElementById('archiveCustomerId').value = account_no;
     document.getElementById('archiveCustomerName').innerText = name;
     document.getElementById('archiveModal').style.display = 'block';
 }
 
-function showUnarchiveModal(id, name) {
-    document.getElementById('unarchiveCustomerId').value = id;
+function showUnarchiveModal(account_no, name) {
+    document.getElementById('unarchiveCustomerId').value = account_no;
     document.getElementById('unarchiveCustomerName').innerText = name;
     document.getElementById('unarchiveModal').style.display = 'block';
 }
 
-function showDeleteModal(id, name) {
-    document.getElementById('deleteCustomerId').value = id;
+function showDeleteModal(account_no, name) {
+    document.getElementById('deleteCustomerId').value = account_no;
     document.getElementById('deleteCustomerName').innerText = name;
     document.getElementById('deleteModal').style.display = 'block';
+}
+
+function showActivateBillingModal(account_no, name) {
+    document.getElementById('activateBillingCustomerId').value = account_no;
+    document.getElementById('activateBillingCustomerName').innerText = name;
+    document.getElementById('activateBillingModal').style.display = 'block';
 }
 
 function exportTable(format) {
@@ -747,8 +884,9 @@ function exportTable(format) {
 
     // Define headers
     const headers = [
-        'Customer ID', 'First Name', 'Last Name', 'Purok', 'Barangay', 
-        'Contact', 'Email'
+        'Customer Account No.', 'First Name', 'Last Name', 'Purok', 'Barangay', 
+        'Contact', 'Email', 'Coordinates', 'Product Plan', 'Balance', 
+        'Start Date', 'Next Due Date', 'Last Due Date', 'Next Bill Date', 'Billing Status'
     ];
 
     if (format === 'excel' && tab === 'active') {
@@ -759,13 +897,21 @@ function exportTable(format) {
                 let data = [headers];
                 customers.forEach(customer => {
                     data.push([
-                        customer.c_id,
+                        customer.c_account_no,
                         customer.c_fname,
                         customer.c_lname,
                         customer.c_purok || '',
                         customer.c_barangay || '',
                         customer.c_contact || '',
-                        customer.c_email || ''
+                        customer.c_email || '',
+                        customer.c_coordinates || '',
+                        customer.c_plan || '',
+                        customer.c_balance ? parseFloat(customer.c_balance).toFixed(2) : '0.00',
+                        customer.c_startdate || '',
+                        customer.c_nextdue || '',
+                        customer.c_lastdue || '',
+                        customer.c_nextbill || '',
+                        customer.c_billstatus || 'Inactive'
                     ]);
                 });
 
@@ -788,13 +934,16 @@ function exportTable(format) {
             const cells = row.querySelectorAll('td');
             if (cells.length > 1) { // Ensure it's not an empty row
                 const rowData = [
-                    cells[0].textContent.trim(), // Customer ID
+                    cells[0].textContent.trim(), // Customer Account No.
                     cells[1].textContent.trim(), // First Name
                     cells[2].textContent.trim(), // Last Name
                     cells[3].textContent.trim(), // Purok
                     cells[4].textContent.trim(), // Barangay
                     cells[5].textContent.trim(), // Contact
-                    cells[6].textContent.trim()  // Email
+                    cells[6].textContent.trim(), // Email
+                    cells[7].textContent.trim(), // Coordinates
+                    cells[8].textContent.trim()  // Product Plan
+                    // Note: Billing fields are not in the table, so they are not included in CSV for archived tab
                 ];
                 data.push(rowData);
             }
@@ -855,6 +1004,7 @@ window.onclick = function(event) {
     }
 }
 </script>
+
 </body>
 </html>
 

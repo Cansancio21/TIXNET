@@ -98,7 +98,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $mail->Port = 587;
 
                 // Recipients
-                $mail->setFrom('jonwilyammayormita@gmail.com', 'Your Website');
+                $mail->setFrom('jonwilyammayormita@gmail.com', 'TIXNET System');
                 $mail->addAddress($email, "$firstname $lastname");
 
                 // Content

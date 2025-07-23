@@ -290,7 +290,7 @@ footer {
 .export-btn {
     position: absolute;
     top: -37px;
-    right: -1250px;
+    right: -1420px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;
@@ -319,7 +319,7 @@ footer {
     position: absolute;
     top: 100%;
     right: 0;
-    left: 1100px;
+    left: 1250px;
     background: white;
     min-width: 120px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -513,8 +513,8 @@ tr:hover td {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    margin-bottom: 20px;
+    padding-top: 10px;
 }
 
 .pagination-link {
@@ -651,6 +651,23 @@ tr:hover td {
     max-width: 500px;
 }
 
+#viewModal .table-box {
+    display: flex;
+    flex-direction: column;
+}
+
+#viewModal .pagination {
+    order: 1;
+}
+
+#viewModal table {
+    order: 2;
+}
+
+#viewModal .customer-details-section {
+    order: 3;
+}
+
 #addAssetModal .modal-content {
     margin: 8% auto;
     max-width: 500px;
@@ -676,26 +693,196 @@ tr:hover td {
     max-width: 500px;
 }
 
-/* View Modal Styling */
-.customer-details h3 {
+/* Customer Details Section */
+.customer-details-section {
     margin-top: 20px;
+}
+
+.customer-details-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for the initial layout */
+    gap: 10px; /* Reduced gap between columns */
+    background: white; /* Outer white background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.customer-details-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for Account and Subscription */
+    gap: 10px; /* Same gap as container */
+    background-color: #f9f9f9; /* Shared inner background for Account and Subscription */
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.service-details-inner {
+    display: grid;
+    grid-template-columns: 1fr; /* Single column for Service Details */
+    gap: 10px;
+    background-color: #e6f3ff; /* Separate background for Service Details */
+    padding: 15px;
+    border: 1px solid #b3d4fc;
+    border-radius: 8px;
+    margin-top: 10px; /* Space between Service Details and other sections */
+}
+
+.customer-details-column {
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* Remove padding to avoid overlap */
+}
+
+.customer-details-column h3 {
     margin-bottom: 15px;
     font-size: 1.2em;
     color: var(--primary);
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
 }
 
-.customer-details p {
-    margin: 8px 0;
-    font-size: 0.95em;
+.customer-details-column h3 i {
+    font-size: 1.1em; /* Slightly smaller than the text for balance */
     color: var(--dark);
 }
 
-.customer-details hr {
-    border: 0;
-    border-top: 1px solid #ddd;
-    margin: 20px 0;
+.customer-details-column p {
+    margin: 8px 0;
+    font-size: 0.95em;
+    color: var(--dark);
+    border-bottom: 1px solid #ddd; /* Single line below info text */
 }
+
+.customer-details-column p:last-child {
+    border-bottom: none; /* Remove line from the last item */
+}
+
+.subscription-details-column {
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* Remove padding to avoid overlap */
+}
+
+.subscription-details-column h3 {
+    margin-bottom: 65px;
+    font-size: 1.2em;
+    color: var(--primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
+}
+
+.subscription-details-column h3 i {
+    font-size: 1.1em; /* Slightly smaller than the text for balance */
+    color: var(--dark);
+}
+
+.subscription-details-column p {
+    margin: 8px 0;
+    font-size: 0.95em;
+    color: var(--dark);
+    border-bottom: 1px solid #ddd; /* Single line below info text */
+}
+
+.subscription-details-column p:last-child {
+    border-bottom: none; /* Remove line from the last item */
+}
+
+.account-no-header {
+    margin: 8px 0;
+    font-size: 1em; /* Base size for the "Account No." text */
+    color: var(--primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none; /* No line under Account No. */
+}
+
+.account-no-header .account-no-value {
+    font-size: 1.5em; /* 3x larger than the "Account No." text */
+    font-weight: 600;
+}
+
+.account-details-content,
+.subscription-details-content,
+.service-details-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.balance-header {
+    margin: 8px 0;
+    font-size: 1em; /* Base size for the "Balance" text */
+    color: var(--primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none; /* No line under Balance */
+}
+
+.balance-header .balance-value {
+    font-size: 1.5em; /* 3x larger than the "Balance" text */
+    font-weight: 600;
+}
+
+/* Service Details retains original background color and border */
+.service-details-inner {
+    display: grid;
+    grid-template-columns: 1fr; /* Single column for Service Details */
+    gap: 10px;
+    background-color: #e6f3ff; /* Original light blue background */
+    padding: 15px;
+    border: 1px solid #b3d4fc; /* Original border color */
+    border-radius: 8px;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.details-btn.cancel {
+    width: 100px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    background: var(--primary);
+    color: white;
+    transition: all 0.3s;
+    margin-top: 0; /* Remove top margin to align with the inner layout */
+}
+
+.details-btn.cancel:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal Form Adjustments */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-form label {
+    margin-top: 10px;
+    font-weight: 500;
+}
+
+.modal-form input[type="date"],
+.modal-form input[type="number"] {
+    padding: 8px;
+    margin: 5px 0 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 100%;
+}
+
 
 /* Archive Header */
 .archive-header {
@@ -819,8 +1006,10 @@ tr:hover td {
 
 .action-buttons {
     display: flex;
+    justify-content: center;
+    align-items: center;
     gap: 5px;
-    padding: 23px 5px;
+    padding: 10px;
 }
 
 .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .ticket-btn {
@@ -864,4 +1053,201 @@ tr:hover td {
 }
 .unarchive-btn:hover {
     background-color: #8e44ad;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 10px;
+}
+
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.view-btn {
+    background-color: #3498db;
+    color: #fff;
+}
+.view-btn:hover {
+    background-color: #2980b9;
+}
+
+.edit-btn {
+    background-color: #2ecc71;
+    color: #fff;
+}
+.edit-btn:hover {
+    background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+    color: #fff;
+}
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.unarchive-btn {
+    background-color: #9b59b6;
+    color: #fff;
+}
+.unarchive-btn:hover {
+    background-color: #8e44ad;
+}
+
+.delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+.delete-btn:hover {
+    background-color: #e55a00;
+    color: #fff;
+}
+.delete-btn i {
+    font-size: 16px;
+}
+
+.activate-btn {
+    background-color: #e67e22; /* Orange color for activation */
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+    margin-top: 10px;
+}
+.activate-btn:hover {
+    background-color: #d35400;
+}
+.activate-btn i {
+    font-size: 16px; /* Match icon size with other buttons */
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 70px;
+    }
+
+    .sidebar h2 {
+        font-size: 1.2rem;
+        padding: 10px;
+    }
+
+    .sidebar ul li a span {
+        display: none;
+    }
+
+    .sidebar ul li a img {
+        margin-right: 0;
+    }
+
+    .container {
+        margin-left: 70px;
+        padding: 20px;
+        padding-top: 80px;
+    }
+
+    .upper {
+        left: 100px;
+        height: 60px;
+    }
+
+    .search-container {
+        width: 200px;
+    }
+
+    .user-details {
+        margin-left: 0;
+    }
+
+    .user-details span,
+    .user-details small {
+        margin-left: 0;
+    }
+
+    .customer-details-container {
+        grid-template-columns: 1fr;
+    }
+
+    .add-user-btn,
+    .export-btn {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+
+    .export-dropdown {
+        left: auto;
+        right: 0;
+    }
+
+    table {
+        table-layout: auto;
+    }
+
+    th, td {
+        font-size: 0.8rem;
+        padding: 6px;
+    }
+
+    .action-buttons {
+        gap: 3px;
+    }
+
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .ticket-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+@media (max-width: 480px) {
+    .upper h1 {
+        font-size: 1.2rem;
+    }
+
+    .search-container {
+        width: 150px;
+    }
+
+    .user-icon img,
+    .user-icon i {
+        width: 35px;
+        height: 35px;
+    }
+
+    .pagination-link {
+        width: 35px;
+        height: 35px;
+    }
+
+    .current-page {
+        font-size: 0.9rem;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .modal-btn {
+        padding: 6px 15px;
+    }
 }
