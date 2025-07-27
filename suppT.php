@@ -142,7 +142,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $searchLike = $searchTerm ? "%$searchTerm%" : null;
 
     // Count total tickets for pagination
-    $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND ";
+    $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
     if ($tab === 'active') {
         $sqlCount .= "s_status IN ('Open', 'Closed')";
     } else {
@@ -177,7 +177,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     // Fetch tickets
     $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
             FROM tbl_supp_tickets 
-            WHERE c_id = ? AND ";
+            WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
     if ($tab === 'active') {
         $sql .= "s_status IN ('Open', 'Closed')";
     } else {
@@ -339,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
         exit();
     }
 
-    $sqlFetch = "SELECT s_status AS status, s_ref FROM tbl_supp_tickets WHERE id = ? AND c_id = ?";
+    $sqlFetch = "SELECT s_status AS status, s_ref FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -365,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
     $stmtFetch->close();
 
     $sql = "UPDATE tbl_supp_tickets SET c_fname = ?, c_lname = ?, s_ref = ?, s_subject = ?, s_message = ?, s_status = ? 
-            WHERE id = ? AND c_id = ?";
+            WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -395,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     $archiveAction = $_POST['archive_action'] ?? '';
     $newStatus = $archiveAction === 'archive' ? 'Archived' : 'Open';
 
-    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ?";
+    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -419,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     }
     $stmtFetch->close();
 
-    $sql = "UPDATE tbl_supp_tickets SET s_status = ? WHERE id = ? AND c_id = ?";
+    $sql = "UPDATE tbl_supp_tickets SET s_status = ? WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed for archive/unarchive: " . $conn->error);
@@ -446,7 +446,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     $redirectTab = $tab;
     if ($tab === 'archived' && $newStatus === 'Open') {
         $redirectTab = 'active';
-        $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND s_status IN ('Open', 'Closed')";
+        $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND s_status IN ('Open', 'Closed') AND (technician_username IS NULL OR technician_username = '')";
         $stmtCount = $conn->prepare($sqlCount);
         $stmtCount->bind_param("i", $filterCid);
         $stmtCount->execute();
@@ -463,7 +463,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
 
-    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived'";
+    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived' AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -487,7 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
     }
     $stmtFetch->close();
 
-    $sql = "DELETE FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived'";
+    $sql = "DELETE FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived' AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -515,7 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
     $inputCid = (int)$_POST['customer_id'];
-    $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE id = ? AND c_id = ?";
+    $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -540,7 +540,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_ticket'])) {
 $totalActiveTickets = 0;
 $totalArchivedTickets = 0;
 if ($filterCid != 0) {
-    $sqlCount = "SELECT s_status, COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? GROUP BY s_status";
+    $sqlCount = "SELECT s_status, COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') GROUP BY s_status";
     $stmt = $conn->prepare($sqlCount);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -574,7 +574,7 @@ if ($filterCid != 0) {
         $ticketId = (int)$_GET['id'];
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
-                WHERE id = ? AND c_id = ? 
+                WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')
                 ORDER BY id ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -595,7 +595,7 @@ if ($filterCid != 0) {
         // Active tickets
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
-                WHERE s_status IN ('Open', 'Closed') AND c_id = ? 
+                WHERE s_status IN ('Open', 'Closed') AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
                 ORDER BY id ASC LIMIT ? OFFSET ?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -618,7 +618,7 @@ if ($filterCid != 0) {
         // Archived tickets
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
-                WHERE s_status = 'Archived' AND c_id = ? 
+                WHERE s_status = 'Archived' AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
                 ORDER BY id ASC LIMIT ? OFFSET ?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -913,7 +913,7 @@ $conn->close();
             <input type="hidden" name="edit_ticket" value="1">
             <input type="hidden" name="t_id" id="edit_ticket_id">
             <input type="hidden" name="c_id" id="edit_customer_id">
-             <label for="edit_ticket_ref">Reference No</label>
+            <label for="edit_ticket_ref">Reference No</label>
             <input type="text" name="s_ref" id="edit_ticket_ref" readonly>
             <span class="error" id="edit_ticket_ref_error"></span>
             <label for="edit_account_name">Customer Name</label>
@@ -1168,8 +1168,9 @@ function htmlspecialchars(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/'/g, '&apos;');
 }
+
 function searchTickets(searchTerm, page) {
     currentSearchTerm = searchTerm;
     const xhr = new XMLHttpRequest();
@@ -1232,3 +1233,4 @@ window.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>
 <?php ob_end_flush(); ?>
+

@@ -107,10 +107,10 @@ if (isset($_GET['aname']) && !empty($_GET['aname'])) {
             $logDescription = "Attempted to pre-fill invalid customer name: " . htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8');
             $logType = "Staff $firstName $lastName";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-        $stmtLog = $conn->prepare($sqlLog);
-        $stmtLog->bind_param("ss", $logDescription, $logType);
-        $stmtLog->execute();
-        $stmtLog->close();
+            $stmtLog = $conn->prepare($sqlLog);
+            $stmtLog->bind_param("ss", $logDescription, $logType);
+            $stmtLog->execute();
+            $stmtLog->close();
         }
     }
 }
@@ -127,7 +127,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     $output = '';
 
     if ($tab === 'active') {
-        $statusCondition = "t_details NOT LIKE 'ARCHIVED:%'";
+        $statusCondition = "t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '')";
     } else {
         $statusCondition = "t_details LIKE 'ARCHIVED:%'";
     }
@@ -340,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors = [];
 
         // Fetch existing ticket
-        $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details FROM tbl_ticket WHERE t_ref = ?";
+        $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details FROM tbl_ticket WHERE t_ref = ? AND (technician_username IS NULL OR technician_username = '')";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
@@ -361,10 +361,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
                 header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'errors' => ['general' => 'Ticket not found.']]);
+                echo json_encode(['success' => false, 'errors' => ['general' => 'Ticket not found or already assigned.']]);
                 exit();
             }
-            $_SESSION['error'] = "Ticket not found.";
+            $_SESSION['error'] = "Ticket not found or already assigned.";
             header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
             exit();
         }
@@ -419,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $logParts[] = "status";
             }
 
-            $sqlUpdate = "UPDATE tbl_ticket SET t_aname = ?, t_subject = ?, t_status = ?, t_details = ? WHERE t_ref = ?";
+            $sqlUpdate = "UPDATE tbl_ticket SET t_aname = ?, t_subject = ?, t_status = ?, t_details = ? WHERE t_ref = ? AND (technician_username IS NULL OR technician_username = '')";
             $stmtUpdate = $conn->prepare($sqlUpdate);
             if (!$stmtUpdate) {
                 if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
@@ -469,7 +469,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (isset($_POST['archive_ticket'])) {
         $t_ref = $_POST['t_ref'];
-        $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_ref=?";
+        $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_ref=? AND (technician_username IS NULL OR technician_username = '')";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $t_ref);
         if ($stmt->execute()) {
@@ -543,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $limit = 10;
 $pageActive = isset($_GET['page_active']) ? max(1, (int)$_GET['page_active']) : 1;
 $offsetActive = ($pageActive - 1) * $limit;
-$totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%'";
+$totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '')";
 $totalActiveResult = $conn->query($totalActiveQuery);
 $totalActiveRow = $totalActiveResult->fetch_assoc();
 $totalActive = $totalActiveRow['total'];
@@ -559,7 +559,9 @@ $totalArchivedPages = ceil($totalArchived / $limit);
 
 // Fetch active tickets
 $sqlActive = "SELECT t_ref, t_aname, t_subject, t_status, t_details 
-              FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' LIMIT ?, ?";
+              FROM tbl_ticket 
+              WHERE t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '') 
+              LIMIT ?, ?";
 $stmtActive = $conn->prepare($sqlActive);
 $stmtActive->bind_param("ii", $offsetActive, $limit);
 $stmtActive->execute();
@@ -568,7 +570,9 @@ $stmtActive->close();
 
 // Fetch archived tickets
 $sqlArchived = "SELECT t_ref, t_aname, t_subject, t_status, t_details 
-                FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%' LIMIT ?, ?";
+                FROM tbl_ticket 
+                WHERE t_details LIKE 'ARCHIVED:%' 
+                LIMIT ?, ?";
 $stmtArchived = $conn->prepare($sqlArchived);
 $stmtArchived->bind_param("ii", $offsetArchived, $limit);
 $stmtArchived->execute();
@@ -771,7 +775,7 @@ $conn->close();
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-              <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+            <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -1510,27 +1514,37 @@ function showAddTicketModal() {
         suggestionsContainer.style.display = 'none';
     }
 
-    const date = new Date();
+     const date = new Date();
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
-    const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
-    const ref = `ref#-${day}-${month}-${year}-${uniqueNumber}`;
-    document.getElementById('ticket_ref').value = ref;
-    document.getElementById('ticket_status').value = 'Open';
+    const uniqueNumber = Math.floor(100000 + Math.random() * 900000); // Generates a random 6-digit number (100000–999999)
+    const ticketRef = `ref#-${day}-${month}-${year}-${uniqueNumber}`;
+    document.getElementById('ticket_ref').value = ticketRef;
+
     document.getElementById('addTicketModal').style.display = 'block';
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    document.getElementById('modalBackground').style.display = 'none';
     const suggestionsContainer = document.getElementById('account_name_suggestions');
     if (suggestionsContainer) {
         suggestionsContainer.innerHTML = '';
         suggestionsContainer.style.display = 'none';
     }
 }
+
+function generateTicketRef() {
+    const date = new Date();
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
+    return `ref#-${day}-${month}-${year}-${uniqueNumber}`;
+}
 </script>
+
 </body>
 </html>
-
 
