@@ -2,8 +2,17 @@
 session_start();
 include 'db.php';
 
+// Include PHPMailer dependencies
+require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
+require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
+require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
+
+// Use PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 // Enable error reporting for debugging (remove in production)
-ini_set('display_errors', 0); // Suppress errors in production to prevent JSON corruption
+ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 // Check if user is logged in and is a technician
@@ -44,7 +53,6 @@ if ($userType !== 'technician') {
     header("Location: index.php");
     exit();
 }
-error_log("Technician logged in: username={$_SESSION['username']}, u_type=$userType");
 
 // Initialize avatar
 $avatarPath = 'default-avatar.png';
@@ -101,8 +109,7 @@ function fetchDashboardCounts($conn, $username) {
     $sqlRegularClosed = "SELECT COUNT(*) FROM tbl_close_regular WHERE te_technician = ?";
     $stmtRegularClosed = $conn->prepare($sqlRegularClosed);
     if ($stmtRegularClosed) {
-        $technician_name = $_SESSION['username'];
-        $stmtRegularClosed->bind_param("s", $technician_name);
+        $stmtRegularClosed->bind_param("s", $username);
         $stmtRegularClosed->execute();
         $stmtRegularClosed->bind_result($counts['closedTickets']);
         $stmtRegularClosed->fetch();
@@ -142,8 +149,7 @@ function fetchDashboardCounts($conn, $username) {
     $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_close_supp WHERE te_technician = ?";
     $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
     if ($stmtSupportClosed) {
-        $technician_name = $_SESSION['username'];
-        $stmtSupportClosed->bind_param("s", $technician_name);
+        $stmtSupportClosed->bind_param("s", $username);
         $stmtSupportClosed->execute();
         $stmtSupportClosed->bind_result($counts['supportClosed']);
         $stmtSupportClosed->fetch();
@@ -182,8 +188,8 @@ $pendingTasks = $counts['pendingTasks'];
 
 // Handle AJAX actions (close, archive, unarchive, delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    header('Content-Type: application/json'); // Ensure JSON response
-    ob_start(); // Start output buffering to catch any stray output
+    header('Content-Type: application/json');
+    ob_start();
     $action = $_POST['action'];
     $t_ref = trim($_POST['id'] ?? '');
     $ticket_type = trim($_POST['type'] ?? '');
@@ -236,8 +242,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Begin transaction for regular ticket
             $conn->begin_transaction();
             try {
-                // Fetch ticket details
-                $sqlFetch = "SELECT t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE t_ref = ? AND technician_username = ?";
+                // Fetch ticket details including customer email
+                $sqlFetch = "SELECT t.t_ref, t.t_aname, t.t_subject, t.t_details, t.t_status, c.c_email 
+                             FROM tbl_ticket t
+                             JOIN tbl_customer c ON t.t_aname = CONCAT(c.c_fname, ' ', c.c_lname)
+                             WHERE t.t_ref = ? AND t.technician_username = ?";
                 $stmtFetch = $conn->prepare($sqlFetch);
                 $stmtFetch->bind_param("ss", $t_ref, $_SESSION['username']);
                 $stmtFetch->execute();
@@ -249,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     throw new Exception("Ticket not found for ref: $t_ref");
                 }
 
-                // Insert into tbl_close_regular without "Closed by" prefix
+                // Insert into tbl_close_regular
                 $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date)
                               VALUES (?, ?, ?, ?, 'closed', ?, NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
@@ -273,6 +282,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtLog->execute();
                 $stmtLog->close();
 
+                // Send email notification to customer
+                if (!empty($ticket['c_email'])) {
+                    $mail = new PHPMailer(true);
+                    try {
+                        // Server settings
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'jonwilyammayormita@gmail.com';
+                        $mail->Password = 'mqkcqkytlwurwlks';
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
+
+                        // Recipients
+                        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
+                        $mail->addAddress($ticket['c_email'], $ticket['t_aname']);
+
+                        // Content
+                        $mail->isHTML(true);
+                        $mail->Subject = 'Your Ticket Has Been Resolved';
+                        $mail->Body = "
+                            <html>
+                            <head>
+                                <title>Ticket Resolution Confirmation</title>
+                            </head>
+                            <body>
+                                <p>Dear {$ticket['t_aname']},</p>
+                                <p>We are pleased to inform you that your ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.</p>
+                                <p><strong>Ticket Details:</strong></p>
+                                <p><strong>Ticket Ref:</strong> {$t_ref}</p>
+                                <p><strong>Subject:</strong> {$ticket['t_subject']}</p>
+                                <p><strong>Message:</strong> {$ticket['t_details']}</p>
+                                <p><strong>Status:</strong> Closed</p>
+                                <p>If you have any further questions or need additional assistance, please contact our support team.</p>
+                                <p><a href='http://localhost/TIMSSS/index.php'>Visit TixNet System</a></p>
+                                <p>Best regards,<br>TixNet System Administrator</p>
+                            </body>
+                            </html>
+                        ";
+                        $mail->AltBody = "Dear {$ticket['t_aname']},\n\nWe are pleased to inform you that your ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nSubject: {$ticket['t_subject']}\nMessage: {$ticket['t_details']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
+
+                        // Send the email
+                        $mail->send();
+                    } catch (Exception $e) {
+                        error_log("PHPMailer Error for regular ticket {$t_ref}: " . $mail->ErrorInfo);
+                    }
+                } else {
+                    error_log("No customer email found for regular ticket {$t_ref}");
+                }
+
                 $conn->commit();
                 $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
                 ob_end_clean();
@@ -292,8 +351,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Begin transaction for support ticket
             $conn->begin_transaction();
             try {
-                // Fetch ticket details
-                $sqlFetch = "SELECT st.c_id, c.c_fname, c.c_lname, st.s_subject, st.s_message, st.s_status 
+                // Fetch ticket details including customer email
+                $sqlFetch = "SELECT st.s_ref, st.c_id, c.c_fname, c.c_lname, st.s_subject, st.s_message, st.s_status, c.c_email 
                              FROM tbl_supp_tickets st 
                              JOIN tbl_customer c ON st.c_id = c.c_id 
                              WHERE st.s_ref = ? AND st.technician_username = ?";
@@ -308,7 +367,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     throw new Exception("Support ticket not found for ref: $t_ref");
                 }
 
-                // Insert into tbl_close_supp without "Closed by" prefix
+                // Insert into tbl_close_supp
                 $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date)
                               VALUES (?, ?, ?, ?, ?, ?, ?, 'closed', NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
@@ -331,6 +390,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
+
+                // Send email notification to customer
+                if (!empty($ticket['c_email'])) {
+                    $mail = new PHPMailer(true);
+                    try {
+                        // Server settings
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'jonwilyammayormita@gmail.com';
+                        $mail->Password = 'mqkcqkytlwurwlks';
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
+
+                        // Recipients
+                        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
+                        $mail->addAddress($ticket['c_email'], $ticket['c_fname'] . ' ' . $ticket['c_lname']);
+
+                        // Content
+                        $mail->isHTML(true);
+                        $mail->Subject = 'Your Support Ticket Has Been Resolved';
+                        $mail->Body = "
+                            <html>
+                            <head>
+                                <title>Support Ticket Resolution Confirmation</title>
+                            </head>
+                            <body>
+                                <p>Dear {$ticket['c_fname']} {$ticket['c_lname']},</p>
+                                <p>We are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.</p>
+                                <p><strong>Ticket Details:</strong></p>
+                                <p><strong>Ticket Ref:</strong> {$t_ref}</p>
+                                <p><strong>Account No:</strong> {$ticket['c_account_no']}</p>
+                                <p><strong>Subject:</strong> {$ticket['s_subject']}</p>
+                                <p><strong>Message:</strong> {$ticket['s_message']}</p>
+                                <p><strong>Status:</strong> Closed</p>
+                                <p>If you have any further questions or need additional assistance, please contact our support team.</p>
+                                <p><a href='http://localhost/TIMSSS/index.php'>Visit TixNet System</a></p>
+                                <p>Best regards,<br>TixNet System Administrator</p>
+                            </body>
+                            </html>
+                        ";
+                        $mail->AltBody = "Dear {$ticket['c_fname']} {$ticket['c_lname']},\n\nWe are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nCustomer ID: {$ticket['c_id']}\nSubject: {$ticket['s_subject']}\nMessage: {$ticket['s_message']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
+
+                        // Send the email
+                        $mail->send();
+                    } catch (Exception $e) {
+                        error_log("PHPMailer Error for support ticket {$t_ref}: " . $mail->ErrorInfo);
+                    }
+                } else {
+                    error_log("No customer email found for support ticket {$t_ref}");
+                }
 
                 $conn->commit();
                 $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
@@ -459,7 +569,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Handle AJAX ticket search
 if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     header('Content-Type: application/json');
-    ob_start(); // Start output buffering
+    ob_start();
     $searchTerm = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -576,7 +686,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
                 'isArchived' => $isArchived
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
-            $status = trim(strtolower($row['t_status'] ?? '')); // Normalize status
+            $status = trim(strtolower($row['t_status'] ?? ''));
             echo "<tr>";
             echo "<td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>";
             if ($tab === 'support' || $tab === 'supportArchived') {
@@ -861,11 +971,13 @@ $conn->close();
                 <div id="regularTickets" class="main-tab-content <?php echo in_array($tab, ['regular', 'regularArchived']) ? 'active' : ''; ?>">
                     <div class="table-box">
                         <div class="sub-tab-buttons">
-                            <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openSubTab('regularTicketsContent', 'regular')">Active (<?php echo htmlspecialchars($totalRegularActive, ENT_QUOTES, 'UTF-8'); ?>)</button>
+                            <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openSubTab('regularTicketsContent', 'regular')">Active (<span id="regularActiveCount"><?php echo htmlspecialchars($totalRegularActive, ENT_QUOTES, 'UTF-8'); ?></span>)</button>
                             <button class="tab-button <?php echo $tab === 'regularArchived' ? 'active' : ''; ?>" onclick="openSubTab('regularArchivedTicketsContent', 'regularArchived')">
                                 Archived 
                                 <?php if ($totalRegularArchived > 0): ?>
-                                    <span class="tab-badge"><?php echo htmlspecialchars($totalRegularArchived, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="tab-badge" id="regularArchivedCount"><?php echo htmlspecialchars($totalRegularArchived, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php else: ?>
+                                    <span class="tab-badge" id="regularArchivedCount">0</span>
                                 <?php endif; ?>
                             </button>
                         </div>
@@ -1001,11 +1113,13 @@ $conn->close();
                 <div id="supportTickets" class="main-tab-content <?php echo in_array($tab, ['support', 'supportArchived']) ? 'active' : ''; ?>">
                     <div class="table-box">
                         <div class="sub-tab-buttons">
-                            <button class="tab-button <?php echo $tab === 'support' ? 'active' : ''; ?>" onclick="openSubTab('supportTicketsContent', 'support')">Active (<?php echo htmlspecialchars($totalSupportActive, ENT_QUOTES, 'UTF-8'); ?>)</button>
+                            <button class="tab-button <?php echo $tab === 'support' ? 'active' : ''; ?>" onclick="openSubTab('supportTicketsContent', 'support')">Active (<span id="supportActiveCount"><?php echo htmlspecialchars($totalSupportActive, ENT_QUOTES, 'UTF-8'); ?></span>)</button>
                             <button class="tab-button <?php echo $tab === 'supportArchived' ? 'active' : ''; ?>" onclick="openSubTab('supportArchivedTicketsContent', 'supportArchived')">
                                 Archived 
                                 <?php if ($totalSupportArchived > 0): ?>
-                                    <span class="tab-badge"><?php echo htmlspecialchars($totalSupportArchived, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="tab-badge" id="supportArchivedCount"><?php echo htmlspecialchars($totalSupportArchived, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php else: ?>
+                                    <span class="tab-badge" id="supportArchivedCount">0</span>
                                 <?php endif; ?>
                             </button>
                         </div>
@@ -1155,216 +1269,194 @@ $conn->close();
             <h2>Ticket Details</h2>
         </div>
         <div id="ticketViewContent" class="view-details"></div>
-        <div class="modal-footer">
-            <button class="modal-btn cancel" onclick="closeModal('ticketViewModal')">Close</button>
+               <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('ticketViewModal')">Close</button>
         </div>
     </div>
 </div>
 
-<!-- Action Modal (Close, Archive, Unarchive, Delete) -->
-<div id="actionModal" class="modal close-modal">
+<!-- Action Confirmation Modal -->
+<div id="actionModal" class="modal">
     <div class="modal-content glass-container">
         <div class="modal-header">
-            <h2 id="actionModalTitle"></h2>
+            <h2 id="actionModalTitle">Confirm Action</h2>
         </div>
-        <p id="actionModalMessage"></p>
-        <form id="actionModalForm" method="POST">
-            <input type="hidden" name="action" id="modalAction">
-            <input type="hidden" name="id" id="modalId">
-            <input type="hidden" name="type" id="modalType">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Confirm</button>
-            </div>
-        </form>
+        <div class="modal-body">
+            <p id="actionModalMessage"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('actionModal')">Cancel</button>
+            <button class="btn btn-primary" id="confirmActionBtn">Confirm</button>
+        </div>
     </div>
 </div>
 
-<!-- Close Modal -->
-<div id="closeModal" class="modal close-modal">
+<!-- Close Ticket Modal -->
+<div id="closeTicketModal" class="modal">
     <div class="modal-content glass-container">
         <div class="modal-header">
             <h2>Close Ticket</h2>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to close ticket ref#<span id="closeTicketIdDisplay"></span> for <span id="closeTicketName"></span>?</p>
-            <form method="POST" id="closeForm">
-                <input type="hidden" name="action" value="close">
-                <input type="hidden" name="id" id="closeFormId">
-                <input type="hidden" name="type" id="closeFormType">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-                <div class="modal-footer">
-                    <button type="button" class="modal-btn cancel" onclick="closeModal('closeModal')">Cancel</button>
-                    <button type="submit" class="modal-btn confirm">Confirm</button>
-                </div>
-            </form>
+            <p>Are you sure you want to close ticket <strong id="closeTicketRef"></strong> for <strong id="closeTicketCustomer"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('closeTicketModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmCloseTicket()">Close Ticket</button>
         </div>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            alert.classList.add('alert-hidden');
-            setTimeout(() => alert.remove(), 500);
-        }, 10000);
-    });
-
-    const mainTabButtons = document.querySelectorAll('.main-tab-buttons .tab-button');
-    const mainTabContents = document.querySelectorAll('.main-tab-content');
-    const subTabButtons = document.querySelectorAll('.sub-tab-buttons .tab-button');
-    const subTabContents = document.querySelectorAll('.sub-tab-content');
-
-    mainTabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabId = button.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const subTab = button.getAttribute('onclick').match(/'([^']+)'/)[2];
-            openMainTab(tabId, subTab);
-        });
-    });
-
-    subTabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabId = button.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const subTab = button.getAttribute('onclick').match(/'([^']+)'/)[2];
-            openSubTab(tabId, subTab);
-        });
-    });
-
-    // Initialize the active tab
-    const activeMainTab = document.querySelector('.main-tab-buttons .tab-button.active');
-    if (activeMainTab) {
-        const tabId = activeMainTab.getAttribute('onclick').match(/'([^']+)'/)[1];
-        const subTab = activeMainTab.getAttribute('onclick').match(/'([^']+)'/)[2];
-        openMainTab(tabId, subTab);
-    }
-});
+let currentAction = '';
+let currentTab = '<?php echo $tab; ?>';
+let currentTicketData = null;
 
 function openMainTab(tabId, subTab) {
+    document.querySelectorAll('.main-tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.main-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
     document.querySelector(`.main-tab-buttons .tab-button[onclick*="${tabId}"]`).classList.add('active');
-    document.getElementById(tabId).classList.add('active');
-    openSubTab(tabId === 'regularTickets' ? 'regularTicketsContent' : 'supportTicketsContent', subTab);
+    openSubTab(subTab === 'regularArchived' ? 'regularArchivedTicketsContent' : (subTab === 'supportArchived' ? 'supportArchivedTicketsContent' : `${tabId}Content`), subTab);
+    searchTickets(1); // Reset to page 1 when switching tabs
 }
 
-function openSubTab(tabId, subTab) {
+function openSubTab(tabId, tabName) {
+    document.querySelectorAll('.sub-tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.sub-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
-    document.querySelector(`.sub-tab-buttons .tab-button[onclick*="${tabId}"]`).classList.add('active');
     document.getElementById(tabId).classList.add('active');
-    searchTickets(subTab);
+    document.querySelector(`.sub-tab-buttons .tab-button[onclick*="${tabName}"]`).classList.add('active');
+    currentTab = tabName;
+    searchTickets(1); // Reset to page 1 when switching sub-tabs
 }
 
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
+function openModal(action, tab, ticketData) {
+    currentAction = action;
+    currentTab = tab;
+    currentTicketData = ticketData;
+    const modal = document.getElementById('actionModal');
+    const title = document.getElementById('actionModalTitle');
+    const message = document.getElementById('actionModalMessage');
+    const actionText = action.charAt(0).toUpperCase() + action.slice(1);
+    title.textContent = `Confirm ${actionText}`;
+    message.textContent = `Are you sure you want to ${action} ticket ${ticketData.ref}?`;
+    modal.style.display = 'flex';
 }
 
-const debouncedSearchTickets = debounce(searchTickets, 300);
+function openCloseModal(ref, customer, tab) {
+    currentTab = tab;
+    currentTicketData = { ref: ref };
+    const modal = document.getElementById('closeTicketModal');
+    document.getElementById('closeTicketRef').textContent = ref;
+    document.getElementById('closeTicketCustomer').textContent = customer;
+    modal.style.display = 'flex';
+}
 
-function searchTickets(tab = '<?php echo $tab; ?>') {
-    const searchInput = document.getElementById('searchInput').value;
-    const tbodyId = tab === 'regular' ? 'regular_tbody' : 
-                    tab === 'regularArchived' ? 'regular_archived_tbody' : 
-                    tab === 'support' ? 'support_tbody' : 
-                    'support_archived_tbody';
-    const paginationId = tab === 'regular' ? 'regular-active-pagination' : 
-                        tab === 'regularArchived' ? 'regular-archived-pagination' : 
-                        tab === 'support' ? 'support-active-pagination' : 
-                        'support-archived-pagination';
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', `technicianD.php?action=search_tickets&tab=${tab}&search=${encodeURIComponent(searchInput)}&page=1`, true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
 
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-            try {
-                if (xhr.status === 200) {
-                    let response;
-                    try {
-                        response = JSON.parse(xhr.responseText);
-                    } catch (e) {
-                        console.error('Failed to parse JSON response:', xhr.responseText, e);
-                        showAlert('error', 'Invalid server response. Please try again.');
-                        return;
-                    }
+function showViewModal(tab, ticketData) {
+    const modal = document.getElementById('ticketViewModal');
+    const content = document.getElementById('ticketViewContent');
+    let html = `
+        <p><strong>Ticket Ref:</strong> ${ticketData.ref}</p>
+        ${tab.includes('support') ? `<p><strong>Customer ID:</strong> ${ticketData.c_id || 'N/A'}</p>` : ''}
+        <p><strong>Customer Name:</strong> ${ticketData.aname || 'N/A'}</p>
+        <p><strong>Subject:</strong> ${ticketData.subject || 'N/A'}</p>
+        <p><strong>Message:</strong> ${ticketData.details || 'N/A'}</p>
+        <p><strong>Status:</strong> ${ticketData.status || 'N/A'}</p>
+    `;
+    content.innerHTML = html;
+    modal.style.display = 'flex';
+}
 
-                    if (response.success) {
-                        document.getElementById(tbodyId).innerHTML = response.html || '<tr><td colspan="' + (tab.includes('support') ? 7 : 6) + '">No tickets found.</td></tr>';
-                        updatePagination(paginationId, response.currentPage, response.totalPages, tab, searchInput);
-                        updateDashboardCounts(response.counts);
-                    } else {
-                        console.error('Server returned success: false:', response.error);
-                        showAlert('error', response.error || 'Failed to fetch tickets.');
-                    }
-                } else {
-                    console.error('AJAX request failed with status:', xhr.status, xhr.statusText);
-                    showAlert('error', 'Error fetching tickets: Server error ' + xhr.status);
-                }
-            } catch (e) {
-                console.error('Error in searchTickets:', e);
-                showAlert('error', 'An unexpected error occurred while fetching tickets.');
-            }
+function confirmCloseTicket() {
+    if (!currentTicketData || !currentTab) return;
+    const form = document.getElementById('actionForm');
+    form.querySelector('#actionFormAction').value = 'close';
+    form.querySelector('#actionFormId').value = currentTicketData.ref;
+    form.querySelector('#actionFormType').value = currentTab.includes('support') ? 'support' : 'regular';
+    submitActionForm(form, () => {
+        closeModal('closeTicketModal');
+        searchTickets(getCurrentPage());
+    });
+}
+
+document.getElementById('confirmActionBtn').addEventListener('click', () => {
+    if (!currentAction || !currentTab || !currentTicketData) return;
+    const form = document.getElementById('actionForm');
+    form.querySelector('#actionFormAction').value = currentAction;
+    form.querySelector('#actionFormId').value = currentTicketData.ref;
+    form.querySelector('#actionFormType').value = currentTab.includes('support') ? 'support' : 'regular';
+    submitActionForm(form, () => {
+        closeModal('actionModal');
+        searchTickets(getCurrentPage());
+    });
+});
+
+function submitActionForm(form, callback) {
+    const formData = new FormData(form);
+    fetch('', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            updateDashboardCounts(data.counts);
+            if (callback) callback();
+        } else {
+            showAlert('error', data.error || 'Action failed.');
         }
-    };
-
-    xhr.onerror = function () {
-        console.error('Network error during searchTickets');
-        showAlert('error', 'Network error while fetching tickets.');
-    };
-
-    xhr.send();
-}
-
-function updatePagination(paginationId, currentPage, totalPages, tab, search) {
-    const pagination = document.getElementById(paginationId);
-    if (!pagination) return;
-
-    let paginationHtml = '';
-    const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-    const pageParam = tab === 'regular' ? 'regularActivePage' :
-                     tab === 'regularArchived' ? 'regularArchivedPage' :
-                     tab === 'support' ? 'supportActivePage' : 'supportArchivedPage';
-
-    if (currentPage > 1) {
-        paginationHtml += `<a href="?tab=${tab}&${pageParam}=${currentPage - 1}${searchParam}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
-    }
-
-    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
-
-    if (currentPage < totalPages) {
-        paginationHtml += `<a href="?tab=${tab}&${pageParam}=${currentPage + 1}${searchParam}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
-    }
-
-    pagination.innerHTML = paginationHtml;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'An error occurred. Please try again.');
+    });
 }
 
 function updateDashboardCounts(counts) {
-    if (!counts) return;
-    document.getElementById('pendingTasksCount').textContent = counts.pendingTasks || 0;
-    document.getElementById('openTicketsCount').textContent = counts.openTickets || 0;
-    document.getElementById('openTicketsCount2').textContent = counts.openTickets || 0;
-    document.getElementById('closedTicketsCount').textContent = counts.closedTickets || 0;
-    document.getElementById('archivedRegularCount').textContent = counts.archivedRegular || 0;
-    document.getElementById('supportOpenCount').textContent = counts.supportOpen || 0;
-    document.getElementById('supportOpenCount2').textContent = counts.supportOpen || 0;
-    document.getElementById('supportClosedCount').textContent = counts.supportClosed || 0;
-    document.getElementById('archivedSupportCount').textContent = counts.archivedSupport || 0;
+    document.getElementById('pendingTasksCount').textContent = counts.pendingTasks;
+    document.getElementById('openTicketsCount').textContent = counts.openTickets;
+    document.getElementById('openTicketsCount2').textContent = counts.openTickets;
+    document.getElementById('closedTicketsCount').textContent = counts.closedTickets;
+    document.getElementById('archivedRegularCount').textContent = counts.archivedRegular;
+    document.getElementById('supportOpenCount').textContent = counts.supportOpen;
+    document.getElementById('supportOpenCount2').textContent = counts.supportOpen;
+    document.getElementById('supportClosedCount').textContent = counts.supportClosed;
+    document.getElementById('archivedSupportCount').textContent = counts.archivedSupport;
+    document.getElementById('regularActiveCount').textContent = counts.openTickets;
+    const regularArchivedBadge = document.getElementById('regularArchivedCount');
+    regularArchivedBadge.textContent = counts.archivedRegular;
+    if (counts.archivedRegular > 0) {
+        regularArchivedBadge.classList.add('tab-badge');
+    } else {
+        regularArchivedBadge.classList.remove('tab-badge');
+    }
+    document.getElementById('supportActiveCount').textContent = counts.supportOpen;
+    const supportArchivedBadge = document.getElementById('supportArchivedCount');
+    supportArchivedBadge.textContent = counts.archivedSupport;
+    if (counts.archivedSupport > 0) {
+        supportArchivedBadge.classList.add('tab-badge');
+    } else {
+        supportArchivedBadge.classList.remove('tab-badge');
+    }
+}
+
+function getCurrentPage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (currentTab === 'regular') {
+        return parseInt(urlParams.get('regularActivePage')) || 1;
+    } else if (currentTab === 'regularArchived') {
+        return parseInt(urlParams.get('regularArchivedPage')) || 1;
+    } else if (currentTab === 'support') {
+        return parseInt(urlParams.get('supportActivePage')) || 1;
+    } else if (currentTab === 'supportArchived') {
+        return parseInt(urlParams.get('supportArchivedPage')) || 1;
+    }
+    return 1;
 }
 
 function showAlert(type, message) {
@@ -1373,167 +1465,69 @@ function showAlert(type, message) {
     alert.className = `alert alert-${type}`;
     alert.textContent = message;
     alertContainer.appendChild(alert);
-    setTimeout(() => {
-        alert.classList.add('alert-hidden');
-        setTimeout(() => alert.remove(), 500);
-    }, 10000);
+    setTimeout(() => alert.remove(), 3000);
 }
 
-function openModal(action, ticketType, data) {
-    const modal = document.getElementById('actionModal');
-    const modalTitle = document.getElementById('actionModalTitle');
-    const modalMessage = document.getElementById('actionModalMessage');
-    const modalAction = document.getElementById('modalAction');
-    const modalId = document.getElementById('modalId');
-    const modalType = document.getElementById('modalType');
-
-    modalTitle.textContent = {
-        'archive': 'Archive Ticket',
-        'unarchive': 'Unarchive Ticket',
-        'delete': 'Delete Ticket'
-    }[action] || 'Action';
-    modalMessage.textContent = `Are you sure you want to ${action} ticket ref#${data.ref}?`;
-    modalAction.value = action;
-    modalId.value = data.ref;
-    modalType.value = ticketType;
-
-    modal.style.display = 'block';
-}
-
-function openCloseModal(ref, name, ticketType) {
-    const modal = document.getElementById('closeModal');
-    document.getElementById('closeTicketIdDisplay').textContent = ref;
-    document.getElementById('closeTicketName').textContent = name;
-    document.getElementById('closeFormId').value = ref;
-    document.getElementById('closeFormType').value = ticketType;
-    modal.style.display = 'block';
-}
-
-function showViewModal(ticketType, ticketData) {
-    const modal = document.getElementById('ticketViewModal');
-    const content = document.getElementById('ticketViewContent');
-    let html = `
-        <p><strong>Ticket Ref:</strong> ${ticketData.ref}</p>
-        ${ticketType.includes('support') ? `<p><strong>Customer ID:</strong> ${ticketData.c_id || 'N/A'}</p>` : ''}
-        <p><strong>Customer Name:</strong> ${ticketData.aname || 'N/A'}</p>
-        <p><strong>Subject:</strong> ${ticketData.subject || 'N/A'}</p>
-        <p><strong>Message:</strong> ${ticketData.details || 'N/A'}</p>
-        <p><strong>Status:</strong> ${ticketData.status || 'N/A'}</p>
-    `;
-    content.innerHTML = html;
-    modal.style.display = 'block';
-}
-
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
-
-document.getElementById('actionModalForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'technicianD.php', true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-            try {
-                if (xhr.status === 200) {
-                    let response;
-                    try {
-                        response = JSON.parse(xhr.responseText);
-                    } catch (e) {
-                        console.error('Failed to parse JSON response:', xhr.responseText, e);
-                        showAlert('error', 'Invalid server response. Please try again.');
-                        return;
-                    }
-
-                    if (response.success) {
-                        showAlert('success', response.message || 'Action completed successfully.');
-                        updateDashboardCounts(response.counts);
-                        const ticketType = formData.get('type');
-                        const currentTab = ticketType === 'regular' ? (response.message.includes('unarchive') ? 'regular' : ticketType) :
-                                          ticketType === 'support' ? (response.message.includes('unarchive') ? 'support' : ticketType) :
-                                          '<?php echo $tab; ?>';
-                        searchTickets(currentTab);
-                        closeModal('actionModal');
-                    } else {
-                        console.error('Server returned success: false:', response.error);
-                        showAlert('error', response.error || 'Action failed.');
-                    }
-                } else {
-                    console.error('AJAX request failed with status:', xhr.status, xhr.statusText);
-                    showAlert('error', 'Error performing action: Server error ' + xhr.status);
-                }
-            } catch (e) {
-                console.error('Error in actionModalForm:', e);
-                showAlert('error', 'An unexpected error occurred.');
-            }
+function searchTickets(page) {
+    const searchTerm = document.getElementById('searchInput').value;
+    fetch(`technicianD.php?action=search_tickets&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&page=${page}`, {
+        method: 'GET'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const tbodyId = currentTab.includes('regular') ? 
+                (currentTab === 'regular' ? 'regular_tbody' : 'regular_archived_tbody') :
+                (currentTab === 'support' ? 'support_tbody' : 'support_archived_tbody');
+            document.getElementById(tbodyId).innerHTML = data.html;
+            updateDashboardCounts(data.counts);
+            updatePagination(data.currentPage, data.totalPages);
+        } else {
+            showAlert('error', data.error || 'Failed to fetch tickets.');
         }
-    };
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'An error occurred while searching tickets.');
+    });
+}
 
-    xhr.onerror = function () {
-        console.error('Network error during actionModalForm');
-        showAlert('error', 'Network error during action.');
-    };
+function updatePagination(currentPage, totalPages) {
+    const paginationId = currentTab.includes('regular') ?
+        (currentTab === 'regular' ? 'regular-active-pagination' : 'regular-archived-pagination') :
+        (currentTab === 'support' ? 'support-active-pagination' : 'support-archived-pagination');
+    const paginationContainer = document.getElementById(paginationId);
+    const searchTerm = document.getElementById('searchInput').value;
+    let paginationHtml = '';
+    const pageParam = currentTab === 'regular' ? 'regularActivePage' :
+                     currentTab === 'regularArchived' ? 'regularArchivedPage' :
+                     currentTab === 'support' ? 'supportActivePage' : 'supportArchivedPage';
+    
+    if (currentPage > 1) {
+        paginationHtml += `<a href="?tab=${currentTab}&${pageParam}=${currentPage - 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+    }
+    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
+    if (currentPage < totalPages) {
+        paginationHtml += `<a href="?tab=${currentTab}&${pageParam}=${currentPage + 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+    }
+    paginationContainer.innerHTML = paginationHtml;
+}
 
-    xhr.send(formData);
+let debounceTimeout;
+function debouncedSearchTickets() {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => searchTickets(1), 300);
+}
+
+// Initialize current tab
+document.addEventListener('DOMContentLoaded', () => {
+    openMainTab(currentTab.includes('regular') ? 'regularTickets' : 'supportTickets', currentTab);
 });
-
-document.getElementById('closeForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'technicianD.php', true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-            try {
-                if (xhr.status === 200) {
-                    let response;
-                    try {
-                        response = JSON.parse(xhr.responseText);
-                    } catch (e) {
-                        console.error('Failed to parse JSON response:', xhr.responseText, e);
-                        showAlert('error', 'Invalid server response. Please try again.');
-                        return;
-                    }
-
-                    if (response.success) {
-                        showAlert('success', response.message || 'Ticket closed successfully.');
-                        updateDashboardCounts(response.counts);
-                        const ticketType = formData.get('type');
-                        searchTickets(ticketType);
-                        closeModal('closeModal');
-                    } else {
-                        console.error('Server returned success: false:', response.error);
-                        showAlert('error', response.error || 'Failed to close ticket.');
-                    }
-                } else {
-                    console.error('AJAX request failed with status:', xhr.status, xhr.statusText);
-                    showAlert('error', 'Error closing ticket: Server error ' + xhr.status);
-                }
-            } catch (e) {
-                console.error('Error in closeForm:', e);
-                showAlert('error', 'An unexpected error occurred while closing the ticket.');
-            }
-        }
-    };
-
-    xhr.onerror = function () {
-        console.error('Network error during closeForm');
-        showAlert('error', 'Network error while closing ticket.');
-    };
-
-    xhr.send(formData);
-});
-
-// Initialize the active tab on page load
-searchTickets('<?php echo $tab; ?>');
 </script>
 
 </body>
 </html>
-   
-

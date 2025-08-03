@@ -59,24 +59,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
 
 .sidebar ul {
@@ -291,63 +291,63 @@ footer {
     width: 100%;
 }
 
-/* Flexbox styles for profile information */
-.flex-container {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    gap: 20px;
-}
-
-.flex-item {
-    width: 32%;
+/* Customer Details Styles */
+.customer-details-container {
     padding: 20px;
     background: var(--light);
     border-radius: 8px;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    max-width: 1500px; /* Limit width for centering */
+    margin: 0 auto; /* Center horizontally */
 }
 
-.flex-item:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.customer-details-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 100px; /* Increased from 20px for more column spacing */
 }
 
-.flex-item h3 {
-    font-size: 1.2rem;
+.customer-details-column {
+    flex: 1;
+    padding: 20px;
+}
+
+.customer-details-column h3 {
+    font-size: 1.5rem;
     font-weight: 600;
     color: var(--primary);
     margin-bottom: 15px;
-    border-bottom: 1px solid var(--primary);
-    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.flex-item table {
-    width: 100%;
-    border-collapse: collapse;
+.customer-details-column h3 i {
+    font-size: 1.6rem;
 }
 
-.flex-item th,
-.flex-item td {
-    padding: 12px 10px;
-    text-align: left;
-    font-size: 0.95rem;
+.account-no-header, .balance-header {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 15px;
 }
 
-.flex-item th {
+.account-no-value, .balance-value {
+    color: var(--primary);
+    font-size: 1.3rem;
+}
+
+.account-details-content p, .subscription-details-content p, .service-details-content p {
+    margin: 12px 0;
+    font-size: 1.1rem;
+    color: var(--dark);
+}
+
+.account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
     font-weight: 500;
     color: var(--dark);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.flex-item td {
-    color: var(--dark);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.flex-item tr:last-child th,
-.flex-item tr:last-child td {
-    border-bottom: none;
+    font-size: 1.1rem;
 }
 
 thead {
@@ -393,4 +393,44 @@ thead {
     border: 1px dashed #ddd;
     border-radius: 8px;
     margin-top: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .customer-details-inner {
+        flex-direction: column;
+        gap: 20px; /* Reduced gap for mobile when columns stack */
+    }
+
+    .customer-details-column {
+        width: 100%;
+    }
+
+    .customer-details-container {
+        max-width: 100%;
+    }
+
+    .customer-details-column h3 {
+        font-size: 1.3rem;
+    }
+
+    .customer-details-column h3 i {
+        font-size: 1.4rem;
+    }
+
+    .account-no-header, .balance-header {
+        font-size: 1.2rem;
+    }
+
+    .account-no-value, .balance-value {
+        font-size: 1.2rem;
+    }
+
+    .account-details-content p, .subscription-details-content p, .service-details-content p {
+        font-size: 1rem;
+    }
+
+    .account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
+        font-size: 1rem;
+    }
 }

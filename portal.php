@@ -21,6 +21,15 @@ if (file_exists($userAvatar)) {
     $_SESSION['avatarPath'] = 'default-avatar.png';
 }
 $avatarPath = $_SESSION['avatarPath'];
+
+// Calculate Advance Billing days
+$advanceDays = '';
+if (!empty($user['c_nextdue']) && !empty($user['c_nextbill'])) {
+    $nextDueDate = new DateTime($user['c_nextdue']);
+    $nextBillDate = new DateTime($user['c_nextbill']);
+    $interval = $nextDueDate->diff($nextBillDate);
+    $advanceDays = $interval->days . ' days before next due date';
+}
 ?>
 
 <!DOCTYPE html>
@@ -41,7 +50,7 @@ $avatarPath = $_SESSION['avatarPath'];
         <ul>
             <li><a href="portal.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="suppT.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
-              <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Reject Tickets</span></a></li>
+            <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Reject Tickets</span></a></li>
         </ul>
         <footer>
             <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -69,93 +78,50 @@ $avatarPath = $_SESSION['avatarPath'];
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-               
             </div>
         </div>
 
-        <div class="table-box">
+        <div class="table-box glass-container">
             <h2>Profile Information</h2>
             <hr class="title-line">
-            <div class="flex-container">
-                <!-- First Table: Basic Information -->
-                <div class="flex-item">
-                    <h3>Basic Information</h3>
-                    <table>
-                        <tr>
-                            <th>Account No:</th>
-                            <td><?php echo htmlspecialchars($user['c_account_no'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>First Name:</th>
-                            <td><?php echo htmlspecialchars($user['c_fname'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Last Name:</th>
-                            <td><?php echo htmlspecialchars($user['c_lname'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Purok:</th>
-                            <td><?php echo htmlspecialchars($user['c_purok'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Barangay:</th>
-                            <td><?php echo htmlspecialchars($user['c_barangay'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- Second Table: Contact Details -->
-                <div class="flex-item">
-                    <h3>Contact Details</h3>
-                    <table>
-                        <tr>
-                            <th>Contact:</th>
-                            <td><?php echo htmlspecialchars($user['c_contact'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Email:</th>
-                            <td><?php echo htmlspecialchars($user['c_email'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                         <tr>
-                            <th>Coordinates:</th>
-                            <td><?php echo htmlspecialchars($user['c_coordinates'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Subscription Date:</th>
-                            <td><?php echo htmlspecialchars($user['c_date'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- Third Table: Service Information -->
-                <div class="flex-item">
-                    <h3>Service Information</h3>
-                    <table>
-                        <tr>
-                            <th>NAP Device:</th>
-                            <td><?php echo htmlspecialchars($user['c_napname'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>NAP Port:</th>
-                            <td><?php echo htmlspecialchars($user['c_napport'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>MAC Address:</th>
-                            <td><?php echo htmlspecialchars($user['c_macaddress'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Status:</th>
-                            <td><?php echo htmlspecialchars($user['c_status'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Internet Plan:</th>
-                            <td><?php echo htmlspecialchars($user['c_plan'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <tr>
-                            <th>Equipment:</th>
-                            <td><?php echo htmlspecialchars($user['c_equipment'], ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                    </table>
+            <div class="customer-details-container">
+                <div class="customer-details-inner">
+                    <div class="customer-details-column">
+                        <h3><i class="fas fa-user"></i> Account Details</h3>
+                        <h4 class="account-no-header">Account No.: <span class="account-no-value"><?php echo htmlspecialchars($user['c_account_no'], ENT_QUOTES, 'UTF-8'); ?></span></h4>
+                        <div class="account-details-content">
+                            <p><strong>Name:</strong> <?php echo htmlspecialchars($user['c_fname'] . ' ' . $user['c_lname'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Purok:</strong> <?php echo htmlspecialchars($user['c_purok'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Barangay:</strong> <?php echo htmlspecialchars($user['c_barangay'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Contact:</strong> <?php echo htmlspecialchars($user['c_contact'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Email:</strong> <?php echo htmlspecialchars($user['c_email'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Coordinates:</strong> <?php echo htmlspecialchars($user['c_coordinates'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Customer Status:</strong> <?php echo htmlspecialchars($user['c_status'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                        </div>
+                    </div>
+                    <div class="customer-details-column">
+                        <h3><i class="fas fa-info-circle"></i> Subscription Details</h3>
+                        <div class="subscription-details-content">
+                            <p><strong>Subscription Date:</strong> <?php echo htmlspecialchars($user['c_date'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Product Plan:</strong> <?php echo htmlspecialchars($user['c_plan'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Equipment:</strong> <?php echo htmlspecialchars($user['c_equipment'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>NAP Name:</strong> <?php echo htmlspecialchars($user['c_napname'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>NAP Port:</strong> <?php echo htmlspecialchars($user['c_napport'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>MAC Address:</strong> <?php echo htmlspecialchars($user['c_macaddress'] ?: 'N/A', ENT_QUOTES, 'UTF-8'); ?></p>
+                        </div>
+                    </div>
+                    <div class="customer-details-column">
+                        <h3><i class="fas fa-cogs"></i> Service Details</h3>
+                        <h4 class="balance-header">Balance: <span class="balance-value"><?php echo htmlspecialchars($user['c_balance'] ? number_format($user['c_balance'], 2) : '0.00', ENT_QUOTES, 'UTF-8'); ?></span></h4>
+                        <div class="service-details-content">
+                            <p><strong>Start Date:</strong> <?php echo htmlspecialchars($user['c_startdate'] ?: '', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Next Due Date:</strong> <?php echo htmlspecialchars($user['c_nextdue'] ?: '', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Last Due Date:</strong> <?php echo htmlspecialchars($user['c_lastdue'] ?: '', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Next Bill Date:</strong> <?php echo htmlspecialchars($user['c_nextbill'] ?: '', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Advance Billing:</strong> <?php echo htmlspecialchars($advanceDays ?: '', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Billing Status:</strong> <?php echo htmlspecialchars($user['c_billstatus'] ?: 'Inactive', ENT_QUOTES, 'UTF-8'); ?></p>
+                        </div>
+                    </div>
                 </div>
             </div>
             <hr class="title-line">

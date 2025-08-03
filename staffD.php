@@ -55,7 +55,7 @@ if ($resultUser->num_rows > 0) {
 $stmt->close();
 
 // Fetch customers for filter and search
-$sqlCustomers = "SELECT c_fname, c_lname FROM tbl_customer ORDER BY c_fname, c_lname";
+$sqlCustomers = "SELECT c_fname, c_lname, c_email FROM tbl_customer ORDER BY c_fname, c_lname";
 $resultCustomers = $conn->query($sqlCustomers);
 $customers = [];
 if ($resultCustomers->num_rows > 0) {
@@ -63,7 +63,8 @@ if ($resultCustomers->num_rows > 0) {
         $customers[] = [
             'full_name' => $row['c_fname'] . ' ' . $row['c_lname'],
             'first_name' => $row['c_fname'],
-            'last_name' => $row['c_lname']
+            'last_name' => $row['c_lname'],
+            'email' => $row['c_email']
         ];
     }
 } else {
@@ -115,6 +116,36 @@ if (isset($_GET['aname']) && !empty($_GET['aname'])) {
     }
 }
 
+// Handle AJAX request for fetching customer email
+if (isset($_GET['action']) && $_GET['action'] === 'get_customer_email') {
+    header('Content-Type: application/json');
+    $accountName = isset($_GET['account_name']) ? trim($_GET['account_name']) : '';
+
+    if (empty($accountName)) {
+        echo json_encode(['success' => false, 'error' => 'Account name is required.']);
+        exit();
+    }
+
+    $sql = "SELECT c_email FROM tbl_customer WHERE CONCAT(c_fname, ' ', c_lname) = ?";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $conn->error]);
+        exit();
+    }
+    $stmt->bind_param("s", $accountName);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        echo json_encode(['success' => true, 'email' => $row['c_email']]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Customer not found.']);
+    }
+    $stmt->close();
+    exit();
+}
+
 // Handle AJAX search request with filters
 if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab'])) {
     header('Content-Type: application/json');
@@ -162,7 +193,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     $countStmt->close();
     $totalPages = ceil($totalRecords / $limit);
 
-    // Fetch paginated search results
     $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details 
             FROM tbl_ticket 
             WHERE $whereClause 
@@ -339,7 +369,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ticketDetails = trim($_POST['ticket_details']);
         $errors = [];
 
-        // Fetch existing ticket
         $sql = "SELECT t_ref, t_aname, t_subject, t_status, t_details FROM tbl_ticket WHERE t_ref = ? AND (technician_username IS NULL OR technician_username = '')";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -370,7 +399,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt->close();
 
-        // Validate account name
         if (empty($accountName)) {
             $errors['account_name'] = "Account Name is required.";
         } elseif (!preg_match("/^[a-zA-Z\s'-]+$/", $accountName)) {
@@ -391,19 +419,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Validate subject
         if (empty($subject)) {
             $errors['ticket_subject'] = "Subject is required.";
         } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $subject)) {
             $errors['ticket_subject'] = "Subject should not contain numbers or special characters.";
         }
 
-        // Validate ticket details
         if (empty($ticketDetails)) {
             $errors['ticket_details'] = "Ticket Details are required.";
         }
 
-        // Proceed if no errors
         if (empty($errors)) {
             $logParts = [];
             if ($accountName !== $ticket['t_aname']) {
@@ -686,7 +711,6 @@ $conn->close();
             margin-bottom: 20px;
         }
         
-        /* Filter button styles */
         .filter-btn {
             background: transparent !important;
             border: none;
@@ -708,7 +732,6 @@ $conn->close();
             background: transparent !important;
         }
         
-        /* Autocomplete styles */
         .autocomplete-container {
             position: relative;
             width: 100%;
@@ -737,14 +760,18 @@ $conn->close();
             background: #f0f0f0;
         }
         
-        /* Modal form styles */
         .modal-form input[type="text"], 
+        .modal-form input[type="email"],
         .modal-form textarea {
             width: 100%;
             padding: 8px;
             margin: 10px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
+        }
+        
+        .modal-form input[type="email"] {
+            background-color: #f9f9f9;
         }
         
         .modal-form #account_name {
@@ -828,7 +855,6 @@ $conn->close();
                 <i class="fas fa-user-shield admin-icon"></i>
             </div>
 
-            <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-btn active" onclick="showTab('active')">
                     Active Tickets
@@ -847,7 +873,6 @@ $conn->close();
                 </button>
             </div>
 
-            <!-- Active Tickets Tab -->
             <div id="active-tickets" class="tab-content active">
                 <div class="table-container">
                     <table>
@@ -901,7 +926,6 @@ $conn->close();
                 </div>
             </div>
 
-            <!-- Archived Tickets Tab -->
             <div id="archived-tickets" class="tab-content">
                 <div class="table-container">
                     <table>
@@ -1050,6 +1074,10 @@ $conn->close();
             <?php endif; ?>
             <span class="error" id="account_name_error"><?php echo htmlspecialchars($accountnameErr, ENT_QUOTES, 'UTF-8'); ?></span>
 
+            <label for="customer_email">Customer Email</label>
+            <input type="email" name="customer_email" id="customer_email" readonly placeholder="Email will be populated after selecting a customer">
+            <span class="error" id="customer_email_error"></span>
+
             <label for="ticket_subject">Subject</label>
             <input type="text" name="ticket_subject" id="ticket_subject" value="<?php echo htmlspecialchars($subject, ENT_QUOTES, 'UTF-8'); ?>" required>
             <span class="error" id="ticket_subject_error"><?php echo htmlspecialchars($subjectErr, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -1137,19 +1165,27 @@ $conn->close();
 <div id="modalBackground" class="modal-background"></div>
 
 <script>
+// Global variables
 let currentSearchPage = 1;
 let defaultPageActive = <?php echo json_encode($pageActive); ?>;
 let defaultPageArchived = <?php echo json_encode($pageArchived); ?>;
 let currentAccountFilter = '';
 const userType = '<?php echo $userType; ?>';
-const customers = <?php echo json_encode(array_column($customers, 'full_name')); ?>;
+const customers = <?php echo json_encode($customers); ?>;
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Page loaded, initializing staffD.php, userType=' + userType);
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializePage();
+    setupEventListeners();
+});
+
+function initializePage() {
+    console.log('Initializing staffD.php, userType=' + userType);
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab') || 'active';
     showTab(tab);
 
+    // Initialize alerts
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
@@ -1158,173 +1194,228 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
+    // Initialize search if needed
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value || currentAccountFilter) {
-        console.log('Search input or account filter present, triggering searchTickets');
         searchTickets(tab === 'active' ? defaultPageActive : defaultPageArchived, tab);
     }
+}
 
-    // Initialize autocomplete for account name
+function setupEventListeners() {
+    // Account name autocomplete
+    setupAccountAutocomplete();
+
+    // Form submissions
+    document.getElementById('addTicketForm').addEventListener('submit', handleAddTicketSubmit);
+    document.getElementById('editTicketForm').addEventListener('submit', handleEditTicketSubmit);
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', 
+        debounce(() => searchTickets(currentSearchPage, getCurrentTab()), 300));
+
+    // Tab navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tab = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+            showTab(tab);
+        });
+    });
+}
+
+function setupAccountAutocomplete() {
     const accountInput = document.getElementById('account_name');
+    const emailInput = document.getElementById('customer_email');
     const suggestionsContainer = document.getElementById('account_name_suggestions');
-    if (accountInput && suggestionsContainer) {
-        accountInput.addEventListener('input', function() {
-            const query = this.value.trim().toLowerCase();
-            suggestionsContainer.innerHTML = '';
-            if (query.length === 0) {
-                suggestionsContainer.style.display = 'none';
-                return;
-            }
+    
+    if (!accountInput || !emailInput || !suggestionsContainer) return;
 
-            const matches = customers.filter(customer => 
-                customer.toLowerCase().includes(query)
-            );
+    let selectedCustomer = null;
 
-            if (matches.length > 0) {
-                matches.forEach(match => {
-                    const suggestion = document.createElement('div');
-                    suggestion.className = 'autocomplete-suggestion';
-                    suggestion.textContent = match;
-                    suggestion.addEventListener('click', () => {
-                        accountInput.value = match;
-                        suggestionsContainer.innerHTML = '';
-                        suggestionsContainer.style.display = 'none';
-                    });
-                    suggestionsContainer.appendChild(suggestion);
+    accountInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        suggestionsContainer.innerHTML = '';
+        
+        if (!query || (selectedCustomer && !query.includes(selectedCustomer.full_name.toLowerCase()))) {
+            emailInput.value = '';
+            selectedCustomer = null;
+        }
+
+        if (query.length === 0) {
+            suggestionsContainer.style.display = 'none';
+            return;
+        }
+
+        const matches = customers.filter(customer => 
+            customer.full_name.toLowerCase().includes(query)
+        );
+
+        if (matches.length > 0) {
+            matches.forEach(customer => {
+                const suggestion = document.createElement('div');
+                suggestion.className = 'autocomplete-suggestion';
+                suggestion.textContent = customer.full_name;
+                suggestion.addEventListener('click', () => {
+                    accountInput.value = customer.full_name;
+                    selectedCustomer = customer;
+                    suggestionsContainer.innerHTML = '';
+                    suggestionsContainer.style.display = 'none';
+                    emailInput.value = customer.email;
                 });
-                suggestionsContainer.style.display = 'block';
-            } else {
-                suggestionsContainer.style.display = 'none';
+                suggestionsContainer.appendChild(suggestion);
+            });
+            suggestionsContainer.style.display = 'block';
+        } else {
+            suggestionsContainer.style.display = 'none';
+            if (!selectedCustomer || accountInput.value !== selectedCustomer.full_name) {
+                emailInput.value = '';
+                selectedCustomer = null;
             }
-        });
+        }
+    });
 
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!accountInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
-                suggestionsContainer.style.display = 'none';
+    document.addEventListener('click', function(e) {
+        if (!accountInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+            suggestionsContainer.style.display = 'none';
+            
+            if (accountInput.value && selectedCustomer && 
+                accountInput.value !== selectedCustomer.full_name) {
+                const isValid = customers.some(c => c.full_name === accountInput.value);
+                if (!isValid) {
+                    emailInput.value = '';
+                    selectedCustomer = null;
+                }
             }
-        });
+        }
+    });
 
-        // Hide suggestions when pressing Enter
-        accountInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                suggestionsContainer.style.display = 'none';
+    accountInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            suggestionsContainer.style.display = 'none';
+            
+            if (selectedCustomer && !emailInput.value) {
+                emailInput.value = selectedCustomer.email;
             }
+            
+            if (!selectedCustomer && accountInput.value) {
+                const matchedCustomer = customers.find(c => 
+                    c.full_name.toLowerCase() === accountInput.value.toLowerCase()
+                );
+                if (matchedCustomer) {
+                    selectedCustomer = matchedCustomer;
+                    emailInput.value = matchedCustomer.email;
+                }
+            }
+        }
+    });
+
+    const formInputs = document.querySelectorAll('#addTicketForm input:not(#account_name), #addTicketForm textarea');
+    formInputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            suggestionsContainer.style.display = 'none';
         });
+    });
+}
+
+function handleAddTicketSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+
+    clearFormErrors('addTicketForm');
+
+    fetch('staffD.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(handleResponse)
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(data.message);
+            closeModal('addTicketModal');
+            searchTickets(defaultPageActive, 'active');
+        } else {
+            displayFormErrors(data.errors, 'addTicketForm');
+        }
+    })
+    .catch(handleFetchError);
+}
+
+function handleEditTicketSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+
+    clearFormErrors('editTicketForm');
+
+    fetch('staffD.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(handleResponse)
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(data.message);
+            closeModal('editTicketModal');
+            searchTickets(defaultPageActive, 'active');
+        } else {
+            displayFormErrors(data.errors, 'editTicketForm');
+        }
+    })
+    .catch(handleFetchError);
+}
+
+function handleResponse(response) {
+    if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
     }
+    return response.json();
+}
 
-    document.getElementById('addTicketForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        console.log('Submitting Add Ticket Form');
-        const form = this;
-        const formData = new FormData(form);
+function handleFetchError(error) {
+    console.error('Fetch error:', error);
+    showErrorMessage('An error occurred while processing your request.');
+}
 
-        document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
+function clearFormErrors(formId) {
+    document.querySelectorAll(`#${formId} .error`).forEach(span => span.textContent = '');
+}
 
-        fetch('staffD.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+function displayFormErrors(errors, formId) {
+    if (!errors) return;
+    
+    for (const [field, error] of Object.entries(errors)) {
+        if (error) {
+            const errorSpan = document.getElementById(`${formId === 'editTicketForm' ? 'edit_' : ''}${field}_error`);
+            if (errorSpan) {
+                errorSpan.textContent = error;
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                closeModal('addTicketModal');
-                const alertContainer = document.querySelector('.alert-container');
-                const successAlert = document.createElement('div');
-                successAlert.className = 'alert alert-success';
-                successAlert.textContent = data.message;
-                alertContainer.appendChild(successAlert);
-                setTimeout(() => {
-                    successAlert.classList.add('alert-hidden');
-                    setTimeout(() => successAlert.remove(), 500);
-                }, 2000);
-                searchTickets(defaultPageActive, 'active');
-            } else {
-                for (const [field, error] of Object.entries(data.errors || {})) {
-                    if (error) {
-                        const errorSpan = document.getElementById(`${field}_error`);
-                        if (errorSpan) {
-                            errorSpan.textContent = error;
-                        }
-                    }
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error in addTicketForm submission:', error);
-            const alertContainer = document.querySelector('.alert-container');
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-error';
-            alert.textContent = 'An error occurred while adding the ticket.';
-            alertContainer.appendChild(alert);
-            setTimeout(() => {
-                alert.classList.add('alert-hidden');
-                setTimeout(() => alert.remove(), 500);
-            }, 2000);
-        });
-    });
+        }
+    }
+}
 
-    document.getElementById('editTicketForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        console.log('Submitting Edit Ticket Form');
-        const formData = new FormData(this);
+function showSuccessMessage(message) {
+    const alertContainer = document.querySelector('.alert-container');
+    const successAlert = document.createElement('div');
+    successAlert.className = 'alert alert-success';
+    successAlert.textContent = message;
+    alertContainer.appendChild(successAlert);
+    setTimeout(() => fadeOutAlert(successAlert), 2000);
+}
 
-        document.querySelectorAll('#editTicketForm .error').forEach(span => span.textContent = '');
+function showErrorMessage(message) {
+    const alertContainer = document.querySelector('.alert-container');
+    const errorAlert = document.createElement('div');
+    errorAlert.className = 'alert alert-error';
+    errorAlert.textContent = message;
+    alertContainer.appendChild(errorAlert);
+    setTimeout(() => fadeOutAlert(errorAlert), 2000);
+}
 
-        fetch('staffD.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                closeModal('editTicketModal');
-                const alertContainer = document.querySelector('.alert-container');
-                const successAlert = document.createElement('div');
-                successAlert.className = 'alert alert-success';
-                successAlert.textContent = data.message;
-                alertContainer.appendChild(successAlert);
-                setTimeout(() => {
-                    successAlert.classList.add('alert-hidden');
-                    setTimeout(() => successAlert.remove(), 500);
-                }, 2000);
-                searchTickets(defaultPageActive, 'active');
-            } else {
-                for (const [field, error] of Object.entries(data.errors || {})) {
-                    if (error) {
-                        const errorSpan = document.getElementById(`edit_${field}_error`);
-                        if (errorSpan) {
-                            errorSpan.textContent = error;
-                        }
-                    }
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error in editTicketForm submission:', error);
-            const alertContainer = document.querySelector('.alert-container');
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-error';
-            alert.textContent = 'An error occurred while updating the ticket.';
-            alertContainer.appendChild(alert);
-            setTimeout(() => {
-                alert.classList.add('alert-hidden');
-                setTimeout(() => alert.remove(), 500);
-            }, 2000);
-        });
-    });
-});
+function fadeOutAlert(alert) {
+    alert.classList.add('alert-hidden');
+    setTimeout(() => alert.remove(), 500);
+}
 
 function debounce(func, wait) {
     let timeout;
@@ -1340,21 +1431,16 @@ function debounce(func, wait) {
 
 function searchTickets(page = 1, tab = null) {
     const searchTerm = document.getElementById('searchInput').value;
-    const activeSection = document.querySelector('.active-tickets');
-    const currentTab = tab || (activeSection.classList.contains('active') ? 'active' : 'archived');
-    const tbody = currentTab === 'active' ? document.getElementById('active-table-body') : document.getElementById('archived-table-body');
-    const paginationContainer = currentTab === 'active' ? document.getElementById('active-pagination') : document.getElementById('archived-pagination');
-    const defaultPage = currentTab === 'active' ? defaultPageActive : defaultPageArchived;
-
+    const currentTab = tab || getCurrentTab();
+    const tbody = document.getElementById(`${currentTab}-table-body`);
+    
     currentSearchPage = page;
 
-    console.log(`Searching tickets: tab=${currentTab}, page=${page}, searchTerm=${searchTerm}, accountFilter=${currentAccountFilter}`);
-
     fetch(`staffD.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&account_filter=${encodeURIComponent(currentAccountFilter)}`)
-        .then(response => response.json())
+        .then(handleResponse)
         .then(response => {
             tbody.innerHTML = response.html;
-            updatePagination(response.currentPage, response.totalPages, response.searchTerm, currentTab);
+            updatePagination(response.currentPage, response.totalPages, currentTab);
             if (currentTab === 'active') {
                 defaultPageActive = response.currentPage;
             } else {
@@ -1362,13 +1448,13 @@ function searchTickets(page = 1, tab = null) {
             }
         })
         .catch(error => {
-            console.error('Error in searchTickets:', error);
+            console.error('Search error:', error);
             tbody.innerHTML = '<tr><td colspan="6">Error loading tickets.</td></tr>';
         });
 }
 
-function updatePagination(currentPage, totalPages, searchTerm, tab) {
-    const paginationContainer = document.getElementById(tab === 'active' ? 'active-pagination' : 'archived-pagination');
+function updatePagination(currentPage, totalPages, tab) {
+    const paginationContainer = document.getElementById(`${tab}-pagination`);
     let paginationHtml = '';
 
     if (currentPage > 1) {
@@ -1388,27 +1474,15 @@ function updatePagination(currentPage, totalPages, searchTerm, tab) {
     paginationContainer.innerHTML = paginationHtml;
 }
 
-const debouncedSearchTickets = debounce((page, tab) => searchTickets(page, tab), 300);
-
-function showAccountFilterModal(tab) {
-    document.getElementById('accountFilterTab').value = tab;
-    document.getElementById('account_filter').value = currentAccountFilter;
-    document.getElementById('accountFilterModal').style.display = 'block';
-}
-
-function applyAccountFilter() {
-    currentAccountFilter = document.getElementById('account_filter').value;
-    const tab = document.getElementById('accountFilterTab').value;
-    closeModal('accountFilterModal');
-    searchTickets(1, tab);
+function getCurrentTab() {
+    return document.getElementById('active-tickets').classList.contains('active') ? 'active' : 'archived';
 }
 
 function showTab(tab) {
-    console.log('Switching to tab:', tab);
     const activeSection = document.getElementById('active-tickets');
     const archivedSection = document.getElementById('archived-tickets');
-    const activeBtn = document.querySelector('.tab-btn[onclick="showTab(\'active\')"]');
-    const archivedBtn = document.querySelector('.tab-btn[onclick="showTab(\'archived\')"]');
+    const activeBtn = document.querySelector('.tab-btn[onclick*="active"]');
+    const archivedBtn = document.querySelector('.tab-btn[onclick*="archived"]');
 
     if (tab === 'active') {
         activeSection.classList.add('active');
@@ -1416,7 +1490,7 @@ function showTab(tab) {
         activeBtn.classList.add('active');
         archivedBtn.classList.remove('active');
         currentSearchPage = defaultPageActive;
-    } else if (tab === 'archived') {
+    } else {
         activeSection.classList.remove('active');
         archivedSection.classList.add('active');
         activeBtn.classList.remove('active');
@@ -1434,39 +1508,55 @@ function showTab(tab) {
 }
 
 function showViewModal(ref, aname, subject, status, details) {
-    console.log(`Opening view modal for ticket ref=${ref}, aname=${aname}, subject=${subject}, status=${status}, details=${details}`);
-    try {
-        const viewModal = document.getElementById('viewModal');
-        const viewContent = document.getElementById('viewContent');
-        if (!viewModal || !viewContent) {
-            console.error('View modal or content element not found');
-            alert('Error: Modal elements are missing.');
-            return;
-        }
+    const viewModal = document.getElementById('viewModal');
+    const viewContent = document.getElementById('viewContent');
+    
+    viewContent.innerHTML = `
+        <p><strong>Ticket Ref:</strong> ${escapeHTML(ref)}</p>
+        <p><strong>Account Name:</strong> ${escapeHTML(aname)}</p>
+        <p><strong>Subject:</strong> ${escapeHTML(subject)}</p>
+        <p><strong>Ticket Status:</strong> <span class="status-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></p>
+        <p><strong>Ticket Details:</strong> ${escapeHTML(details)}</p>
+    `;
+    viewModal.style.display = 'block';
+}
 
-        const escapeHTML = (str) => {
-            if (typeof str !== 'string') {
-                console.warn(`Non-string value passed to escapeHTML: ${str}`);
-                return '';
-            }
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        };
+function showAddTicketModal() {
+    const addTicketModal = document.getElementById('addTicketModal');
+    const ticketRefInput = document.getElementById('ticket_ref');
+    const accountInput = document.getElementById('account_name');
+    const emailInput = document.getElementById('customer_email');
+    const ticketSubject = document.getElementById('ticket_subject');
+    const ticketDetails = document.getElementById('ticket_details');
+    const ticketStatus = document.getElementById('ticket_status');
 
-        viewContent.innerHTML = `
-            <p><strong>Ticket Ref:</strong> ${escapeHTML(ref)}</p>
-            <p><strong>Account Name:</strong> ${escapeHTML(aname)}</p>
-            <p><strong>Subject:</strong> ${escapeHTML(subject)}</p>
-            <p><strong>Ticket Status:</strong> <span class="status-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></p>
-            <p><strong>Ticket Details:</strong> ${escapeHTML(details)}</p>
-        `;
-        viewModal.style.display = 'block';
-        console.log('View modal displayed successfully');
-    } catch (error) {
-        console.error('Error in showViewModal:', error);
-        alert('An error occurred while opening the view modal.');
-    }
+    clearFormErrors('addTicketForm');
+    accountInput.value = '';
+    emailInput.value = '';
+    ticketSubject.value = '';
+    ticketDetails.value = '';
+    ticketStatus.value = 'Open';
+
+    // Generate ticket reference
+    const date = new Date();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    const randomNum = String(Math.floor(100000 + Math.random() * 900000)).padStart(6, '0');
+    ticketRefInput.value = `ref#-${month}-${day}-${year}-${randomNum}`;
+
+    addTicketModal.style.display = 'block';
+}
+
+function showEditTicketModal(ref, aname, subject, status, details) {
+    document.getElementById('edit_t_ref').value = ref;
+    document.getElementById('edit_ticket_ref').value = ref;
+    document.getElementById('edit_account_name').value = aname;
+    document.getElementById('edit_ticket_subject').value = subject;
+    document.getElementById('edit_ticket_status').value = status;
+    document.getElementById('edit_ticket_details').value = details.replace(/^ARCHIVED:/, '');
+    clearFormErrors('editTicketForm');
+    document.getElementById('editTicketModal').style.display = 'block';
 }
 
 function showArchiveModal(ref, aname) {
@@ -1490,61 +1580,29 @@ function showDeleteModal(ref, aname) {
     document.getElementById('deleteModal').style.display = 'block';
 }
 
-function showEditTicketModal(ref, aname, subject, status, details) {
-    document.getElementById('edit_t_ref').value = ref;
-    document.getElementById('edit_ticket_ref').value = ref;
-    document.getElementById('edit_account_name').value = aname;
-    document.getElementById('edit_ticket_subject').value = subject;
-    document.getElementById('edit_ticket_status').value = status;
-    document.getElementById('edit_ticket_details').value = details.replace(/^ARCHIVED:/, '');
-    document.querySelectorAll('#editTicketForm .error').forEach(span => span.textContent = '');
-    document.getElementById('editTicketModal').style.display = 'block';
-}
-
-function showAddTicketModal() {
-    console.log('Opening Add Ticket Modal');
-    const form = document.getElementById('addTicketForm');
-    form.reset();
-    document.querySelectorAll('#addTicketForm .error').forEach(span => span.textContent = '');
-    const accountInput = document.getElementById('account_name');
-    const suggestionsContainer = document.getElementById('account_name_suggestions');
-    if (accountInput && suggestionsContainer) {
-        accountInput.value = '<?php echo htmlspecialchars($accountname, ENT_QUOTES, 'UTF-8'); ?>';
-        suggestionsContainer.innerHTML = '';
-        suggestionsContainer.style.display = 'none';
-    }
-
-     const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const uniqueNumber = Math.floor(100000 + Math.random() * 900000); // Generates a random 6-digit number (100000–999999)
-    const ticketRef = `ref#-${day}-${month}-${year}-${uniqueNumber}`;
-    document.getElementById('ticket_ref').value = ticketRef;
-
-    document.getElementById('addTicketModal').style.display = 'block';
-}
-
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
-    document.getElementById('modalBackground').style.display = 'none';
-    const suggestionsContainer = document.getElementById('account_name_suggestions');
-    if (suggestionsContainer) {
-        suggestionsContainer.innerHTML = '';
-        suggestionsContainer.style.display = 'none';
-    }
 }
 
-function generateTicketRef() {
-    const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const uniqueNumber = Math.floor(100000 + Math.random() * 900000);
-    return `ref#-${day}-${month}-${year}-${uniqueNumber}`;
+function showAccountFilterModal(tab) {
+    document.getElementById('accountFilterTab').value = tab;
+    document.getElementById('account_filter').value = currentAccountFilter;
+    document.getElementById('accountFilterModal').style.display = 'block';
+}
+
+function applyAccountFilter() {
+    currentAccountFilter = document.getElementById('account_filter').value;
+    const tab = document.getElementById('accountFilterTab').value;
+    closeModal('accountFilterModal');
+    searchTickets(1, tab);
+}
+
+function escapeHTML(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 </script>
-
 </body>
 </html>
-

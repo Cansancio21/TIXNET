@@ -29,6 +29,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username']) && !isset(
     exit;
 }
 
+// Handle logout
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    if (isset($_SESSION['username']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'technician') {
+        $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 0 WHERE u_username = ? AND u_type = 'technician'";
+        $stmtUpdate = $conn->prepare($sqlUpdateStatus);
+        if ($stmtUpdate) {
+            $stmtUpdate->bind_param("s", $_SESSION['username']);
+            $stmtUpdate->execute();
+            $stmtUpdate->close();
+            error_log("Technician {$_SESSION['username']} logged out, set is_online = 0");
+        } else {
+            error_log("Failed to prepare logout status update: " . $conn->error);
+        }
+    }
+    session_unset();
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+
 // Initialize variables as empty
 $firstname = $lastname = $email = $username = "";
 $type = $status = ""; 
@@ -44,7 +64,6 @@ define('REGISTRATION_CODE', 'ADMIN1234!');
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
     $submittedCode = isset($_POST['reg_code']) ? trim($_POST['reg_code']) : '';
     if ($submittedCode !== REGISTRATION_CODE) {
-        // Don't set $regCodeError to avoid displaying on registration form
         $hasError = true;
     }
 
@@ -107,7 +126,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
     }
 
     // Validate type
-    if (empty($type) || !in_array($type, ['admin'])) {
+    if (empty($type) || !in_array($type, ['admin', 'staff', 'technician'])) {
         $typeErr = "Please select a valid user type.";
         $hasError = true;
     }
@@ -119,17 +138,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
     }
 
     if (!$hasError) {
-        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $is_online = ($type === 'technician') ? 0 : null; // Set is_online to 0 for technicians
+        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status, is_online)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             $generalError = "Database prepare error: " . $conn->error;
             $hasError = true;
         } else {
-            $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
+            $stmt->bind_param("sssssssi", $firstname, $lastname, $email, $username, $password, $type, $status, $is_online);
             if ($stmt->execute()) {
-                // Log success for debugging
-                error_log("User registered: $username");
+                error_log("User registered: $username, type: $type, is_online: " . ($is_online ?? 'NULL'));
                 header("Location: index.php?success=Registration+successful");
                 exit();
             } else {
@@ -193,6 +212,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                     $_SESSION['userId'] = $row['u_id'];
                     $_SESSION['user_type'] = $row['u_type'];
                     $_SESSION['logged_in'] = true;
+
+                    // Update is_online for technicians
+                    if ($row['u_type'] === 'technician') {
+                        $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 1 WHERE u_username = ? AND u_type = 'technician'";
+                        $stmtUpdate = $conn->prepare($sqlUpdateStatus);
+                        if ($stmtUpdate) {
+                            $stmtUpdate->bind_param("s", $username);
+                            $stmtUpdate->execute();
+                            $stmtUpdate->close();
+                            error_log("Technician $username logged in, set is_online = 1");
+                        } else {
+                            error_log("Failed to prepare login status update: " . $conn->error);
+                        }
+                    }
 
                     // Redirect based on user type
                     if ($row['u_type'] == 'admin') {
@@ -314,6 +347,8 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                     <select name="type" required>
                         <option value="" disabled selected>Select Type</option>
                         <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
+                        <option value="staff" <?php if ($type == 'staff') echo 'selected'; ?>>Staff</option>
+                        <option value="technician" <?php if ($type == 'technician') echo 'selected'; ?>>Technician</option>
                     </select>
                     <i class='bx bxs-user type-icon'></i>
                     <?php if (!empty($typeErr)) { ?>

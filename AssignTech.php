@@ -56,14 +56,18 @@ if (!$stmt) {
     $stmt->close();
 }
 
-// Add technician_username column if it doesn't exist
+// Add technician_username and is_online columns if they don't exist
 $sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
 $sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
+$sqlAlterLoginStatus = "ALTER TABLE tbl_user ADD COLUMN IF NOT EXISTS is_online TINYINT(1) DEFAULT 0";
 if (!$conn->query($sqlAlterRegular)) {
     error_log("Failed to alter tbl_ticket: " . $conn->error);
 }
 if (!$conn->query($sqlAlterSupport)) {
     error_log("Failed to alter tbl_supp_tickets: " . $conn->error);
+}
+if (!$conn->query($sqlAlterLoginStatus)) {
+    error_log("Failed to alter tbl_user for is_online: " . $conn->error);
 }
 
 // Handle AJAX assign ticket request
@@ -89,8 +93,8 @@ if (isset($_POST['assign_ticket'])) {
     // Debug: Log assignment attempt
     error_log("Attempting to assign ticket: t_ref=$t_ref, technician_username=$technician_username, ticket_type=$ticket_type");
 
-    // Check if technician exists
-    $sqlCheckTech = "SELECT COUNT(*) FROM tbl_user WHERE u_username = ? AND u_type = 'technician' AND u_status = 'active'";
+    // Check if technician exists and is online
+    $sqlCheckTech = "SELECT COUNT(*), is_online FROM tbl_user WHERE u_username = ? AND u_type = 'technician' AND u_status = 'active'";
     $stmtCheckTech = $conn->prepare($sqlCheckTech);
     if (!$stmtCheckTech) {
         error_log("Prepare failed for technician check: " . $conn->error);
@@ -99,12 +103,17 @@ if (isset($_POST['assign_ticket'])) {
     }
     $stmtCheckTech->bind_param("s", $technician_username);
     $stmtCheckTech->execute();
-    $stmtCheckTech->bind_result($techExists);
+    $stmtCheckTech->bind_result($techExists, $isOnline);
     $stmtCheckTech->fetch();
     $stmtCheckTech->close();
     if ($techExists == 0) {
         error_log("Technician does not exist or is not active: $technician_username");
         echo json_encode(['success' => false, 'error' => 'Technician does not exist or is not active.']);
+        exit();
+    }
+    if (!$isOnline) {
+        error_log("Technician is offline: $technician_username");
+        echo json_encode(['success' => false, 'error' => 'Technician is offline and cannot be assigned tickets.']);
         exit();
     }
 
@@ -196,7 +205,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $searchTerm = $conn->real_escape_string($searchTerm);
     $likeSearch = '%' . $searchTerm . '%';
 
-    // Query to fetch only active, unassigned tickets
     $sql = "";
     $params = [];
     $paramTypes = "";
@@ -226,10 +234,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params = $searchTerm ? [$likeSearch, $likeSearch] : [];
     }
 
-    // Debug: Log the query
     error_log("Ticket search query: $sql, Params: " . json_encode($params));
 
-    // Fetch search results
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Search query prepare failed: " . $conn->error);
@@ -242,13 +248,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Debug: Log number of rows returned
     error_log("Tickets returned: " . $result->num_rows);
 
     ob_start();
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            // Debug: Log each ticket
             error_log("Ticket: " . json_encode($row));
             echo "<tr class='ticket-row' data-tref='" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "' data-ticket-type='" . htmlspecialchars($row['ticket_type'], ENT_QUOTES, 'UTF-8') . "' onclick=\"selectTicket('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['ticket_type'], ENT_QUOTES, 'UTF-8') . "')\" style='cursor: pointer;'>
                     <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
@@ -279,16 +283,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $sqlCount = "SELECT COUNT(*) AS total FROM tbl_user 
                  WHERE u_type = 'technician' AND u_status = 'active' 
                  AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ?)";
-    $sql = "SELECT u_fname, u_lname, u_email, u_type, u_status, u_username,
-                   (SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = tbl_user.u_username AND t_details NOT LIKE 'ARCHIVED:%') +
-                   (SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = tbl_user.u_username AND s_message NOT LIKE 'ARCHIVED:%') AS assigned_tickets
-            FROM tbl_user 
-            WHERE u_type = 'technician' AND u_status = 'active' 
-            AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ?)
-            ORDER BY u_fname, u_lname
+    $sql = "SELECT u.u_fname, u.u_lname, u.u_email, u.u_type, u.u_status, u.u_username, u.is_online,
+                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_details NOT LIKE 'ARCHIVED:%') +
+                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_message NOT LIKE 'ARCHIVED:%') AS open_tickets,
+                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_details LIKE 'ARCHIVED:%') +
+                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_message LIKE 'ARCHIVED:%') AS closed_tickets
+            FROM tbl_user u
+            WHERE u.u_type = 'technician' AND u.u_status = 'active' 
+            AND (u.u_fname LIKE ? OR u.u_lname LIKE ? OR u.u_email LIKE ?)
+            ORDER BY u.u_fname, u.u_lname
             LIMIT ?, ?";
 
-    // Get total count for pagination
     $stmtCount = $conn->prepare($sqlCount);
     if (!$stmtCount) {
         error_log("Count query prepare failed: " . $conn->error);
@@ -303,7 +308,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $totalPages = ceil($total / $limit);
     $stmtCount->close();
 
-    // Fetch search results
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Search query prepare failed: " . $conn->error);
@@ -317,17 +321,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     ob_start();
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            $statusDisplay = ($row['assigned_tickets'] >= 5) ? 'Not Available' : 'Available';
+            $statusDisplay = $row['is_online'] ? 'Online' : 'Offline';
+            $statusClass = $row['is_online'] ? '' : 'offline';
             $technicianName = htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8');
             echo "<tr>
                     <td>" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "</td>
-                    <td>" . $statusDisplay . "</td>
+                    <td>
+                        <div class='status-container'>
+                            <span class='status-badge $statusClass'>" . $statusDisplay . "</span>
+                            <div class='ticket-counts'>
+                                <span>Open: " . htmlspecialchars($row['open_tickets'], ENT_QUOTES, 'UTF-8') . "</span>
+                                <span>Closed: " . htmlspecialchars($row['closed_tickets'], ENT_QUOTES, 'UTF-8') . "</span>
+                            </div>
+                        </div>
+                    </td>
                     <td class='action-buttons'>
                         <a class='view-btn' href='#' onclick=\"showTechnicianViewModal('" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . $statusDisplay . "')\" title='View Technician'><i class='fas fa-eye'></i></a>
-                        <a class='assign-btn' href='#' onclick=\"showAssignTicketModal('" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . $technicianName . "')\" title='Assign Ticket' " . ($statusDisplay === 'Not Available' ? 'style="pointer-events: none; opacity: 0.5;"' : '') . "><i class='fas fa-user-plus'></i></a>
+                        <a class='assign-btn' href='#' onclick=\"handleAssignClick('" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . $technicianName . "', " . ($row['is_online'] ? 'true' : 'false') . ")\" title='Assign Ticket' " . ($row['is_online'] ? '' : 'style=\"pointer-events: none; opacity: 0.5;\"') . "><i class='fas fa-user-plus'></i></a>
                     </td>
                   </tr>";
         }
@@ -336,7 +349,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     }
     $tableRows = ob_get_clean();
 
-    // Output JSON with table rows and pagination info
     echo json_encode([
         'success' => true,
         'html' => $tableRows,
@@ -364,14 +376,22 @@ if (!$totalResult) {
 }
 $totalPages = ceil($total / $limit);
 
-// Fetch technicians
-$sqlTechnicians = "SELECT u_fname, u_lname, u_email, u_type, u_status, u_username,
-                   (SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = tbl_user.u_username AND t_details NOT LIKE 'ARCHIVED:%') +
-                   (SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = tbl_user.u_username AND s_message NOT LIKE 'ARCHIVED:%') AS assigned_tickets
-                   FROM tbl_user 
-                   WHERE u_type = 'technician' AND u_status = 'active' 
-                   ORDER BY u_fname, u_lname
-                   LIMIT ?, ?";
+$sqlTechnicians = "SELECT 
+    u.u_fname, 
+    u.u_lname, 
+    u.u_email, 
+    u.u_type, 
+    u.u_status, 
+    u.u_username, 
+    u.is_online,
+    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_details NOT LIKE 'ARCHIVED:%') +
+    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_message NOT LIKE 'ARCHIVED:%') AS open_tickets,
+    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_details LIKE 'ARCHIVED:%') +
+    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_message LIKE 'ARCHIVED:%') AS closed_tickets
+FROM tbl_user u
+WHERE u.u_type = 'technician' AND u.u_status = 'active' 
+ORDER BY u.u_fname, u.u_lname
+LIMIT ?, ?";
 $stmtTechnicians = $conn->prepare($sqlTechnicians);
 if (!$stmtTechnicians) {
     error_log("Technicians query prepare failed: " . $conn->error);
@@ -397,121 +417,152 @@ $conn->close();
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
-/* Modal Styling */
-.modal-header h2 {
-    font-size: 13px;
-    margin: 0 0 6px;
-}
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
 
-.modal-search-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 6px;
-}
+        .status-badge {
+            font-weight: 500;
+            color: white;
+            background-color: #28a745;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 12px;
+            width: fit-content;
+        }
 
-.modal-search-container input {
-    flex: 1;
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-right: 5px;
-    font-size: 11px;
-}
+        .status-badge.offline {
+            background-color: #6c757d;
+        }
 
-.modal-search-container .search-icon {
-    font-size: 11px;
-    color: #666;
-}
+        .ticket-counts {
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
+            color: #666;
+        }
 
-/* Table Box Styling for Assign Ticket Modal */
-#assignTicketModal .table-box {
-    width: 100%;
-    max-height: 120px;
-    overflow-y: auto;
-    margin-bottom: 6px;
-    flex-grow: 1;
-}
+        .ticket-counts span {
+            white-space: nowrap;
+        }
 
-#assignTicketModal #tickets-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    margin-top: 10px;
-}
+        /* Modal Styling */
+        .modal-header h2 {
+            font-size: 13px;
+            margin: 0 0 6px;
+        }
 
-#assignTicketModal #tickets-table thead {
-    position: sticky;
-    top: 0;
-    background: linear-gradient(135deg, var(--primary, #6c5ce7), var(--secondary, #a29bfe));
-    color: white;
-    z-index: 1;
-}
+        .modal-search-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
 
-#assignTicketModal #tickets-table th,
-#assignTicketModal #tickets-table td {
-    padding: 6px;
-    border-bottom: 1px solid #ddd;
-    text-align: left;
-    white-space: nowrap;
-}
+        .modal-search-container input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-right: 5px;
+            font-size: 11px;
+        }
 
-#assignTicketModal #tickets-table th:first-child,
-#assignTicketModal #tickets-table td:first-child {
-    min-width: 150px;
-}
+        .modal-search-container .search-icon {
+            font-size: 11px;
+            color: #666;
+        }
 
-#assignTicketModal #tickets-table th:last-child,
-#assignTicketModal #tickets-table td:last-child {
-    min-width: 150px;
-}
+        /* Table Box Styling for Assign Ticket Modal */
+        #assignTicketModal .table-box {
+            width: 100%;
+            max-height: 120px;
+            overflow-y: auto;
+            margin-bottom: 6px;
+            flex-grow: 1;
+        }
 
-.ticket-row:hover {
-    background-color: rgba(108, 92, 231, 0.05);
-}
+        #assignTicketModal #tickets-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 10px;
+        }
 
-.ticket-row.selected {
-    background-color: #d4edda;
-}
+        #assignTicketModal #tickets-table thead {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, var(--primary, #6c5ce7), var(--secondary, #a29bfe));
+            color: white;
+            z-index: 1;
+        }
 
-.modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 5px;
-    padding: 8px 0;
-    border-top: 1px solid #ddd;
-    flex-shrink: 0;
-    background: white;
-    z-index: 2;
-}
+        #assignTicketModal #tickets-table th,
+        #assignTicketModal #tickets-table td {
+            padding: 6px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+            white-space: nowrap;
+        }
 
-.modal-btn {
-    padding: 6px 16px;
-    border-radius: 20px;
-    border: none;
-    cursor: pointer;
-    font-size: 11px;
-    transition: all 0.3s;
-}
+        #assignTicketModal #tickets-table th:first-child,
+        #assignTicketModal #tickets-table td:first-child {
+            min-width: 150px;
+        }
 
-.modal-btn.confirm {
-    background: var(--primary, #28a745);
-    color: white;
-}
+        #assignTicketModal #tickets-table th:last-child,
+        #assignTicketModal #tickets-table td:last-child {
+            min-width: 150px;
+        }
 
-.modal-btn.cancel {
-    background: var(--secondary, #dc3545);
-    color: white;
-}
+        .ticket-row:hover {
+            background-color: rgba(108, 92, 231, 0.05);
+        }
 
-.modal-btn.confirm:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-}
+        .ticket-row.selected {
+            background-color: #d4edda;
+        }
 
-.modal-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 5px;
+            padding: 8px 0;
+            border-top: 1px solid #ddd;
+            flex-shrink: 0;
+            background: white;
+            z-index: 2;
+        }
+
+        .modal-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s;
+        }
+
+        .modal-btn.confirm {
+            background: var(--primary, #28a745);
+            color: white;
+        }
+
+        .modal-btn.cancel {
+            background: var(--secondary, #dc3545);
+            color: white;
+        }
+
+        .modal-btn.confirm:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .modal-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -528,7 +579,7 @@ $conn->close();
             <li><a href="AssignTech.php" class="active"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
         </ul>
         <footer>
-            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="index.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
@@ -588,17 +639,26 @@ $conn->close();
                     <?php
                     if ($resultTechnicians && $resultTechnicians->num_rows > 0) {
                         while ($row = $resultTechnicians->fetch_assoc()) {
-                            $statusDisplay = ($row['assigned_tickets'] >= 5) ? 'Not Available' : 'Available';
+                            $statusDisplay = $row['is_online'] ? 'Online' : 'Offline';
+                            $statusClass = $row['is_online'] ? '' : 'offline';
                             $technicianName = htmlspecialchars($row['u_fname'] . ' ' . $row['u_lname'], ENT_QUOTES, 'UTF-8');
                             echo "<tr>
                                     <td>" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "</td>
                                     <td>" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "</td>
                                     <td>" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "</td>
                                     <td>" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . $statusDisplay . "</td>
+                                    <td>
+                                        <div class='status-container'>
+                                            <span class='status-badge $statusClass'>" . $statusDisplay . "</span>
+                                            <div class='ticket-counts'>
+                                                <span>Open: " . htmlspecialchars($row['open_tickets'], ENT_QUOTES, 'UTF-8') . "</span>
+                                                <span>Closed: " . htmlspecialchars($row['closed_tickets'], ENT_QUOTES, 'UTF-8') . "</span>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class='action-buttons'>
                                         <a class='view-btn' href='#' onclick=\"showTechnicianViewModal('" . htmlspecialchars($row['u_fname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_lname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_email'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['u_type'], ENT_QUOTES, 'UTF-8') . "', '" . $statusDisplay . "')\" title='View Technician'><i class='fas fa-eye'></i></a>
-                                        <a class='assign-btn' href='#' onclick=\"showAssignTicketModal('" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . $technicianName . "')\" title='Assign Ticket' " . ($statusDisplay === 'Not Available' ? 'style="pointer-events: none; opacity: 0.5;"' : '') . "><i class='fas fa-user-plus'></i></a>
+                                        <a class='assign-btn' href='#' onclick=\"handleAssignClick('" . htmlspecialchars($row['u_username'], ENT_QUOTES, 'UTF-8') . "', '" . $technicianName . "', " . ($row['is_online'] ? 'true' : 'false') . ")\" title='Assign Ticket' " . ($row['is_online'] ? '' : 'style=\"pointer-events: none; opacity: 0.5;\"') . "><i class='fas fa-user-plus'></i></a>
                                     </td>
                                   </tr>";
                         }
@@ -672,17 +732,34 @@ $conn->close();
     </div>
 </div>
 
+<!-- Offline Technician Modal -->
+<div id="offlineTechnicianModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Technician Offline</h2>
+        </div>
+        <div class="view-details">
+            <p>Cannot assign ticket because the technician is offline.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel" onclick="closeModal('offlineTechnicianModal')">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Handle alert messages
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
             alert.style.transition = 'opacity 1s ease-out';
             alert.style.opacity = '0';
             setTimeout(() => alert.remove(), 1000);
-        }, 5000); // Match alert timing with technicianD.php
+        }, 5000);
     });
+
+    // Poll for status updates every 30 seconds
+    setInterval(searchTechnicians, 30000);
 });
 
 function debounce(func, wait) {
@@ -712,7 +789,6 @@ function searchTechnicians(page = 1) {
     })
     .then(data => {
         if (data.success) {
-            // Validate response contains only table rows
             if (!data.html.includes('<tr')) {
                 console.error('Invalid response: Expected table rows, got:', data.html);
                 tbody.innerHTML = '<tr><td colspan="6">Error: Invalid server response.</td></tr>';
@@ -728,32 +804,6 @@ function searchTechnicians(page = 1) {
     .catch(error => {
         console.error('Error searching technicians:', error);
         tbody.innerHTML = '<tr><td colspan="6">Error loading technicians: ' + error.message + '</td></tr>';
-    });
-}
-
-function searchTickets() {
-    const searchTerm = document.getElementById('ticketSearchInput').value;
-    const tbody = document.getElementById('tickets-tbody');
-
-    fetch(`AssignTech.php?action=search_tickets&search=${encodeURIComponent(searchTerm)}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            tbody.innerHTML = data.html;
-        } else {
-            console.error('Error loading tickets:', data.error);
-            tbody.innerHTML = '<tr><td colspan="2">Error loading tickets: ' + data.error + '</td></tr>';
-        }
-    })
-    .catch(error => {
-        console.error('Error searching tickets:', error);
-        tbody.innerHTML = '<tr><td colspan="2">Error loading tickets: ' + error.message + '</td></tr>';
     });
 }
 
@@ -804,7 +854,11 @@ function showTechnicianViewModal(firstName, lastName, email, type, status) {
     document.getElementById('technicianViewModal').style.display = 'block';
 }
 
-function showAssignTicketModal(technicianUsername, technicianName) {
+function handleAssignClick(technicianUsername, technicianName, isOnline) {
+    if (!isOnline) {
+        document.getElementById('offlineTechnicianModal').style.display = 'block';
+        return;
+    }
     document.getElementById('assignTechnicianUsername').value = technicianUsername;
     document.getElementById('assignTechnicianName').textContent = technicianName;
     document.getElementById('assignTicketModal').style.display = 'block';
@@ -820,16 +874,40 @@ function selectTicket(t_ref, ticket_type) {
     document.getElementById('assignTicketType').value = ticket_type;
     document.getElementById('assignButton').disabled = false;
 
-    // Highlight selected row
     const rows = document.querySelectorAll('.ticket-row');
     rows.forEach(row => row.classList.remove('selected'));
     const selectedRow = Array.from(rows).find(row => row.getAttribute('data-tref') === t_ref);
     if (selectedRow) selectedRow.classList.add('selected');
 }
 
+function searchTickets() {
+    const searchTerm = document.getElementById('ticketSearchInput').value;
+    const tbody = document.getElementById('tickets-tbody');
+
+    fetch(`AssignTech.php?action=search_tickets&search=${encodeURIComponent(searchTerm)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            tbody.innerHTML = data.html;
+        } else {
+            console.error('Error loading tickets:', data.error);
+            tbody.innerHTML = '<tr><td colspan="2">Error loading tickets: ' + data.error + '</td></tr>';
+        }
+    })
+    .catch(error => {
+        console.error('Error searching tickets:', error);
+        tbody.innerHTML = '<tr><td colspan="2">Error loading tickets: ' + error.message + '</td></tr>';
+    });
+}
+
 document.getElementById('assignTicketForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    // Clear existing alerts
     const alertContainer = document.querySelector('.alert-container');
     alertContainer.innerHTML = '';
 
@@ -845,7 +923,6 @@ document.getElementById('assignTicketForm').addEventListener('submit', function(
     })
     .then(data => {
         if (data.success) {
-            // Remove the assigned ticket from the table
             const t_ref = data.t_ref;
             const row = document.querySelector(`.ticket-row[data-tref='${CSS.escape(t_ref)}']`);
             if (row) {
@@ -854,11 +931,9 @@ document.getElementById('assignTicketForm').addEventListener('submit', function(
             } else {
                 console.log(`Ticket row with t_ref: ${t_ref} not found`);
             }
-            // Clear form and disable button
             document.getElementById('assignTicketRef').value = '';
             document.getElementById('assignTicketType').value = '';
             document.getElementById('assignButton').disabled = true;
-            // Refresh ticket table to ensure assigned ticket is gone
             searchTickets();
             closeModal('assignTicketModal');
             const successAlert = document.createElement('div');
@@ -870,7 +945,6 @@ document.getElementById('assignTicketForm').addEventListener('submit', function(
                 successAlert.style.opacity = '0';
                 setTimeout(() => successAlert.remove(), 1000);
             }, 5000);
-            // Refresh technicians table to update status
             searchTechnicians();
         } else {
             console.error('Assignment error:', data.error);

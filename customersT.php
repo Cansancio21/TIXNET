@@ -236,56 +236,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
         $tab = 'customers_archived';
     } elseif (isset($_POST['activate_billing'])) {
-        $account_no = $_POST['c_account_no'];
-        $due_date = $_POST['due_date'];
-        $advance_days = (int)$_POST['advance_days'];
+    $account_no = $_POST['c_account_no'];
+    $due_date = $_POST['due_date'];
+    $advance_days = (int)$_POST['advance_days'];
 
-        // Validate inputs
-        if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
-            $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
-        } elseif ($advance_days <= 0) {
-            $_SESSION['error'] = "Advance days must be a positive number.";
-        } else {
-            // Calculate dates
-            $start_date = date('Y-m-d'); // Current date
-            $due_date_obj = new DateTime($due_date);
-            $next_due = (clone $due_date_obj)->modify('+31 days');
-            
-            // Adjust for month-end (e.g., September 30 → October 1)
-            $day = $due_date_obj->format('d');
-            if ($day > 28) {
-                $next_due->modify('first day of next month');
-                if ($day == 31) {
-                    $next_due->modify('-1 day');
-                }
-            }
-            
-            $next_due_date = $next_due->format('Y-m-d');
-            $last_due_date = null; // Initially null
-            $next_bill_date = $next_due_date; // Align with next due date
-            $billing_status = 'Active';
-            $balance = 0.00; // Default balance
+    // Validate inputs
+    if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
+        $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
+    } elseif ($advance_days <= 0) {
+        $_SESSION['error'] = "Advance days must be a positive number.";
+    } else {
+        // Calculate dates
+        $start_date = date('Y-m-d'); // Current date
+        $due_date_obj = new DateTime($due_date);
+        $next_due = (clone $due_date_obj)->modify('+31 days');
 
-            // Update database
-            $sql = "UPDATE tbl_customer 
-                    SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_billstatus = ? 
-                    WHERE c_account_no = ?";
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param("dssssss", $balance, $start_date, $next_due_date, $last_due_date, $next_bill_date, $billing_status, $account_no);
-                if ($stmt->execute()) {
-                    $_SESSION['message'] = "Billing activated successfully for account $account_no!";
-                } else {
-                    $_SESSION['error'] = "Error activating billing: " . $stmt->error;
-                    error_log("Error activating billing for account_no $account_no: " . $stmt->error);
-                }
-                $stmt->close();
-            } else {
-                $_SESSION['error'] = "Prepare failed: " . $conn->error;
-                error_log("Prepare failed for activate billing: " . $conn->error);
+        // Adjust for month-end (e.g., September 30 → October 1)
+        $day = $due_date_obj->format('d');
+        if ($day > 28) {
+            $next_due->modify('first day of next month');
+            if ($day == 31) {
+                $next_due->modify('-1 day');
             }
         }
+
+        $next_due_date = $next_due->format('Y-m-d');
+        // Calculate next bill date: next due date minus advance days
+        $next_bill = (clone $next_due)->modify("-{$advance_days} days");
+        $next_bill_date = $next_bill->format('Y-m-d');
+        $last_due_date = null; // Initially null
+        $billing_status = 'Active';
+        $balance = 0.00; // Default balance
+
+        // Update database
+        $sql = "UPDATE tbl_customer 
+                SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_billstatus = ? 
+                WHERE c_account_no = ?";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param("dssssss", $balance, $start_date, $next_due_date, $last_due_date, $next_bill_date, $billing_status, $account_no);
+            if ($stmt->execute()) {
+                $_SESSION['message'] = "Billing activated successfully for account $account_no!";
+            } else {
+                $_SESSION['error'] = "Error activating billing: " . $stmt->error;
+                error_log("Error activating billing for account_no $account_no: " . $stmt->error);
+            }
+            $stmt->close();
+        } else {
+            $_SESSION['error'] = "Prepare failed: " . $conn->error;
+            error_log("Prepare failed for activate billing: " . $conn->error);
+        }
     }
+}
 
     if (!$isAjax) {
         header("Location: customersT.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
@@ -624,6 +626,7 @@ if ($conn) {
     </div>
 </div>
 
+
 <!-- Activate Billing Modal -->
 <div id="activateBillingModal" class="modal">
     <div class="modal-content">
@@ -638,9 +641,9 @@ if ($conn) {
                 <input type="date" id="start_date" name="start_date" value="<?php echo date('Y-m-d'); ?>" readonly>
                 <label for="due_date">Due Date:</label>
                 <input type="date" id="due_date" name="due_date" required onchange="calculateNextDueDate()">
-                <label for="advance_days">Advance Billing:</label>
+                <label for="advance_days">Advance Billing (days):</label>
                 <input type="number" id="advance_days" name="advance_days" min="1" required placeholder="Enter number of days">
-                <p class="billing-note"><strong>Note:</strong> The next due date is calculated as 31 days from the due date. If the due date is July 23, 2025, the next due date is August 23, 2025. If the due date is September 30, 2025, the next due date will be October 1, 2025, as September 31 does not exist.</p>
+                <p class="billing-note"><strong>Note:</strong> The next due date is calculated as 31 days from the due date. If the due date is August 3, 2025, the next due date is September 3, 2025. If advance billing is set to 7 days, the next bill date will be August 27, 2025 (7 days before September 3, 2025). For month-end dates (e.g., September 30, 2025), the next due date will be October 1, 2025.</p>
                 <input type="hidden" name="activate_billing" value="1">
                 <div class="modal-footer">
                     <button type="button" class="modal-btn cancel" onclick="closeModal('activateBillingModal')">Cancel</button>
