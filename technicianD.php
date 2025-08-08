@@ -421,7 +421,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 <p>We are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.</p>
                                 <p><strong>Ticket Details:</strong></p>
                                 <p><strong>Ticket Ref:</strong> {$t_ref}</p>
-                                <p><strong>Account No:</strong> {$ticket['c_account_no']}</p>
+                                <p><strong>Customer ID:</strong> {$ticket['c_id']}</p>
                                 <p><strong>Subject:</strong> {$ticket['s_subject']}</p>
                                 <p><strong>Message:</strong> {$ticket['s_message']}</p>
                                 <p><strong>Status:</strong> Closed</p>
@@ -699,12 +699,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
                  ($status === 'open' && !$isArchived ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") . 
                  ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>";
             echo "<td class='action-buttons'>";
-            echo "<span class='view-btn' onclick='showViewModal(\"$tab\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>";
+            echo "<span class='view-btn btn btn-primary' onclick='showViewModal(\"$tab\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>";
             if (!$isArchived) {
-                echo "<span class='archive-btn' onclick='openModal(\"archive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>";
+                echo "<span class='archive-btn btn btn-secondary' onclick='openModal(\"archive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>";
             } else {
-                echo "<span class='unarchive-btn' onclick='openModal(\"unarchive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>";
-                echo "<span class='delete-btn' onclick='openModal(\"delete\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>";
+                echo "<span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>";
+                echo "<span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>";
             }
             echo "</td></tr>";
         }
@@ -876,7 +876,7 @@ $conn->close();
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
-        <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
+        <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="technicianD.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="techBorrowed.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
@@ -1017,8 +1017,8 @@ $conn->close();
                                                     ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"regular\")'" : "'") . 
                                                     ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
-                                                        <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='archive-btn' onclick='openModal(\"archive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
+                                                        <span class='view-btn btn btn-primary' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                        <span class='archive-btn btn btn-secondary' onclick='openModal(\"archive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
                                                     </td>
                                                   </tr>";
                                         }
@@ -1078,9 +1078,9 @@ $conn->close();
                                                     <td>" . htmlspecialchars($display_details, ENT_QUOTES, 'UTF-8') . "</td>
                                                     <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
-                                                        <span class='view-btn' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
-                                                        <span class='delete-btn' onclick='openModal(\"delete\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
+                                                        <span class='view-btn btn btn-primary' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                        <span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                        <span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                     </td>
                                                   </tr>";
                                         }
@@ -1162,8 +1162,8 @@ $conn->close();
                                                     ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"support\")'" : "'") . 
                                                     ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
-                                                        <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='archive-btn' onclick='openModal(\"archive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
+                                                        <span class='view-btn btn btn-primary' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                        <span class='archive-btn btn btn-secondary' onclick='openModal(\"archive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>
                                                     </td>
                                                   </tr>";
                                         }
@@ -1226,9 +1226,9 @@ $conn->close();
                                                     <td>" . htmlspecialchars($display_details, ENT_QUOTES, 'UTF-8') . "</td>
                                                     <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
-                                                        <span class='view-btn' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='unarchive-btn' onclick='openModal(\"unarchive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
-                                                        <span class='delete-btn' onclick='openModal(\"delete\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
+                                                        <span class='view-btn btn btn-primary' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                                        <span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                        <span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                     </td>
                                                   </tr>";
                                         }
@@ -1238,295 +1238,304 @@ $conn->close();
                                     ?>
                                 </tbody>
                             </table>
-                            <div class="pagination" id="support-archived-pagination">
-                                <?php
-                                $paginationParams = "&search=" . urlencode($searchTerm ?? '');
-                                if ($supportArchivedPage > 1) {
-                                    echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
-                                } else {
-                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
-                                }
-                                echo "<span class='current-page'>Page $supportArchivedPage of $totalSupportArchivedPages</span>";
-                                if ($supportArchivedPage < $totalSupportArchivedPages) {
-                                    echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
-                                } else {
-                                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
-                                }
-                                ?>
-                            </div>
+                        <div class="pagination" id="support-archived-pagination">
+    <?php
+    $paginationParams = "&search=" . urlencode($searchTerm ?? '');
+    if ($supportArchivedPage > 1) {
+        echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
+    } else {
+        echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+    }
+    echo "<span class='current-page'>Page $supportArchivedPage of $totalSupportArchivedPages</span>";
+    if ($supportArchivedPage < $totalSupportArchivedPages) {
+        echo "<a href='?tab=supportArchived&supportArchivedPage=" . ($supportArchivedPage + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
+    } else {
+        echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+    }
+    ?>
+</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- View Modal -->
-<div id="ticketViewModal" class="modal view-modal">
-    <div class="modal-content glass-container">
-        <div class="modal-header">
-            <h2>Ticket Details</h2>
-        </div>
-        <div id="ticketViewContent" class="view-details"></div>
-               <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('ticketViewModal')">Close</button>
+    <!-- Close Ticket Modal -->
+    <div id="closeTicketModal" class="modal close-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Close Ticket</h2>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to close ticket <span id="closeTicketRef"></span> for <span id="closeCustomerName"></span>?</p>
+     
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" onclick="closeModal('closeTicketModal')">Cancel</button>
+                <button class="modal-btn confirm" id="confirmCloseBtn" onclick="submitAction('close')">Confirm</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Action Confirmation Modal -->
-<div id="actionModal" class="modal">
-    <div class="modal-content glass-container">
-        <div class="modal-header">
-            <h2 id="actionModalTitle">Confirm Action</h2>
-        </div>
-        <div class="modal-body">
-            <p id="actionModalMessage"></p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('actionModal')">Cancel</button>
-            <button class="btn btn-primary" id="confirmActionBtn">Confirm</button>
+    <!-- Archive/Unarchive/Delete Modal -->
+    <div id="actionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="actionModalTitle"></h2>
+               
+            </div>
+            <div class="modal-body">
+                <p id="actionModalMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" onclick="closeModal('actionModal')">Cancel</button>
+                <button class="modal-btn confirm" id="confirmActionBtn" onclick="submitAction()">Confirm</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Close Ticket Modal -->
-<div id="closeTicketModal" class="modal">
-    <div class="modal-content glass-container">
-        <div class="modal-header">
-            <h2>Close Ticket</h2>
-        </div>
-        <div class="modal-body">
-            <p>Are you sure you want to close ticket <strong id="closeTicketRef"></strong> for <strong id="closeTicketCustomer"></strong>?</p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('closeTicketModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="confirmCloseTicket()">Close Ticket</button>
+    <!-- View Ticket Modal -->
+    <div id="viewTicketModal" class="modal view-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>View Ticket</h2>
+         
+            </div>
+            <div class="modal-body">
+                <p><strong>Ticket Ref:</strong> <span id="viewTicketRef"></span></p>
+                <?php if ($tab === 'support' || $tab === 'supportArchived'): ?>
+                    <p><strong>Customer ID:</strong> <span id="viewCustomerId"></span></p>
+                <?php endif; ?>
+                <p><strong>Customer Name:</strong> <span id="viewCustomerName"></span></p>
+                <p><strong>Subject:</strong> <span id="viewSubject"></span></p>
+                <p><strong>Message:</strong> <span id="viewDetails"></span></p>
+                <p><strong>Status:</strong> <span id="viewStatus"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
+            </div>
         </div>
     </div>
+
 </div>
 
 <script>
-let currentAction = '';
-let currentTab = '<?php echo $tab; ?>';
-let currentTicketData = null;
+    let currentAction = '';
+    let currentTicketType = '';
+    let currentTicketId = '';
 
-function openMainTab(tabId, subTab) {
-    document.querySelectorAll('.main-tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.main-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    document.querySelector(`.main-tab-buttons .tab-button[onclick*="${tabId}"]`).classList.add('active');
-    openSubTab(subTab === 'regularArchived' ? 'regularArchivedTicketsContent' : (subTab === 'supportArchived' ? 'supportArchivedTicketsContent' : `${tabId}Content`), subTab);
-    searchTickets(1); // Reset to page 1 when switching tabs
-}
+    function openMainTab(tabId, subTab) {
+        document.querySelectorAll('.main-tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.main-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.querySelector(`.main-tab-buttons .tab-button[onclick*="${tabId}"]`).classList.add('active');
+        openSubTab(tabId === 'regularTickets' ? 'regularTicketsContent' : 'supportTicketsContent', subTab);
+        searchTickets(1, subTab);
+    }
 
-function openSubTab(tabId, tabName) {
-    document.querySelectorAll('.sub-tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    document.querySelector(`.sub-tab-buttons .tab-button[onclick*="${tabName}"]`).classList.add('active');
-    currentTab = tabName;
-    searchTickets(1); // Reset to page 1 when switching sub-tabs
-}
+    function openSubTab(tabId, tabName) {
+        document.querySelectorAll('.sub-tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.sub-tab-buttons .tab-button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.querySelector(`.sub-tab-buttons .tab-button[onclick*="${tabName}"]`).classList.add('active');
+        searchTickets(1, tabName);
+    }
 
-function openModal(action, tab, ticketData) {
-    currentAction = action;
-    currentTab = tab;
-    currentTicketData = ticketData;
-    const modal = document.getElementById('actionModal');
-    const title = document.getElementById('actionModalTitle');
-    const message = document.getElementById('actionModalMessage');
-    const actionText = action.charAt(0).toUpperCase() + action.slice(1);
-    title.textContent = `Confirm ${actionText}`;
-    message.textContent = `Are you sure you want to ${action} ticket ${ticketData.ref}?`;
-    modal.style.display = 'flex';
-}
+    function openModal(action, ticketType, ticket) {
+        currentAction = action;
+        currentTicketType = ticketType;
+        currentTicketId = ticket.ref;
+        const modal = document.getElementById('actionModal');
+        const title = document.getElementById('actionModalTitle');
+        const message = document.getElementById('actionModalMessage');
+        title.textContent = action.charAt(0).toUpperCase() + action.slice(1) + ' Ticket';
+        message.textContent = `Are you sure you want to ${action} ticket ${ticket.ref}?`;
+        modal.className = `modal ${action}-modal`;
+        modal.style.display = 'block';
+    }
 
-function openCloseModal(ref, customer, tab) {
-    currentTab = tab;
-    currentTicketData = { ref: ref };
-    const modal = document.getElementById('closeTicketModal');
-    document.getElementById('closeTicketRef').textContent = ref;
-    document.getElementById('closeTicketCustomer').textContent = customer;
-    modal.style.display = 'flex';
-}
+    function openCloseModal(ref, customerName, ticketType) {
+        currentTicketId = ref;
+        currentTicketType = ticketType;
+        document.getElementById('closeTicketRef').textContent = ref;
+        document.getElementById('closeCustomerName').textContent = customerName;
+        document.getElementById('closeTicketModal').style.display = 'block';
+    }
 
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        currentAction = '';
+        currentTicketId = '';
+        currentTicketType = '';
+    }
 
-function showViewModal(tab, ticketData) {
-    const modal = document.getElementById('ticketViewModal');
-    const content = document.getElementById('ticketViewContent');
-    let html = `
-        <p><strong>Ticket Ref:</strong> ${ticketData.ref}</p>
-        ${tab.includes('support') ? `<p><strong>Customer ID:</strong> ${ticketData.c_id || 'N/A'}</p>` : ''}
-        <p><strong>Customer Name:</strong> ${ticketData.aname || 'N/A'}</p>
-        <p><strong>Subject:</strong> ${ticketData.subject || 'N/A'}</p>
-        <p><strong>Message:</strong> ${ticketData.details || 'N/A'}</p>
-        <p><strong>Status:</strong> ${ticketData.status || 'N/A'}</p>
-    `;
-    content.innerHTML = html;
-    modal.style.display = 'flex';
-}
-
-function confirmCloseTicket() {
-    if (!currentTicketData || !currentTab) return;
-    const form = document.getElementById('actionForm');
-    form.querySelector('#actionFormAction').value = 'close';
-    form.querySelector('#actionFormId').value = currentTicketData.ref;
-    form.querySelector('#actionFormType').value = currentTab.includes('support') ? 'support' : 'regular';
-    submitActionForm(form, () => {
-        closeModal('closeTicketModal');
-        searchTickets(getCurrentPage());
-    });
-}
-
-document.getElementById('confirmActionBtn').addEventListener('click', () => {
-    if (!currentAction || !currentTab || !currentTicketData) return;
-    const form = document.getElementById('actionForm');
-    form.querySelector('#actionFormAction').value = currentAction;
-    form.querySelector('#actionFormId').value = currentTicketData.ref;
-    form.querySelector('#actionFormType').value = currentTab.includes('support') ? 'support' : 'regular';
-    submitActionForm(form, () => {
-        closeModal('actionModal');
-        searchTickets(getCurrentPage());
-    });
-});
-
-function submitActionForm(form, callback) {
-    const formData = new FormData(form);
-    fetch('', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('success', data.message);
-            updateDashboardCounts(data.counts);
-            if (callback) callback();
-        } else {
-            showAlert('error', data.error || 'Action failed.');
+    function showViewModal(ticketType, ticketData) {
+        document.getElementById('viewTicketRef').textContent = ticketData.ref;
+        if (ticketType === 'support') {
+            document.getElementById('viewCustomerId').textContent = ticketData.c_id || 'N/A';
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('error', 'An error occurred. Please try again.');
-    });
-}
-
-function updateDashboardCounts(counts) {
-    document.getElementById('pendingTasksCount').textContent = counts.pendingTasks;
-    document.getElementById('openTicketsCount').textContent = counts.openTickets;
-    document.getElementById('openTicketsCount2').textContent = counts.openTickets;
-    document.getElementById('closedTicketsCount').textContent = counts.closedTickets;
-    document.getElementById('archivedRegularCount').textContent = counts.archivedRegular;
-    document.getElementById('supportOpenCount').textContent = counts.supportOpen;
-    document.getElementById('supportOpenCount2').textContent = counts.supportOpen;
-    document.getElementById('supportClosedCount').textContent = counts.supportClosed;
-    document.getElementById('archivedSupportCount').textContent = counts.archivedSupport;
-    document.getElementById('regularActiveCount').textContent = counts.openTickets;
-    const regularArchivedBadge = document.getElementById('regularArchivedCount');
-    regularArchivedBadge.textContent = counts.archivedRegular;
-    if (counts.archivedRegular > 0) {
-        regularArchivedBadge.classList.add('tab-badge');
-    } else {
-        regularArchivedBadge.classList.remove('tab-badge');
+        document.getElementById('viewCustomerName').textContent = ticketData.aname || 'N/A';
+        document.getElementById('viewSubject').textContent = ticketData.subject || 'N/A';
+        document.getElementById('viewDetails').textContent = ticketData.details || 'N/A';
+        document.getElementById('viewStatus').textContent = ticketData.status || 'N/A';
+        document.getElementById('viewTicketModal').style.display = 'block';
     }
-    document.getElementById('supportActiveCount').textContent = counts.supportOpen;
-    const supportArchivedBadge = document.getElementById('supportArchivedCount');
-    supportArchivedBadge.textContent = counts.archivedSupport;
-    if (counts.archivedSupport > 0) {
-        supportArchivedBadge.classList.add('tab-badge');
-    } else {
-        supportArchivedBadge.classList.remove('tab-badge');
+
+    function submitAction(actionOverride) {
+        const action = actionOverride || currentAction;
+        if (!action || !currentTicketId || !currentTicketType) return;
+
+        const confirmBtn = action === 'close' ? document.getElementById('confirmCloseBtn') : document.getElementById('confirmActionBtn');
+        confirmBtn.disabled = true;
+        confirmBtn.setAttribute('data-loading', 'true');
+        confirmBtn.textContent = 'Processing...';
+
+        const form = document.getElementById('actionForm');
+        document.getElementById('actionFormAction').value = action;
+        document.getElementById('actionFormId').value = currentTicketId;
+        document.getElementById('actionFormType').value = currentTicketType;
+
+        const formData = new FormData(form);
+        const timeout = setTimeout(() => {
+            confirmBtn.disabled = false;
+            confirmBtn.removeAttribute('data-loading');
+            confirmBtn.textContent = 'Confirm';
+            showAlert('error', 'Request timed out. Please try again.');
+        }, 10000); // 10-second timeout
+
+        fetch('technicianD.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            clearTimeout(timeout);
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            console.log('AJAX Response:', data); // Debug log
+            if (data.success) {
+                showAlert('success', data.message);
+                updateCounts(data.counts);
+                searchTickets(1, currentTicketType);
+                closeModal(action === 'close' ? 'closeTicketModal' : 'actionModal');
+            } else {
+                showAlert('error', data.error || 'An error occurred.');
+            }
+        })
+        .catch(error => {
+            clearTimeout(timeout);
+            console.error('AJAX Error:', error); // Debug log
+            showAlert('error', 'An error occurred: ' + error.message);
+        })
+        .finally(() => {
+            confirmBtn.disabled = false;
+            confirmBtn.removeAttribute('data-loading');
+            confirmBtn.textContent = 'Confirm';
+        });
     }
-}
 
-function getCurrentPage() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (currentTab === 'regular') {
-        return parseInt(urlParams.get('regularActivePage')) || 1;
-    } else if (currentTab === 'regularArchived') {
-        return parseInt(urlParams.get('regularArchivedPage')) || 1;
-    } else if (currentTab === 'support') {
-        return parseInt(urlParams.get('supportActivePage')) || 1;
-    } else if (currentTab === 'supportArchived') {
-        return parseInt(urlParams.get('supportArchivedPage')) || 1;
+    function updateCounts(counts) {
+        document.getElementById('pendingTasksCount').textContent = counts.pendingTasks || 0;
+        document.getElementById('openTicketsCount').textContent = counts.openTickets || 0;
+        document.getElementById('openTicketsCount2').textContent = counts.openTickets || 0;
+        document.getElementById('closedTicketsCount').textContent = counts.closedTickets || 0;
+        document.getElementById('archivedRegularCount').textContent = counts.archivedRegular || 0;
+        document.getElementById('supportOpenCount').textContent = counts.supportOpen || 0;
+        document.getElementById('supportOpenCount2').textContent = counts.supportOpen || 0;
+        document.getElementById('supportClosedCount').textContent = counts.supportClosed || 0;
+        document.getElementById('archivedSupportCount').textContent = counts.archivedSupport || 0;
+        document.getElementById('regularActiveCount').textContent = counts.openTickets || 0;
+        document.getElementById('regularArchivedCount').textContent = counts.archivedRegular || 0;
+        document.getElementById('supportActiveCount').textContent = counts.supportOpen || 0;
+        document.getElementById('supportArchivedCount').textContent = counts.archivedSupport || 0;
     }
-    return 1;
-}
 
-function showAlert(type, message) {
-    const alertContainer = document.querySelector('.alert-container');
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type}`;
-    alert.textContent = message;
-    alertContainer.appendChild(alert);
-    setTimeout(() => alert.remove(), 3000);
-}
+    function showAlert(type, message) {
+        const alertContainer = document.querySelector('.alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        alertContainer.appendChild(alert);
+        setTimeout(() => {
+            alert.classList.add('alert-hidden');
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
+    }
 
-function searchTickets(page) {
-    const searchTerm = document.getElementById('searchInput').value;
-    fetch(`technicianD.php?action=search_tickets&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&page=${page}`, {
-        method: 'GET'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const tbodyId = currentTab.includes('regular') ? 
-                (currentTab === 'regular' ? 'regular_tbody' : 'regular_archived_tbody') :
-                (currentTab === 'support' ? 'support_tbody' : 'support_archived_tbody');
-            document.getElementById(tbodyId).innerHTML = data.html;
-            updateDashboardCounts(data.counts);
-            updatePagination(data.currentPage, data.totalPages);
-        } else {
-            showAlert('error', data.error || 'Failed to fetch tickets.');
+    function searchTickets(page, tab) {
+        const searchTerm = document.getElementById('searchInput').value;
+        const tbodyId = tab === 'regular' ? 'regular_tbody' : 
+                        tab === 'regularArchived' ? 'regular_archived_tbody' : 
+                        tab === 'support' ? 'support_tbody' : 'support_archived_tbody';
+        const paginationId = tab === 'regular' ? 'regular-active-pagination' : 
+                            tab === 'regularArchived' ? 'regular-archived-pagination' : 
+                            tab === 'support' ? 'support-active-pagination' : 'support-archived-pagination';
+
+        fetch(`technicianD.php?action=search_tickets&tab=${tab}&page=${page}&search=${encodeURIComponent(searchTerm)}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                console.log('Search Tickets Response:', data); // Debug log
+                if (data.success) {
+                    document.getElementById(tbodyId).innerHTML = data.html;
+                    updateCounts(data.counts);
+                    const pagination = document.getElementById(paginationId);
+                    let paginationHTML = '';
+                    if (data.currentPage > 1) {
+                        paginationHTML += `<a href="?tab=${tab}&${tab}Page=${data.currentPage - 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+                    } else {
+                        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+                    }
+                    paginationHTML += `<span class="current-page">Page ${data.currentPage} of ${data.totalPages}</span>`;
+                    if (data.currentPage < data.totalPages) {
+                        paginationHTML += `<a href="?tab=${tab}&${tab}Page=${data.currentPage + 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+                    } else {
+                        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+                    }
+                    pagination.innerHTML = paginationHTML;
+                } else {
+                    showAlert('error', data.error || 'Failed to fetch tickets.');
+                }
+            })
+            .catch(error => {
+                console.error('Search Tickets Error:', error); // Debug log
+                showAlert('error', 'An error occurred while searching: ' + error.message);
+            });
+    }
+
+    // Debounce function to limit search frequency
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    const debouncedSearchTickets = debounce(() => {
+        const tab = document.querySelector('.sub-tab-content.active').id.replace('TicketsContent', '');
+        searchTickets(1, tab);
+    }, 300);
+
+    // Prevent closing modals by clicking outside for closeTicketModal
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal') && event.target.id !== 'closeTicketModal') {
+            closeModal(event.target.id);
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('error', 'An error occurred while searching tickets.');
+    };
+
+    // Initialize default tab
+    document.addEventListener('DOMContentLoaded', () => {
+        openMainTab('<?php echo in_array($tab, ['regular', 'regularArchived']) ? 'regularTickets' : 'supportTickets'; ?>', '<?php echo $tab; ?>');
     });
-}
-
-function updatePagination(currentPage, totalPages) {
-    const paginationId = currentTab.includes('regular') ?
-        (currentTab === 'regular' ? 'regular-active-pagination' : 'regular-archived-pagination') :
-        (currentTab === 'support' ? 'support-active-pagination' : 'support-archived-pagination');
-    const paginationContainer = document.getElementById(paginationId);
-    const searchTerm = document.getElementById('searchInput').value;
-    let paginationHtml = '';
-    const pageParam = currentTab === 'regular' ? 'regularActivePage' :
-                     currentTab === 'regularArchived' ? 'regularArchivedPage' :
-                     currentTab === 'support' ? 'supportActivePage' : 'supportArchivedPage';
-    
-    if (currentPage > 1) {
-        paginationHtml += `<a href="?tab=${currentTab}&${pageParam}=${currentPage - 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
-    }
-    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
-    if (currentPage < totalPages) {
-        paginationHtml += `<a href="?tab=${currentTab}&${pageParam}=${currentPage + 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
-    } else {
-        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
-    }
-    paginationContainer.innerHTML = paginationHtml;
-}
-
-let debounceTimeout;
-function debouncedSearchTickets() {
-    clearTimeout(debounceTimeout);
-    debounceTimeout = setTimeout(() => searchTickets(1), 300);
-}
-
-// Initialize current tab
-document.addEventListener('DOMContentLoaded', () => {
-    openMainTab(currentTab.includes('regular') ? 'regularTickets' : 'supportTickets', currentTab);
-});
 </script>
 
 </body>

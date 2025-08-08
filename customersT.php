@@ -236,61 +236,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
         $tab = 'customers_archived';
     } elseif (isset($_POST['activate_billing'])) {
-    $account_no = $_POST['c_account_no'];
-    $due_date = $_POST['due_date'];
-    $advance_days = (int)$_POST['advance_days'];
+        $account_no = $_POST['c_account_no'];
+        $due_date = $_POST['due_date'];
+        $advance_days = (int)$_POST['advance_days'];
 
-    // Validate inputs
-    if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
-        $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
-    } elseif ($advance_days <= 0) {
-        $_SESSION['error'] = "Advance days must be a positive number.";
-    } else {
-        // Calculate dates
-        $start_date = date('Y-m-d'); // Current date
-        $due_date_obj = new DateTime($due_date);
-        $next_due = (clone $due_date_obj)->modify('+31 days');
+        // Set Philippines time zone
+        date_default_timezone_set('Asia/Manila');
 
-        // Adjust for month-end (e.g., September 30 → October 1)
-        $day = $due_date_obj->format('d');
-        if ($day > 28) {
-            $next_due->modify('first day of next month');
-            if ($day == 31) {
-                $next_due->modify('-1 day');
-            }
-        }
-
-        $next_due_date = $next_due->format('Y-m-d');
-        // Calculate next bill date: next due date minus advance days
-        $next_bill = (clone $next_due)->modify("-{$advance_days} days");
-        $next_bill_date = $next_bill->format('Y-m-d');
-        $last_due_date = null; // Initially null
-        $billing_status = 'Active';
-        $balance = 0.00; // Default balance
-
-        // Update database
-        $sql = "UPDATE tbl_customer 
-                SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_billstatus = ? 
-                WHERE c_account_no = ?";
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("dssssss", $balance, $start_date, $next_due_date, $last_due_date, $next_bill_date, $billing_status, $account_no);
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Billing activated successfully for account $account_no!";
-            } else {
-                $_SESSION['error'] = "Error activating billing: " . $stmt->error;
-                error_log("Error activating billing for account_no $account_no: " . $stmt->error);
-            }
-            $stmt->close();
+        // Validate inputs
+        if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
+            $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
+        } elseif ($advance_days <= 0) {
+            $_SESSION['error'] = "Advance days must be a positive number.";
         } else {
-            $_SESSION['error'] = "Prepare failed: " . $conn->error;
-            error_log("Prepare failed for activate billing: " . $conn->error);
-        }
-    }
-}
+            // Calculate dates
+            $start_date = date('Y-m-d'); // Current date in Asia/Manila
+            $due_date_obj = new DateTime($due_date);
+            $next_due = (clone $due_date_obj)->modify('+31 days');
 
-    if (!$isAjax) {
-        header("Location: customersT.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+            // Adjust for month-end
+            $day = $due_date_obj->format('d');
+            if ($day > 28) {
+                $next_due->modify('first day of next month');
+                if ($day == 31) {
+                    $next_due->modify('-1 day');
+                }
+            }
+
+            $next_due_date = $next_due->format('Y-m-d');
+            $next_bill = (clone $next_due)->modify("-{$advance_days} days");
+            $next_bill_date = $next_bill->format('Y-m-d');
+            $last_due_date = null;
+            $billing_status = 'Active';
+            $balance = 0.00;
+
+            // Update database
+            $sql = "UPDATE tbl_customer 
+                    SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_billstatus = ? 
+                    WHERE c_account_no = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("dssssss", $balance, $start_date, $next_due_date, $last_due_date, $next_bill_date, $billing_status, $account_no);
+                if ($stmt->execute()) {
+                    $_SESSION['message'] = "Billing activated successfully for account $account_no!";
+                } else {
+                    $_SESSION['error'] = "Error activating billing: " . $stmt->error;
+                    error_log("Error activating billing for account_no $account_no: " . $stmt->error);
+                }
+                $stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed: " . $conn->error;
+                error_log("Prepare failed for activate billing: " . $conn->error);
+            }
+        }
+    } elseif (isset($_POST['record_payment'])) {
+        $account_no = $_POST['c_account_no'];
+        $transaction_date = $_POST['t_date'];
+        $credit_date = $_POST['t_credit_date'];
+        $transaction_description = $_POST['t_description'];
+        $transaction_amount = floatval($_POST['t_amount']);
+
+        // Set Philippines time zone
+        date_default_timezone_set('Asia/Manila');
+
+        // Validate inputs
+        if (empty($credit_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $credit_date)) {
+            $_SESSION['error'] = "Invalid credit date format. Please use YYYY-MM-DD.";
+        } elseif ($transaction_amount <= 0) {
+            $_SESSION['error'] = "Transaction amount must be a positive number.";
+        } else {
+            // Fetch customer first and last name
+            $sql = "SELECT c_fname, c_lname FROM tbl_customer WHERE c_account_no = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("s", $account_no);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $row = $result->fetch_assoc();
+                $customer_name = $row['c_fname'] . ' ' . $row['c_lname'];
+                $stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed for fetching customer name: " . $conn->error;
+                error_log("Prepare failed for fetching customer name: " . $conn->error);
+                header("Location: customersT.php");
+                exit();
+            }
+
+            // Set balance to 0.00 as per requirement
+            $new_balance = 0.00;
+
+            // Insert transaction record with customer name
+            $sql = "INSERT INTO tbl_transactions (t_date, t_balance, t_credit_date, t_description, t_amount, t_customer_name) VALUES (?, ?, ?, ?, ?, ?)";
+            $insert_stmt = $conn->prepare($sql);
+            if ($insert_stmt) {
+                $insert_stmt->bind_param("sdssds", $transaction_date, $new_balance, $credit_date, $transaction_description, $transaction_amount, $customer_name);
+                if ($insert_stmt->execute()) {
+                    $_SESSION['message'] = "Payment recorded successfully for account $account_no!";
+                } else {
+                    $_SESSION['error'] = "Error recording payment: " . $insert_stmt->error;
+                    error_log("Error recording payment for account $account_no: " . $insert_stmt->error);
+                }
+                $insert_stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed for payment: " . $conn->error;
+                error_log("Prepare failed for payment: " . $conn->error);
+            }
+
+            // Update customer balance to 0.00
+            $sql = "UPDATE tbl_customer SET c_balance = ? WHERE c_account_no = ?";
+            $update_stmt = $conn->prepare($sql);
+            if ($update_stmt) {
+                $update_stmt->bind_param("ds", $new_balance, $account_no);
+                if (!$update_stmt->execute()) {
+                    $_SESSION['error'] = "Error updating balance: " . $update_stmt->error;
+                    error_log("Error updating balance for account_no $account_no: " . $update_stmt->error);
+                }
+                $update_stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed for balance update: " . $conn->error;
+                error_log("Prepare failed for balance update: " . $conn->error);
+            }
+        }
+        // Redirect to refresh the page and display message/error
+        header("Location: customersT.php");
         exit();
     }
 }
@@ -358,7 +426,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customersT.css">
+    <link rel="stylesheet" href="customerT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -375,7 +443,9 @@ if ($conn) {
             <li><a href="customersT.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-            <li><a href="AssignTech.php"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+            <li><a href="AssignTech.php"><img src="image/technician.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+            <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
+
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -626,7 +696,6 @@ if ($conn) {
     </div>
 </div>
 
-
 <!-- Activate Billing Modal -->
 <div id="activateBillingModal" class="modal">
     <div class="modal-content">
@@ -638,7 +707,10 @@ if ($conn) {
             <p>Activate Billing Status for <span id="activateBillingCustomerName"></span></p>
             <div class="modal-form">
                 <label for="start_date">Start Date:</label>
-                <input type="date" id="start_date" name="start_date" value="<?php echo date('Y-m-d'); ?>" readonly>
+                <input type="date" id="start_date" name="start_date" value="<?php 
+                    date_default_timezone_set('Asia/Manila');
+                    echo date('Y-m-d');
+                ?>" readonly>
                 <label for="due_date">Due Date:</label>
                 <input type="date" id="due_date" name="due_date" required onchange="calculateNextDueDate()">
                 <label for="advance_days">Advance Billing (days):</label>
@@ -648,6 +720,54 @@ if ($conn) {
                 <div class="modal-footer">
                     <button type="button" class="modal-btn cancel" onclick="closeModal('activateBillingModal')">Cancel</button>
                     <button type="submit" class="modal-btn confirm">Activate</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Payment Transaction Modal -->
+<div id="paymentTransactionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Record Payment Transaction</h2>
+        </div>
+        <form method="POST" id="paymentTransactionForm">
+            <input type="hidden" name="c_account_no" id="paymentCustomerId">
+            <p>Record Payment for <span id="paymentCustomerName"></span></p>
+            <div class="modal-form">
+                <label for="t_date">Transaction Date:</label>
+                <input type="date" id="t_date" name="t_date" class="highlight-field" value="<?php 
+                    date_default_timezone_set('Asia/Manila');
+                    echo date('Y-m-d');
+                ?>" readonly>
+                <label for="t_balance">Current Balance: <span class="advance-text">Advance</span></label>
+                <input type="text" id="t_balance" name="t_balance" class="highlight-field" readonly>
+                <label for="t_credit_date">Credit Date:</label>
+                <input type="date" id="t_credit_date" name="t_credit_date" required>
+                <label for="t_description">Transaction Description:</label>
+                <select id="t_description" name="t_description" required>
+                    <option value="No description">No description</option>
+                    <option value="Custom description">Custom description</option>
+                    <option value="Stakeholder">Stakeholder</option>
+                    <option value="Plan 500">Plan 500</option>
+                    <option value="Plan 999">Plan 999</option>
+                    <option value="Plan 1499">Plan 1499</option>
+                    <option value="Plan 1799">Plan 1799</option>
+                    <option value="Plan 1999">Plan 1999</option>
+                    <option value="Plan 2500">Plan 2500</option>
+                    <option value="Plan 3000">Plan 3000</option>
+                    <option value="Plan 3500">Plan 3500</option>
+                    <option value="Plan 4000">Plan 4000</option>
+                    <option value="Plan 4500">Plan 4500</option>
+                    <option value="Plan 6000">Plan 6000</option>
+                </select>
+                <label for="t_amount">Transaction Amount:</label>
+                <input type="number" id="t_amount" name="t_amount" min="0" step="0.01" required placeholder="Enter amount">
+                <input type="hidden" name="record_payment" value="1">
+                <div class="modal-footer">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal('paymentTransactionModal')">Cancel</button>
+                    <button type="submit" class="modal-btn confirm">Record Payment</button>
                 </div>
             </div>
         </form>
@@ -844,7 +964,10 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
                 <p><strong>Last Due Date:</strong> ${lastdue || ''}</p>
                 <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
                 <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
-                <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
+                <div class="action-buttons-container">
+                    <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
+                    <a class='payment-btn' onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title='Record Payment'><i class='fas fa-money-bill-wave'></i></a>
+                </div>
             </div>
         </div>
         <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
@@ -879,6 +1002,25 @@ function showActivateBillingModal(account_no, name) {
     document.getElementById('activateBillingCustomerId').value = account_no;
     document.getElementById('activateBillingCustomerName').innerText = name;
     document.getElementById('activateBillingModal').style.display = 'block';
+}
+
+function showPaymentTransactionModal(account_no, name, balance, plan) {
+    document.getElementById('paymentCustomerId').value = account_no;
+    document.getElementById('paymentCustomerName').innerText = name;
+    document.getElementById('t_balance').value = balance;
+    document.getElementById('t_amount').value = '';
+    
+    // Set default transaction amount and description based on plan
+    const descriptionSelect = document.getElementById('t_description');
+    descriptionSelect.value = plan && plan.includes('Plan') ? plan : 'No description';
+    
+    // Extract plan amount if possible
+    const planAmountMatch = plan.match(/Plan (\d+)/);
+    if (planAmountMatch) {
+        document.getElementById('t_amount').value = parseFloat(planAmountMatch[1]).toFixed(2);
+    }
+    
+    document.getElementById('paymentTransactionModal').style.display = 'block';
 }
 
 function exportTable(format) {

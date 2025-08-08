@@ -406,7 +406,7 @@ th:last-child {
 }
 
 td {
-    padding: 10px;
+ 
     border-bottom: 1px solid #eee;
     vertical-align: middle;
     text-align: center;
@@ -430,8 +430,8 @@ th:nth-child(1) { width: 150px; } /* First Name */
 th:nth-child(2) { width: 150px; } /* Last Name */
 th:nth-child(3) { width: 200px; } /* Email */
 th:nth-child(4) { width: 100px; } /* Type */
-th:nth-child(5) { width: 100px; } /* Status */
-th:nth-child(6) { width: 100px; } /* Action */
+th:nth-child(5) { width: 150px; } /* Status - Increased to accommodate Open/Closed counts */
+th:nth-child(6) { width: 100px; } /* Action - Aligned with Status for balance */
 
 td:nth-child(3) {
     white-space: nowrap;
@@ -444,7 +444,7 @@ td:nth-child(5) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100px;
+    max-width: 150px;
 }
 
 tr:last-child td {
@@ -483,11 +483,11 @@ tr:hover td {
     justify-content: center;
     align-items: center;
     gap: 5px;
-    padding: 10px;
-    min-height: 50px;
+    padding: 16.5px;
+   
 }
 
-.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn {
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn, .assign-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -505,6 +505,14 @@ tr:hover td {
 
 .view-btn:hover {
     background-color: #2980b9;
+}
+
+.assign-btn {
+    background-color: #3498db; /* Matches view-btn */
+}
+
+.assign-btn:hover {
+    background-color: #2980b9; /* Matches view-btn hover */
 }
 
 .edit-btn {
@@ -614,7 +622,6 @@ tr:hover td {
     width: 90%;
     max-width: 500px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    
 }
 
 .modal-header {
@@ -798,4 +805,3 @@ tr:hover td {
 .alert-hidden {
     opacity: 0;
 }
-

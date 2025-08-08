@@ -723,11 +723,11 @@ tr:hover td {
     display: grid;
     grid-template-columns: 1fr; /* Single column for Service Details */
     gap: 10px;
-    background-color: #e6f3ff; /* Separate background for Service Details */
+    background-color: #e6f3ff; /* Original light blue background */
     padding: 15px;
-    border: 1px solid #b3d4fc;
+    border: 1px solid #b3d4fc; /* Original border color */
     border-radius: 8px;
-    margin-top: 10px; /* Space between Service Details and other sections */
+    margin-top: 10px; /* Consistent spacing */
 }
 
 .customer-details-column {
@@ -854,13 +854,20 @@ tr:hover td {
     background: var(--primary);
     color: white;
     transition: all 0.3s;
-    margin-top: 0; /* Remove top margin to align with the inner layout */
+    margin-top: 10px; /* Consistent spacing */
 }
 
 .details-btn.cancel:hover {
     background: var(--secondary);
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.advance-text {
+    color: var(--success); 
+    font-weight: 500;
+    font-size: 0.9em;
+    margin-left: 5px; 
 }
 
 /* Modal Form Adjustments */
@@ -882,7 +889,6 @@ tr:hover td {
     border-radius: 5px;
     width: 100%;
 }
-
 
 /* Archive Header */
 .archive-header {
@@ -960,6 +966,17 @@ tr:hover td {
     transform: translateX(0);
 }
 
+/* Highlighted Field Styling */
+.highlight-field {
+    background-color: #f0f4f8; /* Light blue-gray background */
+    text-align: center; /* Center the text */
+    border: 1px solid #b3d4fc; /* Matching border color */
+    border-radius: 5px;
+    padding: 8px;
+    margin: 5px 0 15px;
+    width: 100%;
+}
+
 /* Empty state styling */
 .empty-state {
     height: 300px;
@@ -982,79 +999,6 @@ tr:hover td {
     opacity: 0;
 }
 
-.delete-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    background-color: #ff6200;
-    color: #fff;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.delete-btn:hover {
-    background-color: #e55a00;
-    color: #fff;
-}
-
-.delete-btn i {
-    font-size: 16px;
-}
-
-.action-buttons {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    padding: 10px;
-}
-
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .ticket-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.view-btn {
-    background-color: #3498db;
-    color: #fff;
-}
-.view-btn:hover {
-    background-color: #2980b9;
-}
-
-.edit-btn {
-    background-color: #2ecc71;
-    color: #fff;
-}
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-    color: #fff;
-}
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.unarchive-btn {
-    background-color: #9b59b6;
-    color: #fff;
-}
-.unarchive-btn:hover {
-    background-color: #8e44ad;
-}
-
 /* Action Buttons */
 .action-buttons {
     display: flex;
@@ -1064,7 +1008,15 @@ tr:hover td {
     padding: 10px;
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn {
+.action-buttons-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px; /* Space between buttons */
+    margin-top: 10px; /* Space above the button container */
+}
+
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1108,20 +1060,11 @@ tr:hover td {
 }
 
 .delete-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
     background-color: #ff6200;
     color: #fff;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
 }
 .delete-btn:hover {
     background-color: #e55a00;
-    color: #fff;
 }
 .delete-btn i {
     font-size: 16px;
@@ -1133,7 +1076,6 @@ tr:hover td {
     border-radius: 5px;
     text-decoration: none;
     transition: background-color 0.3s ease;
-    margin-top: 10px;
 }
 .activate-btn:hover {
     background-color: #d35400;
@@ -1142,6 +1084,21 @@ tr:hover td {
     font-size: 16px; /* Match icon size with other buttons */
 }
 
+.payment-btn {
+    background-color: #2ecc71; /* Green color for payment, matching edit-btn for consistency */
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+.payment-btn:hover {
+    background-color: #27ae60; /* Darker green for hover state */
+}
+.payment-btn i {
+    font-size: 16px; /* Match icon size with other buttons */
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
     .sidebar {
         width: 70px;
@@ -1199,6 +1156,19 @@ tr:hover td {
         right: 0;
     }
 
+    .action-buttons {
+        gap: 3px;
+    }
+
+    .action-buttons-container {
+        gap: 8px; /* Slightly reduced gap for smaller screens */
+    }
+
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
+        width: 28px;
+        height: 28px;
+    }
+
     table {
         table-layout: auto;
     }
@@ -1206,15 +1176,6 @@ tr:hover td {
     th, td {
         font-size: 0.8rem;
         padding: 6px;
-    }
-
-    .action-buttons {
-        gap: 3px;
-    }
-
-    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .ticket-btn {
-        width: 28px;
-        height: 28px;
     }
 }
 
@@ -1249,5 +1210,9 @@ tr:hover td {
 
     .modal-btn {
         padding: 6px 15px;
+    }
+
+    .action-buttons-container {
+        gap: 6px; /* Further reduced gap for very small screens */
     }
 }

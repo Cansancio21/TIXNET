@@ -412,7 +412,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Technicians</title>
-    <link rel="stylesheet" href="AssignTech.css">
+    <link rel="stylesheet" href="AssignTechs.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -420,7 +420,10 @@ $conn->close();
         .status-container {
             display: flex;
             flex-direction: column;
+            align-items: center;
+            justify-content: center;
             gap: 4px;
+            min-height: 60px;
         }
 
         .status-badge {
@@ -576,7 +579,8 @@ $conn->close();
             <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
             <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-            <li><a href="AssignTech.php" class="active"><img src="image/add.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+           <li><a href="AssignTech.php" class="active"><img src="image/technician.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
+            <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
         </ul>
         <footer>
             <a href="index.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
