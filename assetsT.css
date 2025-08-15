@@ -19,7 +19,6 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
-    min-height: 100vh;
 }
 
 .glass-container {
@@ -31,10 +30,13 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+.assets h2 {
+    margin-bottom: 20px;
+}
+
 .wrapper {
     display: flex;
     min-height: 100vh;
-    width: 100%;
 }
 
 /* Sidebar */
@@ -49,8 +51,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    transition: width 0.3s ease;
-    
 }
 
 .sidebar h2 {
@@ -64,24 +64,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
 
 .sidebar ul {
@@ -109,7 +109,6 @@ body {
     border-radius: 8px;
     transition: all 0.3s;
     width: 100%;
-    font-size: clamp(0.875rem, 2vw, 1rem);
 }
 
 .sidebar ul li a:hover,
@@ -132,6 +131,11 @@ body {
     width: 35px;
     height: 30px;
     margin-right: 10px;
+}
+
+footer .back-home img {
+    width: 35px;
+    height: 35px;
 }
 
 footer {
@@ -169,11 +173,7 @@ footer {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
-    margin-top: -15px;
-}
-
-.container h1 {
-    color: white;
+    padding-top: 85px;
 }
 
 /* Header */
@@ -204,7 +204,6 @@ footer {
 .search-container {
     position: relative;
     width: 300px;
-    margin-left: 20px;
 }
 
 .search-bar {
@@ -265,31 +264,30 @@ footer {
 }
 
 .user-details small {
-    color: #fdfdfd;
+    color: #ffffff;
     font-size: 12px;
     margin-left: -300px;
 }
 
-/* Table */
+/* Table Box */
 .table-box {
     width: 100%;
-    padding: 10px;
+    padding: 20px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
-    min-height: 60vh;
-    overflow: visible;
-    margin-top: 85px;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
 }
 
 .username {
     position: absolute;
     left: 25px;
-    top: 25px;
+    top: 5px;
     font-weight: 500;
     color: var(--primary);
-    font-size: 20px;
 }
 
 .admin-icon {
@@ -297,99 +295,39 @@ footer {
     margin-left: 5px;
 }
 
-/* Tabs */
+/* Tab Buttons */
+.header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    position: relative;
+}
+
 .tab-buttons {
     display: flex;
-    margin-bottom: 15px;
-    margin-top: 50px;
+    gap: 10px;
 }
 
 .tab-btn {
     padding: 8px 16px;
-    background: #f1f1f1;
     border: none;
-    cursor: pointer;
-    margin-right: 5px;
-    border-radius: 4px 4px 0 0;
-    position: relative;
-}
-
-.export-btn {
-    display: inline-flex;
-    align-items: center;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
     border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    position: absolute;
-    top: 40px;
-    left: 525px;
-}
-
-.export-btn:hover {
-    background-color: #7494ec;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-
-
-.export-btn i {
-    margin-right: 8px;
-}
-
-/* Export Dropdown */
-.export-container {
-    position: relative;
-    display: inline-block;
-}
-
-.export-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 550px;
-    background: white;
-    min-width: 120px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-
-.export-container:hover .export-dropdown {
-    display: block;
-}
-
-.export-dropdown button {
-    color: var(--dark);
-    padding: 10px 15px;
-    text-decoration: none;
-    display: block;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
     font-size: 14px;
-    font-weight: 400;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.export-dropdown button:hover {
-    background-color: var(--primary);
-    color: white;
+    transition: background-color 0.3s;
+    position: relative;
+    background-color: #f5f5f5;
+    color: #333;
 }
 
 .tab-btn.active {
-    background: #4CAF50;
+    background-color: #4CAF50;
     color: white;
 }
 
+/* Tab Badge */
 .tab-badge {
     position: absolute;
     top: -8px;
@@ -397,25 +335,22 @@ footer {
     background: #ff5722;
     color: white;
     border-radius: 50%;
-    width: 20px;
+    min-width: 20px;
     height: 20px;
     font-size: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 4px;
+    transition: background-color 0.3s ease;
 }
 
-#active-users-tab,
-#archived-users-tab {
-    display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
+.tab-content {
+    margin-top: 15px;
 }
 
-#active-users-tab.active,
-#archived-users-tab.active {
-    display: flex;
+.deploy .borrow-btn, .deploy .return-btn, .deploy .deploy-btn {
+    margin-top: -115px;
 }
 
 /* Table */
@@ -423,9 +358,8 @@ table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 90px;
+    margin-top: -5px;
     table-layout: auto;
-
 }
 
 thead {
@@ -482,6 +416,14 @@ tr:hover td {
     font-weight: 500;
 }
 
+.borrow h2 {
+    margin-bottom: 20px;
+}
+
+.deploy h2 {
+    margin-bottom: 20px;
+}
+
 /* Action Buttons */
 .delete-btn {
     display: inline-flex;
@@ -507,11 +449,11 @@ tr:hover td {
 
 .action-buttons {
     display: flex;
+    justify-content: flex-end;
     gap: 5px;
-    justify-content: center;
 }
 
-.view-btn, .edit-btn {
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -538,6 +480,24 @@ tr:hover td {
 
 .edit-btn:hover {
     background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+    color: #fff;
+}
+
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.unarchive-btn {
+    background-color: #9b59b6;
+    color: #fff;
+}
+
+.unarchive-btn:hover {
+    background-color: #8e44ad;
 }
 
 /* Pagination */
@@ -587,7 +547,7 @@ tr:hover td {
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    top: 0px;
     left: 0;
     width: 100%;
     height: 100%;
@@ -599,7 +559,7 @@ tr:hover td {
 
 .modal-content {
     background: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -651,8 +611,13 @@ tr:hover td {
     border-radius: 5px;
 }
 
-#viewModal .modal-content {
+#assetViewModal .modal-content {
     margin: 10% auto;
+    max-width: 500px;
+}
+
+#addAssetModal .modal-content {
+    margin: 8% auto;
     max-width: 500px;
 }
 
@@ -666,17 +631,30 @@ tr:hover td {
     max-width: 500px;
 }
 
-#assetFilterModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-    
-}
-
-#technicianFilterModal .modal-content {
+#archiveModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
 }
 
+#unarchiveModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#restoreModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#assetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#assetStatusFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
 
 /* Archive Header */
 .archive-header {
@@ -711,7 +689,7 @@ tr:hover td {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: -5px;
+    top: 15px;
     left: 15px;
     width: 100%;
     z-index: 1000;
@@ -729,11 +707,20 @@ tr:hover td {
     border: 1px solid #f5c6cb;
 }
 
+/* Form Validation Errors */
+.error {
+    color: var(--danger);
+    font-size: 0.9em;
+    display: block;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-weight: 400;
+}
 
 .settings-link {
     position: absolute;
     right: 10px;
-    top: 10;
+    top: 10px;
     display: flex;
     align-items: center;
     text-decoration: none;
@@ -742,7 +729,6 @@ tr:hover td {
     font-weight: 600;
     transition: 0.3s ease-in-out;
 }
-
 
 .settings-link i {
     font-size: 24px;
@@ -768,200 +754,224 @@ tr:hover td {
     border-radius: 8px;
     margin-top: 10px;
 }
-.back-icon i {
-    transition: color 0.3s;
-}
-
-.back-icon:hover i {
-    color: #007bff;
-}
-
-/* Heading */
-h1 {
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 24px;
-    color: #333;
-}
-
-/* Form Styles */
-.form {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-row {
-    margin-bottom: 15px;
-}
-
-label {
-    margin-bottom: 10px;
-    font-weight: bold;
-    color: #555;
-}
-
-/* Button Styles */
-button {
-    padding: 10px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
-
-.error {
-    color: red;
-    font-size: 0.9em;
-    margin-top: 5px;
-    display: block;
-}
 
 .alert {
     opacity: 1;
-    transition: opacity 0.5s ease-out;
+    transition: opacity 0.5s ease-in-out;
 }
 
 .alert-hidden {
     opacity: 0;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .sidebar {
-        width: 70px;
-    }
-
-    .sidebar h2 {
-        font-size: 1rem;
-        padding: 10px;
-        margin-left: 0;
-    }
-
-    .sidebar ul li a span {
-        display: none;
-    }
-
-    .sidebar ul li a i {
-        margin-right: 0;
-        font-size: 1.5rem;
-    }
-
-    .container {
-        margin-left: 70px;
-        padding: 15px;
-    }
-
-    .upper {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .search-container {
-        width: 100%;
-    }
-
-    .user-profile {
-        margin-left: 0;
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .user-details {
-        margin-left: 0;
-    }
-
-    .user-details span,
-    .user-details small {
-        margin-left: 0;
-    }
-
-    .table-box {
-        padding: 15px;
-    }
-
-    th, td {
-        padding: 8px;
-        font-size: 0.875rem;
-    }
-
-    .action-buttons a {
-        width: 30px;
-        height: 30px;
-    }
-
-    .pagination-link {
-        width: 35px;
-        height: 35px;
-    }
+/* Header Buttons */
+.button-group {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-left: auto;
+    margin-right: 20px;
 }
 
-@media (max-width: 480px) {
-    .sidebar {
-        width: 60px;
-    }
-
-    .container {
-        margin-left: 60px;
-        padding: 10px;
-    }
-
-    .upper h1 {
-        font-size: 1.2rem;
-    }
-
-    .search-bar {
-        padding: 8px 30px 8px 10px;
-    }
-
-    .table-box {
-        padding: 10px;
-    }
-
-    th, td {
-        padding: 6px;
-        font-size: 0.75rem;
-    }
-
-    .modal-content {
-        width: 95%;
-        margin: 5% auto;
-        padding: 15px;
-    }
-
-    .modal-btn {
-        padding: 6px 15px;
-    }
-
-    .action-buttons a {
-        width: 25px;
-        height: 25px;
-    }
-
-    .pagination-link {
-        width: 30px;
-        height: 30px;
-    }
-
-        #viewModal .modal-content {
-        margin: 3% auto;
-    }
-
-    #editAssetModal .modal-content {
-        margin: 5% auto;
-    }
-
-    #deleteModal .modal-content {
-        margin: 8% auto;
-    }
-
-    
+.borrow-btn {
+    display: inline-block;
+    background-color: #c23e16;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
 }
 
+.borrow-btn:hover {
+    background-color: #7494ec;
+}
+
+.deploy-btn {
+    display: inline-block;
+    background-color: #d12e11;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+}
+
+.deploy-btn:hover {
+    background-color: #7494ec;
+}
+
+.add-btn {
+    display: inline-block;
+    background-color: #cf752b;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+}
+
+.add-btn:hover {
+    background-color: #7494ec;
+}
+
+.return-btn {
+    background-color: #c2b116;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    margin-left: 5px;
+    margin-top: -100px;
+    margin-bottom: 50px;
+}
+
+.return-btn:hover {
+    background-color: #7494ec;
+}
+
+/* Export Button and Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+}
+
+.export-btn {
+    display: inline-block;
+    background-color: #63c216;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
+
+.export-btn:hover {
+    background-color: #7494ec;
+}
+
+.export-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.export-container:hover .export-dropdown {
+    display: block;
+}
+
+.export-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.export-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* Action Dropdown */
+.action-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.action-btn {
+    display: inline-block;
+    background-color: #4a6baf;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    background-color: #3a5a9f;
+}
+
+.action-dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 5px;
+}
+
+.action-dropdown-content a {
+    color: var(--dark);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+.action-dropdown-content a:hover {
+    background-color: var(--primary);
+    color: white;
+    border-radius: 5px;
+}
+
+.action-dropdown:hover .action-dropdown-content {
+    display: block;
+}
+
+.action-dropdown-content i {
+    margin-right: 8px;
+    width: 18px;
+    text-align: center;
+}
+
+.generate-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.generate-btn:hover {
+    background-color: #45a049;
+}

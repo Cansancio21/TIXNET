@@ -2,11 +2,14 @@
 include 'db.php';
 session_start(); 
 
-// Check if the user is logged in
-if (!isset($_SESSION['username'])) { 
-    header("Location: index.php"); // Redirect to login page if not logged in 
-    exit(); 
+
+// Verify user is logged in
+if (!isset($_SESSION['username']) || !isset($_SESSION['userId'])) {
+    $_SESSION['error'] = "Please log in to access this page.";
+    header("Location: index.php");
+    exit();
 }
+
 
 // Avatar handling
 $username = $_SESSION['username'];
@@ -102,7 +105,7 @@ if ($conn) {
            <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
            <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
            <li><a href="deployedT.php"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
-           <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
+           <li><a href="AdminPayments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
         </ul>
         <footer>
         <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>

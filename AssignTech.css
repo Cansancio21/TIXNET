@@ -19,6 +19,7 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    min-height: 100vh;
 }
 
 .glass-container {
@@ -30,13 +31,10 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.assets h2 {
-    margin-bottom: 20px;
-}
-
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
 }
 
 /* Sidebar */
@@ -173,7 +171,7 @@ footer {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
-    padding-top: 85px;
+    padding-top: 100px;
 }
 
 /* Header */
@@ -204,6 +202,7 @@ footer {
 .search-container {
     position: relative;
     width: 300px;
+    margin-left: 20px;
 }
 
 .search-bar {
@@ -264,30 +263,20 @@ footer {
 }
 
 .user-details small {
-    color: #ffffff;
+    color: #fdfdfd;
     font-size: 12px;
     margin-left: -300px;
 }
 
-/* Table Box */
-.table-box {
-    width: 100%;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
-    min-height: 600px;
-    display: flex;
-    flex-direction: column;
-}
-
 .username {
     position: absolute;
-    left: 25px;
-    top: 5px;
-    font-weight: 500;
+    left: 20px;
+    top: 25px;
+    padding-bottom: 25px;
+    margin-bottom: 15px;
     color: var(--primary);
+    font-size: 20px;
+    font-weight: 500;
 }
 
 .admin-icon {
@@ -295,71 +284,106 @@ footer {
     margin-left: 5px;
 }
 
-/* Tab Buttons */
-.header-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 10px;
-    position: relative;
+.add-user-btn {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    border: none;
+    outline: none;
 }
 
+.add-user-btn:hover {
+    background-color: #7494ec;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.add-user-btn i {
+    margin-right: 15px;
+}
+
+/* Tabs */
 .tab-buttons {
     display: flex;
     gap: 10px;
+    margin: 55px 0 15px;
 }
 
 .tab-btn {
     padding: 8px 16px;
+    background-color: #f1f1f1;
     border: none;
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 14px;
-    font-weight: 500;
     cursor: pointer;
     transition: background-color 0.3s;
     position: relative;
-    background-color: #f5f5f5;
-    color: #333;
 }
 
 .tab-btn.active {
     background-color: #4CAF50;
-    color: white;
+    color: #fff;
 }
 
-/* Tab Badge */
+.tab-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.tab-btn.active:hover {
+    background-color: #45a049;
+}
+
 .tab-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff5722;
-    color: white;
-    border-radius: 50%;
-    min-width: 20px;
-    height: 20px;
+    background-color: #ff5722;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 8px;
     font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    transition: background-color 0.3s ease;
+    position: absolute;
+    top: -5px;
+    right: -5px;
 }
 
-.tab-content {
-    margin-top: 15px;
+.active-tickets, .archived-tickets {
+    display: none;
 }
 
-.deploy .borrow-btn, .deploy .return-btn, .deploy .deploy-btn {
-    margin-top: -115px;
+.active-tickets.active, .archived-tickets.active {
+    display: block;
 }
 
 /* Table */
+.table-box {
+    width: 100%;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    min-height: 60vh;
+    overflow: visible;
+    margin-top: 5px;
+}
+
+.table-box h2{
+    margin-top: 10px;
+    margin-bottom: -30px;
+}
+
 table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin-top: -5px;
-    table-layout: auto;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-top: 50px;
 }
 
 thead {
@@ -375,6 +399,7 @@ th {
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
+    border: none;
 }
 
 th:first-child {
@@ -386,12 +411,15 @@ th:last-child {
 }
 
 td {
-    padding: 10px;
+ 
     border-bottom: 1px solid #eee;
     vertical-align: middle;
     text-align: center;
-    word-wrap: break-word;
+    overflow-wrap: break-word;
     white-space: normal;
+    border-left: none;
+    border-right: none;
+    border-top: none;
 }
 
 tr:last-child td {
@@ -402,29 +430,36 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-/* Status Badges */
-.status-active {
-    color: var(--success) !important;
+/* Technician Table Column Widths */
+th:nth-child(1) { width: 150px; } /* First Name */
+th:nth-child(2) { width: 150px; } /* Last Name */
+th:nth-child(3) { width: 200px; } /* Email */
+th:nth-child(4) { width: 100px; } /* Type */
+th:nth-child(5) { width: 150px; } /* Status - Increased to accommodate Open/Closed counts */
+th:nth-child(6) { width: 100px; } /* Action - Aligned with Status for balance */
+
+td:nth-child(3) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 
-.status-inactive {
-    color: var(--danger) !important;
+td:nth-child(5) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
 }
 
-.status-pending {
-    color: #ff9800;
-    font-weight: 500;
+tr:last-child td {
+    border-bottom: none;
 }
 
-.borrow h2 {
-    margin-bottom: 20px;
+tr:hover td {
+    background: rgba(108, 92, 231, 0.05);
 }
 
-.deploy h2 {
-    margin-bottom: 20px;
-}
-
-/* Action Buttons */
 .delete-btn {
     display: inline-flex;
     align-items: center;
@@ -447,13 +482,17 @@ tr:hover td {
     font-size: 16px;
 }
 
+/* Action Buttons */
 .action-buttons {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
+    align-items: center;
     gap: 5px;
+    padding: 16.5px;
+   
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn, .assign-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -461,21 +500,28 @@ tr:hover td {
     height: 30px;
     border-radius: 5px;
     text-decoration: none;
+    color: #fff;
     transition: background-color 0.3s ease;
 }
 
 .view-btn {
     background-color: #3498db;
-    color: #fff;
 }
 
 .view-btn:hover {
     background-color: #2980b9;
 }
 
+.assign-btn {
+    background-color: #3498db; /* Matches view-btn */
+}
+
+.assign-btn:hover {
+    background-color: #2980b9; /* Matches view-btn hover */
+}
+
 .edit-btn {
     background-color: #2ecc71;
-    color: #fff;
 }
 
 .edit-btn:hover {
@@ -484,20 +530,40 @@ tr:hover td {
 
 .archive-btn {
     background-color: #f1c40f;
-    color: #fff;
 }
 
 .archive-btn:hover {
     background-color: #d4ac0d;
 }
 
-.unarchive-btn {
+.restore-btn {
     background-color: #9b59b6;
-    color: #fff;
 }
 
-.unarchive-btn:hover {
+.restore-btn:hover {
     background-color: #8e44ad;
+}
+
+/* Status Badges */
+.status-open {
+    color: var(--success);
+}
+
+.status-closed {
+    color: var(--danger);
+}
+
+.status-pending {
+    color: #ff9800;
+    font-weight: 500;
+}
+
+.status-clickable {
+    cursor: pointer;
+}
+
+.status-clickable:hover {
+    text-decoration: underline;
 }
 
 /* Pagination */
@@ -505,21 +571,21 @@ tr:hover td {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .pagination-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    text-decoration: none;
+    color: var(--primary);
+    font-size: 18px;
     width: 40px;
     height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     background: white;
-    color: var(--primary);
-    text-decoration: none;
-    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -527,8 +593,6 @@ tr:hover td {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -538,16 +602,14 @@ tr:hover td {
 }
 
 .current-page {
-    margin: 0 15px;
-    font-weight: 500;
-    color: var(--dark);
+    font-size: 14px;
+    color: #555;
 }
 
-/* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
@@ -559,7 +621,7 @@ tr:hover td {
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 10% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -594,7 +656,7 @@ tr:hover td {
 
 .modal-btn.cancel {
     background: var(--primary);
-    color: var(--light);
+    color: white;
 }
 
 .modal-btn:hover {
@@ -611,72 +673,67 @@ tr:hover td {
     border-radius: 5px;
 }
 
-#assetViewModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
+/* Modal Form Textarea (Ticket Details) */
+.modal-form textarea {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 100px;
+    outline: none;
+    transition: border-color 0.3s ease;
 }
 
-#addAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
+.modal-form textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
 }
 
-#editAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
+/* Error message styling */
+.modal-form .error {
+    color: var(--danger);
+    font-size: 12px;
+    display: block;
+    margin-top: -10px;
+    margin-bottom: 10px;
 }
 
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#archiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#unarchiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#restoreModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#assetNameFilterModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#assetStatusFilterModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-/* Archive Header */
-.archive-header {
+/* Close Ticket Modal Input */
+.close-ticket-input {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
     margin-bottom: 15px;
 }
 
-.restore-all-btn {
-    padding: 8px 16px;
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: -65px;
-    margin-left: 17.5%;
+.ticket-id-input input {
+    width: 100px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
 }
 
-.restore-all-btn:hover {
-    background: #45a049;
+.ticket-id-input input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
+}
+
+/* Responsive design for Close Ticket Modal */
+@media (max-width: 480px) {
+    .close-ticket-input {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .ticket-id-input input {
+        width: 100%;
+    }
 }
 
 /* Alerts */
@@ -689,7 +746,7 @@ tr:hover td {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: 15px;
+    top: 10px;
     left: 15px;
     width: 100%;
     z-index: 1000;
@@ -707,20 +764,10 @@ tr:hover td {
     border: 1px solid #f5c6cb;
 }
 
-/* Form Validation Errors */
-.error {
-    color: var(--danger);
-    font-size: 0.9em;
-    display: block;
-    margin-top: 5px;
-    margin-bottom: 10px;
-    font-weight: 400;
-}
-
 .settings-link {
     position: absolute;
     right: 10px;
-    top: 10px;
+    top: 10;
     display: flex;
     align-items: center;
     text-decoration: none;
@@ -762,141 +809,4 @@ tr:hover td {
 
 .alert-hidden {
     opacity: 0;
-}
-
-/* Header Buttons */
-.button-group {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    margin-left: auto;
-    margin-right: 20px;
-}
-
-.borrow-btn {
-    display: inline-block;
-    background-color: #c23e16;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-}
-
-.borrow-btn:hover {
-    background-color: #7494ec;
-}
-
-.deploy-btn {
-    display: inline-block;
-    background-color: #d12e11;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-}
-
-.deploy-btn:hover {
-    background-color: #7494ec;
-}
-
-.add-btn {
-    display: inline-block;
-    background-color: #cf752b;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-}
-
-.add-btn:hover {
-    background-color: #7494ec;
-}
-
-.return-btn {
-    background-color: #c2b116;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-    margin-left: 5px;
-    margin-top: -100px;
-    margin-bottom: 50px;
-}
-
-.return-btn:hover {
-    background-color: #7494ec;
-}
-
-/* Export Button and Dropdown */
-.export-container {
-    position: relative;
-    display: inline-block;
-}
-
-.export-btn {
-    display: inline-block;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: lighter;
-    transition: 0.3s;
-    border: none;
-    outline: none;
-    cursor: pointer;
-}
-
-.export-btn:hover {
-    background-color: #7494ec;
-}
-
-.export-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    min-width: 120px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-.export-container:hover .export-dropdown {
-    display: block;
-}
-
-.export-dropdown button {
-    color: var(--dark);
-    padding: 10px 15px;
-    text-decoration: none;
-    display: block;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.export-dropdown button:hover {
-    background-color: var(--primary);
-    color: white;
 }

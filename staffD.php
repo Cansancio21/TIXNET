@@ -321,23 +321,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 die("Prepare failed: " . $conn->error);
             }
             $stmt->bind_param("sssss", $t_ref, $accountname, $issuedetails, $subject, $ticketstatus);
-            if ($stmt->execute()) {
-                $logDescription = "Created ticket #$t_ref for customer $accountname";
-                $logType = "Staff $firstName $lastName";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-                $stmtLog = $conn->prepare($sqlLog);
-                $stmtLog->bind_param("ss", $logDescription, $logType);
-                $stmtLog->execute();
-                $stmtLog->close();
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'message' => 'Ticket has been registered successfully.']);
-                    exit();
-                }
-                $_SESSION['message'] = "Ticket has been registered successfully.";
-                header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
-                exit();
-            } else {
+           if ($stmt->execute()) {
+    $logDescription = "Created ticket #$t_ref for customer $accountname";
+    $logType = "Staff $firstName $lastName";
+    $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+    $stmtLog = $conn->prepare($sqlLog);
+    $stmtLog->bind_param("ss", $logDescription, $logType);
+    $stmtLog->execute();
+    $stmtLog->close();
+
+    // Fetch updated counts
+    $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '')";
+    $totalActiveResult = $conn->query($totalActiveQuery);
+    $totalActive = $totalActiveResult->fetch_assoc()['total'];
+
+    $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%'";
+    $totalArchivedResult = $conn->query($totalArchivedQuery);
+    $totalArchived = $totalArchivedResult->fetch_assoc()['total'];
+
+    if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'message' => 'Ticket has been registered successfully.',
+            'totalActive' => $totalActive,
+            'totalArchived' => $totalArchived
+        ]);
+        exit();
+    }
+    $_SESSION['message'] = "Ticket has been registered successfully.";
+    header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+    exit();
+} else {
                 if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => false, 'errors' => ['general' => 'Execution failed: ' . $stmt->error]]);
@@ -493,44 +508,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error'] = implode(", ", $errors);
         }
     } elseif (isset($_POST['archive_ticket'])) {
-        $t_ref = $_POST['t_ref'];
-        $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_ref=? AND (technician_username IS NULL OR technician_username = '')";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $t_ref);
-        if ($stmt->execute()) {
-            $_SESSION['message'] = "Ticket archived successfully!";
-            $logDescription = "Staff $firstName $lastName archived ticket $t_ref";
-            $logType = "Staff $firstName $lastName";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("ss", $logDescription, $logType);
-            $stmtLog->execute();
-            $stmtLog->close();
-        } else {
-            $_SESSION['error'] = "Error archiving ticket: " . $stmt->error;
-            error_log("Error archiving ticket: " . $stmt->error);
+    $t_ref = $_POST['t_ref'];
+    $sql = "UPDATE tbl_ticket SET t_details = CONCAT('ARCHIVED:', t_details) WHERE t_ref=? AND (technician_username IS NULL OR technician_username = '')";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $t_ref);
+    if ($stmt->execute()) {
+        $logDescription = "Staff $firstName $lastName archived ticket $t_ref";
+        $logType = "Staff $firstName $lastName";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+        $stmtLog = $conn->prepare($sqlLog);
+        $stmtLog->bind_param("ss", $logDescription, $logType);
+        $stmtLog->execute();
+        $stmtLog->close();
+
+        // Fetch updated counts
+        $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '')";
+        $totalActiveResult = $conn->query($totalActiveQuery);
+        $totalActive = $totalActiveResult->fetch_assoc()['total'];
+
+        $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%'";
+        $totalArchivedResult = $conn->query($totalArchivedQuery);
+        $totalArchived = $totalArchivedResult->fetch_assoc()['total'];
+
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Ticket archived successfully!',
+                'totalActive' => $totalActive,
+                'totalArchived' => $totalArchived
+            ]);
+            exit();
         }
-        $stmt->close();
-    } elseif (isset($_POST['restore_ticket'])) {
-        $t_ref = $_POST['t_ref'];
-        $sql = "UPDATE tbl_ticket SET t_details = REGEXP_REPLACE(t_details, '^ARCHIVED:', '') WHERE t_ref=?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $t_ref);
-        if ($stmt->execute()) {
-            $_SESSION['message'] = "Ticket restored successfully!";
-            $logDescription = "Staff $firstName $lastName unarchived ticket $t_ref";
-            $logType = "Staff $firstName $lastName";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("ss", $logDescription, $logType);
-            $stmtLog->execute();
-            $stmtLog->close();
-        } else {
-            $_SESSION['error'] = "Error restoring ticket: " . $stmt->error;
-            error_log("Error restoring ticket: " . $stmt->error);
+        $_SESSION['message'] = "Ticket archived successfully!";
+    } else {
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Error archiving ticket: ' . $stmt->error]);
+            exit();
         }
-        $stmt->close();
+        $_SESSION['error'] = "Error archiving ticket: " . $stmt->error;
+        error_log("Error archiving ticket: " . $stmt->error);
+    }
+    $stmt->close();
+} elseif (isset($_POST['restore_ticket'])) {
+    $t_ref = $_POST['t_ref'];
+    $sql = "UPDATE tbl_ticket SET t_details = REGEXP_REPLACE(t_details, '^ARCHIVED:', '') WHERE t_ref=?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $t_ref);
+    if ($stmt->execute()) {
+        $logDescription = "Staff $firstName $lastName unarchived ticket $t_ref";
+        $logType = "Staff $firstName $lastName";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+        $stmtLog = $conn->prepare($sqlLog);
+        $stmtLog->bind_param("ss", $logDescription, $logType);
+        $stmtLog->execute();
+        $stmtLog->close();
+
+        // Fetch updated counts
+        $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%' AND (technician_username IS NULL OR technician_username = '')";
+        $totalActiveResult = $conn->query($totalActiveQuery);
+        $totalActive = $totalActiveResult->fetch_assoc()['total'];
+
+        $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%'";
+        $totalArchivedResult = $conn->query($totalArchivedQuery);
+        $totalArchived = $totalArchivedResult->fetch_assoc()['total'];
+
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Ticket restored successfully!',
+                'totalActive' => $totalActive,
+                'totalArchived' => $totalArchived
+            ]);
+            exit();
+        }
+        $_SESSION['message'] = "Ticket restored successfully!";
         $tab = 'active';
+    } else {
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Error restoring ticket: ' . $stmt->error]);
+            exit();
+        }
+        $_SESSION['error'] = "Error restoring ticket: " . $stmt->error;
+        error_log("Error restoring ticket: " . $stmt->error);
+    }
+    $stmt->close();
+
     } elseif (isset($_POST['delete_ticket'])) {
         $t_ref = $_POST['t_ref'];
         $sql = "DELETE FROM tbl_ticket WHERE t_ref=? AND t_details LIKE 'ARCHIVED:%'";
@@ -613,183 +679,192 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffsDD.css">
+    <link rel="stylesheet" href="staffD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <style>
-        /* Tab Navigation Styles */
-        .tab-navigation {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 20px;
-            position: relative;
-        }
-        
-        .tab-btn {
-            padding: 12px 24px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            color: #666;
-            position: relative;
-            transition: all 0.3s ease;
-            margin-right: 5px;
-        }
-        
-        .tab-btn:hover {
-            color: var(--primary);
-        }
-        
-        .tab-btn.active {
-            color: var(--primary);
-            font-weight: 600;
-        }
-        
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background-color: var(--primary);
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 20px 0;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .tab-badge {
-            background-color: var(--danger);
-            color: white;
-            border-radius: 10px;
-            padding: 2px 8px;
-            font-size: 12px;
-            margin-left: 5px;
-        }
-        
-        .add-user-btn {
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            display: inline-flex;
-            align-items: center;
-            background: var(--primary);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 30px;
-            text-decoration: none;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-            border: none;
-            outline: none;
-            font-size: 14px;
-        }
-        
-        .add-user-btn:hover {
-            background-color: #7494ec;
-            transform: translateY(-50%) scale(1.05);
-            box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
-        }
-        
-        .add-user-btn i {
-            margin-right: 8px;
-        }
-        
-        .table-container {
-            overflow-x: auto;
-            margin-bottom: 20px;
-        }
-        
-        .filter-btn {
-            background: transparent !important;
-            border: none;
-            cursor: pointer;
-            font-size: 15px;
-            color: var(--light, #f5f8fc);
-            margin-left: 5px;
-            vertical-align: middle;
-            padding: 0;
-            outline: none;
-        }
-        
-        .filter-btn:hover {
-            color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
-            background: transparent !important;
-        }
-        
-        th .filter-btn {
-            background: transparent !important;
-        }
-        
-        .autocomplete-container {
-            position: relative;
-            width: 100%;
-        }
-        
-        .autocomplete-suggestions {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            z-index: 1000;
-            display: none;
-        }
-        
-        .autocomplete-suggestion {
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 14px;
-            color: #333;
-        }
-        
-        .autocomplete-suggestion:hover {
-            background: #f0f0f0;
-        }
-        
-        .modal-form input[type="text"], 
-        .modal-form input[type="email"],
-        .modal-form textarea {
-            width: 100%;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        
-        .modal-form input[type="email"] {
-            background-color: #f9f9f9;
-        }
-        
-        .modal-form #account_name {
-            box-shadow: none;
-        }
-        
-        .modal-form textarea {
-            height: 100px;
-            resize: vertical;
-        }
-        
-        .error {
-            color: red;
-            font-size: 12px;
-            margin-top: 5px;
-            display: block;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">   
+  <style>
+    /* Tab Navigation Styles */
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 30px;
+        position: relative;
+        align-items: flex-start;
+    }
+    
+    .tab-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        position: relative;
+        background-color: #f5f5f5;
+        color: #333;
+        margin-right: 10px;
+    }
+    
+    .tab-btn.active {
+        background-color: #4CAF50;
+        color: white;
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 20px 0;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .tab-badge {
+        background: #ff5722;
+        color: white;
+        border-radius: 50%;
+        min-width: 20px;
+        height: 20px;
+        font-size: 12px;
+        padding: 2px 8px;
+        margin-left: 5px;
+        display: inline-block;
+    }
+    
+    .archive-count {
+    background: #ff5722;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    font-size: 12px;
+    padding: 2px 8px;
+    position: absolute;
+    top: -10px;
+    right: 5px; /* Changed from left: 80% to right: -10px for better placement */
+    z-index: 10; /* Added to ensure the badge appears above other elements */
+}
+    
+    .tab-btn-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .add-user-btn {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        background: var(--primary, #6c5ce7);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 30px;
+        text-decoration: none;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+        border: none;
+        outline: none;
+        font-size: 14px;
+    }
+    
+    .add-user-btn:hover {
+        background-color: #7494ec;
+        transform: translateY(-50%) scale(1.05);
+        box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+    }
+    
+    .add-user-btn i {
+        margin-right: 8px;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+    
+    .filter-btn {
+        background: transparent !important;
+        border: none;
+        cursor: pointer;
+        font-size: 15px;
+        color: var(--light, #f5f8fc);
+        margin-left: 5px;
+        vertical-align: middle;
+        padding: 0;
+        outline: none;
+    }
+    
+    .filter-btn:hover {
+        color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+        background: transparent !important;
+    }
+    
+    th .filter-btn {
+        background: transparent !important;
+    }
+    
+    .autocomplete-container {
+        position: relative;
+        width: 100%;
+    }
+    
+    .autocomplete-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .autocomplete-suggestion {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #333;
+    }
+    
+    .autocomplete-suggestion:hover {
+        background: #f0f0f0;
+    }
+    
+    .modal-form input[type="text"], 
+    .modal-form input[type="email"],
+    .modal-form textarea {
+        width: 100%;
+        padding: 8px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    
+    .modal-form input[type="email"] {
+        background-color: #f9f9f9;
+    }
+    
+    .modal-form #account_name {
+        box-shadow: none;
+    }
+    
+    .modal-form textarea {
+        height: 100px;
+        resize: vertical;
+    }
+    
+    .error {
+        color: red;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+</style>
 </head>
 <body>
 <div class="wrapper">
@@ -857,22 +932,27 @@ $conn->close();
             </div>
 
             <div class="tab-navigation">
-                <button class="tab-btn active" onclick="showTab('active')">
-                    Active Tickets
-                    <?php if ($totalActive > 0): ?>
-                        <span class="tab-badge"><?php echo $totalActive; ?></span>
-                    <?php endif; ?>
-                </button>
-                <button class="tab-btn" onclick="showTab('archived')">
-                    Archived Tickets
-                    <?php if ($totalArchived > 0): ?>
-                        <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                    <?php endif; ?>
-                </button>
-                <button class="add-user-btn" onclick="showAddTicketModal()">
-                    <i class="fas fa-ticket-alt"></i> Add New Ticket
-                </button>
-            </div>
+             <div class="tab-btn-wrapper">
+        <button class="tab-btn active" onclick="showTab('active')">
+            Active
+            <?php if ($totalActive > 0): ?>
+                <span class="tab-badge"><?php echo $totalActive; ?></span>
+            <?php endif; ?>
+        </button>
+         </div>
+         <div class="tab-btn-wrapper">
+        <?php if ($totalArchived > 0): ?>
+            <span class="archive-count"><?php echo $totalArchived; ?></span>
+        <?php endif; ?>
+        <button class="tab-btn" onclick="showTab('archived')">
+            Archived
+        </button>
+    </div>
+
+        <button class="add-user-btn" onclick="showAddTicketModal()">
+        <i class="fas fa-ticket-alt"></i> Add New Ticket
+        </button>
+        </div>
 
             <div id="active-tickets" class="tab-content active">
                 <div class="table-container">
@@ -1335,11 +1415,46 @@ function handleAddTicketSubmit(e) {
             showSuccessMessage(data.message);
             closeModal('addTicketModal');
             searchTickets(defaultPageActive, 'active');
+            // Update badge counts
+            updateBadgeCounts(data.totalActive, data.totalArchived);
         } else {
             displayFormErrors(data.errors, 'addTicketForm');
         }
     })
     .catch(handleFetchError);
+}
+
+function updateBadgeCounts(totalActive, totalArchived) {
+    const activeBadge = document.querySelector('.tab-btn[onclick*="active"] .tab-badge');
+    const archivedBadge = document.querySelector('.archive-count');
+
+    // Update active badge
+    if (totalActive > 0) {
+        if (!activeBadge) {
+            const newBadge = document.createElement('span');
+            newBadge.className = 'tab-badge';
+            newBadge.textContent = totalActive;
+            document.querySelector('.tab-btn[onclick*="active"]').appendChild(newBadge);
+        } else {
+            activeBadge.textContent = totalActive;
+        }
+    } else if (activeBadge) {
+        activeBadge.remove();
+    }
+
+    // Update archived badge
+    if (totalArchived > 0) {
+        if (!archivedBadge) {
+            const newBadge = document.createElement('span');
+            newBadge.className = 'archive-count';
+            newBadge.textContent = totalArchived;
+            document.querySelector('.tab-btn-wrapper:has(.tab-btn[onclick*="archived"])').prepend(newBadge);
+        } else {
+            archivedBadge.textContent = totalArchived;
+        }
+    } else if (archivedBadge) {
+        archivedBadge.remove();
+    }
 }
 
 function handleEditTicketSubmit(e) {
@@ -1565,6 +1680,32 @@ function showArchiveModal(ref, aname) {
     document.getElementById('archiveTicketRef').innerText = ref;
     document.getElementById('archiveTicketName').innerText = aname;
     document.getElementById('archiveModal').style.display = 'block';
+
+    const form = document.getElementById('archiveForm');
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        formData.append('ajax', 'true');
+
+        fetch('staffD.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(handleResponse)
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage(data.message);
+                closeModal('archiveModal');
+                updateBadgeCounts(data.totalActive, data.totalArchived);
+                // Refresh both active and archived tables
+                searchTickets(defaultPageActive, 'active');
+                searchTickets(defaultPageArchived, 'archived');
+            } else {
+                showErrorMessage(data.error);
+            }
+        })
+        .catch(handleFetchError);
+    };
 }
 
 function showRestoreModal(ref, aname) {
@@ -1572,6 +1713,33 @@ function showRestoreModal(ref, aname) {
     document.getElementById('restoreTicketRef').innerText = ref;
     document.getElementById('restoreTicketName').innerText = aname;
     document.getElementById('restoreModal').style.display = 'block';
+
+    const form = document.getElementById('restoreForm');
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        formData.append('ajax', 'true');
+
+        fetch('staffD.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(handleResponse)
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage(data.message);
+                closeModal('restoreModal');
+                updateBadgeCounts(data.totalActive, data.totalArchived);
+                // Refresh both active and archived tables
+                searchTickets(defaultPageActive, 'active');
+                searchTickets(defaultPageArchived, 'archived');
+                showTab('active'); // Switch to active tab
+            } else {
+                showErrorMessage(data.error);
+            }
+        })
+        .catch(handleFetchError);
+    };
 }
 
 function showDeleteModal(ref, aname) {

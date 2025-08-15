@@ -364,7 +364,7 @@ table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 90px;
+    margin-top: 50px;
     table-layout: auto;
 }
 
@@ -716,7 +716,7 @@ tr:hover td {
     transition: 0.3s;
     position: absolute;
     right: 15px; /* Position in upper-right, similar to assetsT.php */
-    margin-top: 30px; /* Align vertically with assetsT.php buttons */
+    margin-top: -10px; /* Align vertically with assetsT.php buttons */
 }
 
 .return-btn:hover {

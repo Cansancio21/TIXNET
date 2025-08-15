@@ -621,7 +621,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deployed Assets</title>
-    <link rel="stylesheet" href="deployedTTB.css"> 
+    <link rel="stylesheet" href="deployedT.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -662,6 +662,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
             <li><a href="logs.php"><img src="image/log.png" alt="Logs" class="icon" /> <span>Logs</span></a></li>
             <li><a href="returnT.php"><img src="image/record.png" alt="Returned Records" class="icon" /> <span>Returned Records</span></a></li>
             <li><a href="deployedT.php" class="active"><img src="image/record.png" alt="Deployed Records" class="icon" /> <span>Deployed Records</span></a></li>
+            <li><a href="AdminPayments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -709,13 +710,7 @@ if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
         </div>
 
         <div class="table-box glass-container">
-            <?php if ($userType === 'admin'): ?>
-                <div class="username">
-                    Welcome, <?php echo htmlspecialchars($firstName); ?>!
-                    <i class="fas fa-user-shield admin-icon"></i>
-                </div>
-            <?php endif; ?>
-
+            <h2>List of Deployed Assets</h2>
                 <div class="action-buttons">
                 <div class="export-container">
                     <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
