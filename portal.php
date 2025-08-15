@@ -51,7 +51,7 @@ if (!empty($user['c_nextdue']) && !empty($user['c_nextbill'])) {
             <li><a href="portal.php" class="active"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
             <li><a href="suppT.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
             <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Reject Tickets</span></a></li>
-            <li><a href="CustomerPayments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
+          
         </ul>
         <footer>
             <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>

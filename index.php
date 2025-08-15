@@ -345,10 +345,9 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 </div>
                 <div class="input-box">
                     <select name="type" required>
-                        <option value="" disabled selected>Select Type</option>
+                       
                         <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
-                        <option value="staff" <?php if ($type == 'staff') echo 'selected'; ?>>Staff</option>
-                        <option value="technician" <?php if ($type == 'technician') echo 'selected'; ?>>Technician</option>
+                       
                     </select>
                     <i class='bx bxs-user type-icon'></i>
                     <?php if (!empty($typeErr)) { ?>

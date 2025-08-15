@@ -14,11 +14,7 @@ $userType = $_SESSION['user_type'] ?? '';
 $isTechnician = $userType === 'technician';
 $isCustomer = $userType === 'customer';
 
-if (!$username || (!$isTechnician && !$isCustomer)) {
-    $_SESSION['error'] = "Unauthorized access. Please log in.";
-    header("Location: index.php");
-    exit();
-}
+
 
 // Fetch user details
 $firstName = '';
