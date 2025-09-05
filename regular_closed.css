@@ -524,7 +524,7 @@ button {
     transition: all 0.3s ease;
     position: absolute;
     top: 30px;
-    left: 650px;
+    left: 500px;
 }
 
 .export-btn:hover {
