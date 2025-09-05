@@ -237,6 +237,51 @@ if (isset($_GET['action'])) {
         echo json_encode($customers);
         $conn->close();
         exit();
+    } elseif ($_GET['action'] === 'get_transactions') {
+        $customer_name = $_GET['customer_name'];
+        $get_all = isset($_GET['all']) && $_GET['all'] === 'true';
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_transactions WHERE t_customer_name = ?";
+        $stmtCount = $conn->prepare($sqlCount);
+        $stmtCount->bind_param("s", $customer_name);
+        $stmtCount->execute();
+        $countResult = $stmtCount->get_result();
+        $totalRow = $countResult->fetch_assoc();
+        $total = $totalRow['total'];
+        $totalPages = ceil($total / $limit);
+        $stmtCount->close();
+
+        if ($get_all) {
+            $sql = "SELECT t_date, t_balance, t_credit_date, t_description, t_amount FROM tbl_transactions WHERE t_customer_name = ? ORDER BY t_date DESC";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("s", $customer_name);
+        } else {
+            $sql = "SELECT t_date, t_balance, t_credit_date, t_description, t_amount FROM tbl_transactions WHERE t_customer_name = ? ORDER BY t_date DESC LIMIT ?, ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sii", $customer_name, $offset, $limit);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $transactions = [];
+        while ($row = $result->fetch_assoc()) {
+            $transactions[] = $row;
+        }
+        $stmt->close();
+
+        $response = ['transactions' => $transactions];
+        if (!$get_all) {
+            $response['totalPages'] = $totalPages;
+            $response['currentPage'] = $page;
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode($response);
+        $conn->close();
+        exit();
     }
 } else {
     // Debug: Log when action is not set
@@ -1047,40 +1092,48 @@ function calculateNextDates() {
 }
 
 function showViewDetails(account_no, fname, lname, purok, barangay, contact, email, coordinates, date, napname, napport, macaddress, status, plan, equipment, balance, startdate, nextdue, lastdue, nextbill, billstatus) {
-    const tab = document.getElementById('customers_active').style.display !== 'none' ? 'active' : 'archived';
-    const detailsSection = document.getElementById(`customerDetails${tab === 'active' ? 'Active' : 'Archived'}`);
-    const contentDiv = document.getElementById(`customerDetailsContent${tab === 'active' ? 'Active' : 'Archived'}`);
-    const table = tab === 'active' ? document.getElementById('active-customers-table') : document.getElementById('archived-customers-table');
-    const pagination = tab === 'active' ? document.getElementById('active-customers-pagination') : document.getElementById('archived-customers-pagination');
-    const tabButtons = document.querySelector('.tab-buttons');
-    const exportContainer = document.querySelector('.export-container');
-    const addCustomerButton = document.querySelector('.add-user-btn');
-    const tableBoxTitle = document.querySelector('.table-box h2');
+    try {
+        const tab = document.getElementById('customers_active')?.style.display !== 'none' ? 'active' : 'archived';
+        const detailsSection = document.getElementById(`customerDetails${tab === 'active' ? 'Active' : 'Archived'}`);
+        const contentDiv = document.getElementById(`customerDetailsContent${tab === 'active' ? 'Active' : 'Archived'}`);
+        const table = document.getElementById(`${tab}-customers-table`);
+        const pagination = document.getElementById(`${tab}-customers-pagination`);
+        const tabButtons = document.querySelector('.tab-buttons');
+        const exportContainer = document.querySelector('.export-container');
+        const addCustomerButton = document.querySelector('.add-user-btn');
+        const tableBoxTitle = document.querySelector('.table-box h2');
 
-    // Hide the table, pagination, tab buttons, export button, add customer button, and title
-    table.style.display = 'none';
-    pagination.style.display = 'none';
-    tabButtons.style.display = 'none';
-    exportContainer.style.display = 'none';
-    addCustomerButton.style.display = 'none';
-    tableBoxTitle.style.display = 'none';
+        // Check if all required DOM elements exist
+        if (!detailsSection || !contentDiv || !table || !pagination) {
+            console.error('One or more DOM elements not found:', { detailsSection, contentDiv, table, pagination });
+            return;
+        }
 
-    // Format dates consistently
-    const formatDate = (dateStr) => {
-        if (!dateStr || dateStr === '') return '';
-        const dateObj = new Date(dateStr);
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const year = dateObj.getFullYear();
-        const month = months[dateObj.getMonth()];
-        const day = dateObj.getDate().toString().padStart(2, '0');
-        return `${year}/${month}/${day}`;
-    };
+        // Hide table, pagination, and other UI elements
+        table.style.display = 'none';
+        pagination.style.display = 'none';
+        tabButtons.style.display = 'none';
+        exportContainer.style.display = 'none';
+        addCustomerButton.style.display = 'none';
+        tableBoxTitle.style.display = 'none';
 
-    const formattedStartDate = formatDate(startdate);
-    const formattedLastDue = formatDate(lastdue);
+        // Format dates
+        const formatDate = (dateStr) => {
+            if (!dateStr || dateStr === '') return '';
+            const dateObj = new Date(dateStr);
+            if (isNaN(dateObj)) return ''; // Handle invalid dates
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const year = dateObj.getFullYear();
+            const month = months[dateObj.getMonth()];
+            const day = dateObj.getDate().toString().padStart(2, '0');
+            return `${year}/${month}/${day}`;
+        };
 
-    // Populate and show the details section
-    contentDiv.innerHTML = `
+        const formattedStartDate = formatDate(startdate);
+        const formattedLastDue = formatDate(lastdue);
+
+        // Set content for details section
+        contentDiv.innerHTML = `
     <div class="customer-details-container">
         <div class="customer-details-inner">
             <div class="customer-details-column">
@@ -1116,15 +1169,140 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
                 <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
                 <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
                 <div class="action-buttons-container">
-                    <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
-                    <a class='payment-btn' onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title='Record Payment'><i class='fas fa-money-bill-wave'></i></a>
+                    <a class="activate-btn" onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title="Activate"><i class="fas fa-play"></i></a>
+                    <a class="payment-btn" onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title="Record Payment"><i class="fas fa-money-bill-wave"></i></a>
                 </div>
             </div>
         </div>
+        <div class="transactions-container" data-account-no="${account_no}" data-customer-name="${fname} ${lname}">
+            <h3><i class="fas fa-exchange-alt"></i> Transactions</h3>
+            <div class="transactions-export-container">
+                <button class="transactions-export-btn" onclick="exportTransactions()"><i class="fas fa-download"></i> Export</button>
+                <div class="transactions-export-dropdown">
+                    <button onclick="exportTransactions('excel')">Excel</button>
+                    <button onclick="exportTransactions('csv')">CSV</button>
+                </div>
+            </div>
+            <table class="customer-table transactions-table">
+                <thead>
+                    <tr>
+                        <th>Transaction</th>
+                        <th>Account</th>
+                        <th>Credit</th>
+                        <th>Debit</th>
+                        <th>Reference</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-tbody">
+                </tbody>
+            </table>
+            <div id="transactions-pagination" class="pagination"></div>
+        </div>
         <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
     </div>
-    `;
-    detailsSection.style.display = 'block';
+`;
+
+        // Show the details section
+        detailsSection.style.display = 'block';
+
+        // Load transactions
+        loadTransactions(account_no, 1);
+    } catch (error) {
+        console.error('Error in showViewDetails:', error);
+    }
+}
+
+function loadTransactions(account_no, page = 1) {
+    const transactionsContainer = document.querySelector('.transactions-container');
+    if (!transactionsContainer) {
+        console.error('Transactions container not found');
+        return;
+    }
+    const customer_name = transactionsContainer.dataset.customerName;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `customersT.php?action=get_transactions&customer_name=${encodeURIComponent(customer_name)}&page=${page}`, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            const tbody = document.getElementById('transactions-tbody');
+            if (!tbody) {
+                console.error('Transactions tbody not found');
+                return;
+            }
+            tbody.innerHTML = '';
+            if (response.transactions.length > 0) {
+                response.transactions.forEach(tx => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${tx.t_credit_date || 'N/A'}</td>
+                        <td>${account_no} - ${customer_name}</td>
+                        <td>${tx.t_amount ? parseFloat(tx.t_amount).toFixed(2) : '0.00'}</td>
+                        <td></td>
+                        <td>${tx.t_description || 'N/A'}</td>
+                        <td>${tx.t_amount ? parseFloat(tx.t_amount).toFixed(2) : '0.00'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No transactions found.</td></tr>';
+            }
+
+            const pagination = document.getElementById('transactions-pagination');
+            if (!pagination) {
+                console.error('Transactions pagination not found');
+                return;
+            }
+            pagination.innerHTML = '';
+            if (response.currentPage > 1) {
+                pagination.innerHTML += `<a href="javascript:loadTransactions('${account_no}', ${response.currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+            } else {
+                pagination.innerHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+            }
+            pagination.innerHTML += `<span class="current-page">Page ${response.currentPage} of ${response.totalPages}</span>`;
+            if (response.currentPage < response.totalPages) {
+                pagination.innerHTML += `<a href="javascript:loadTransactions('${account_no}', ${response.currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+            } else {
+                pagination.innerHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+            }
+        }
+    };
+    xhr.send();
+}
+
+function exportTransactions(format = 'excel') {
+    const section = document.querySelector('.transactions-section');
+    if (!section) return;
+    const account_no = section.dataset.accountNo;
+    const customer_name = section.dataset.customerName;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `customersT.php?action=get_transactions&customer_name=${encodeURIComponent(customer_name)}&all=true`, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            const data = response.transactions.map(tx => ({
+                'Transaction': tx.t_credit_date,
+                'Account': `${account_no} - ${customer_name}`,
+                'Credit': parseFloat(tx.t_amount).toFixed(2),
+                'Debit': '',
+                'Reference': tx.t_description,
+                'Amount': parseFloat(tx.t_amount).toFixed(2)
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+            
+            if (format === 'excel') {
+                XLSX.writeFile(wb, 'transactions.xlsx');
+            } else if (format === 'csv') {
+                XLSX.writeFile(wb, 'transactions.csv', { bookType: 'csv' });
+            }
+        }
+    };
+    xhr.send();
 }
 
 function hideViewDetails(sectionId) {
@@ -1247,9 +1425,9 @@ function exportTable(format) {
             XLSX.utils.book_append_sheet(wb, ws, 'Customers');
             
             if (format === 'excel') {
-                XLSX.write_file(wb, 'customers.xlsx');
+                XLSX.writeFile(wb, 'customers.xlsx');
             } else if (format === 'csv') {
-                XLSX.write_file(wb, 'customers.csv', { bookType: 'csv' });
+                XLSX.writeFile(wb, 'customers.csv', { bookType: 'csv' });
             }
         }
     };
@@ -1266,4 +1444,3 @@ function updateTable() {
 </script>
 </body>
 </html>
-

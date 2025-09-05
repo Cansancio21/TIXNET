@@ -427,11 +427,11 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-th:nth-child(1) { width: 150px; } /* Ticket ID */
+th:nth-child(1) { width: 200px; } /* Ticket ID */
 th:nth-child(2) { width: 150px; } /* Account Name */
 th:nth-child(3) { width: 100px; } /* Type */
 th:nth-child(4) { width: 100px; } /* Status */
-th:nth-child(5) { width: 250px; } /* Ticket Details */
+th:nth-child(5) { width: 200px; } /* Ticket Details */
 th:nth-child(6) { width: 120px; } /* Date */
 th:nth-child(7) { width: 150px; } /* Action */
 

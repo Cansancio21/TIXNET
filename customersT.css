@@ -496,6 +496,49 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
+/* Ensure table maintains full width even when empty */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    table-layout: fixed;
+}
+
+/* Style for empty state */
+table td[colspan="9"] {
+    width: 100%;
+    min-width: 100%; /* Ensure the cell spans the full table width */
+    box-sizing: border-box;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.9); /* Match table background */
+    color: #666;
+    font-size: 1rem;
+}
+
+/* Ensure table-box maintains consistent width */
+.table-box {
+    width: 100%;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    min-height: 60vh;
+    overflow: visible;
+    margin-top: -15px;
+}
+
+/* Column widths for consistency */
+table th:nth-child(1) { width: 10%; } /* Account No. */
+table th:nth-child(2) { width: 10%; } /* First Name */
+table th:nth-child(3) { width: 10%; } /* Last Name */
+table th:nth-child(4) { width: 10%; } /* Purok */
+table th:nth-child(5) { width: 15%; } /* Barangay */
+table th:nth-child(6) { width: 10%; } /* Contact */
+table th:nth-child(7) { width: 15%; } /* Coordinates */
+table th:nth-child(8) { width: 20%; } /* Email */
+table th:nth-child(9) { width: 10%; } /* Actions */
+
 /* Status Badges */
 .status-active {
     color: var(--success) !important;
@@ -855,7 +898,8 @@ tr:hover td {
     background: var(--primary);
     color: white;
     transition: all 0.3s;
-    margin-top: 10px; /* Consistent spacing */
+    margin-top: 250px; /* Consistent spacing */
+    margin-left: -800px;
 }
 
 .details-btn.cancel:hover {
@@ -1114,6 +1158,116 @@ tr:hover td {
 }
 .payment-btn i {
     font-size: 16px; /* Match icon size with other buttons */
+}
+
+/* Transactions Table */
+.transactions-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    table-layout: fixed; /* Match the main table's layout */
+}
+
+.transactions-container th {
+    padding: 15px;
+    text-align: center;
+    font-weight: 500;
+    vertical-align: middle;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+}
+
+.transactions-container td {
+    padding: 8px 5px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    font-size: 0.9rem;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.transactions-container tr:hover td {
+    background: rgba(108, 92, 231, 0.05);
+}
+
+/* Ensure consistent column widths */
+.transactions-container th,
+.transactions-container td {
+    width: 16.67%; /* Divide equally for 6 columns (100% / 6) */
+}
+
+.transactions-export-btn {
+    display: inline-flex;
+    align-items: center;
+    background-color: #17a2b8; /* Cyan color to differentiate from the main export button (#63c216) */
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px; /* Slightly rounder corners */
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
+    border: none;
+    outline: none;
+    cursor: pointer;
+    margin-bottom: 10px; /* Space below the button */
+    margin-left: 700px;
+}
+
+.transactions-export-btn:hover {
+    background-color: #138496; /* Darker cyan on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(23, 162, 184, 0.4);
+}
+
+.transactions-export-btn i {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+/* Export Dropdown for Customer Transactions */
+.transactions-export-container {
+    position: relative;
+    display: inline-block;
+}
+
+.transactions-export-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.transactions-export-container:hover .transactions-export-dropdown {
+    display: block;
+}
+
+.transactions-export-dropdown button {
+    color: #2d3436; /* Matches --dark variable */
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.transactions-export-dropdown button:hover {
+    background-color: #3d28e2; /* Matches --primary variable */
+    color: white;
 }
 
 /* Responsive adjustments */

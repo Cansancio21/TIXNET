@@ -50,8 +50,12 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
-// Fetch customers for filter dropdown
-$sqlCustomers = "SELECT c_id, c_fname, c_lname FROM tbl_customer ORDER BY c_fname, c_lname";
+// Fetch customers who have pending tickets
+$sqlCustomers = "SELECT DISTINCT c.c_id, c.c_fname, c.c_lname 
+                 FROM tbl_customer c 
+                 INNER JOIN tbl_customer_ticket t ON c.c_id = t.c_id 
+                 WHERE t.s_status = 'Pending' 
+                 ORDER BY c.c_fname, c.c_lname";
 $resultCustomers = $conn->query($sqlCustomers);
 $customers = [];
 if ($resultCustomers && $resultCustomers->num_rows > 0) {
@@ -64,7 +68,7 @@ if ($resultCustomers && $resultCustomers->num_rows > 0) {
         ];
     }
 } else {
-    error_log("No customers found in tbl_customer: " . ($resultCustomers ? "No rows" : $conn->error));
+    error_log("No customers with pending tickets found: " . ($resultCustomers ? "No rows" : $conn->error));
 }
 
 // Handle AJAX search request
@@ -137,11 +141,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
             $customerName = htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8');
             $output .= "<tr> 
                 <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td>$customerName</td> 
                 <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
+                <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td class='action-buttons'>
                     <a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='action-btn check' href='#' onclick=\"approveTicket('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Approve'><i class='fas fa-check'></i></a>
@@ -149,7 +152,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 </td></tr>";
         }
     } else {
-        $output = "<tr><td colspan='7' style='text-align: center;'>No customer tickets found.</td></tr>";
+        $output = "<tr><td colspan='6' style='text-align: center;'>No customer tickets found.</td></tr>";
     }
     $stmt->close();
 
@@ -495,7 +498,6 @@ $conn->close();
             <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
             <li><a href="AssignTech.php"><img src="image/technician.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
             <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
-
         </ul>
         <footer>
             <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -543,11 +545,10 @@ $conn->close();
                     <thead>
                         <tr>
                             <th>Ticket No</th>
-                            <th>ID</th>
-                            <th>Customer <button class="filter-btn" onclick="showAccountFilterModal('customer')" title="Filter by Customer Name"><i class='bx bx-filter'></i></button></th>
+                            <th>Account Name <button class="filter-btn" onclick="showAccountFilterModal('customer')" title="Filter by Account Name"><i class='bx bx-filter'></i></button></th>
                             <th>Subject</th>
-                            <th>Message</th>
                             <th>Status</th>
+                            <th>Details</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -559,11 +560,10 @@ $conn->close();
                                 $customerName = htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8');
                                 echo "<tr> 
                                         <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>$customerName</td> 
                                         <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                        <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
+                                        <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td class='action-buttons'>
                                             <a class='view-btn' href='#' onclick=\"showCustomerViewModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '$customerName', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='action-btn check' href='#' onclick=\"approveTicket('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Approve'><i class='fas fa-check'></i></a>
@@ -572,7 +572,7 @@ $conn->close();
                                       </tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='7' style='text-align: center;'>No customer tickets found.</td></tr>";
+                            echo "<tr><td colspan='6' style='text-align: center;'>No customer tickets found.</td></tr>";
                         }
                         ?>
                     </tbody>
@@ -631,11 +631,11 @@ $conn->close();
 <div id="accountFilterModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Filter by Customer Name</h2>
+            <h2>Filter by Account Name</h2>
         </div>
         <form id="accountFilterForm" class="modal-form">
             <input type="hidden" name="tab" id="accountFilterTab" value="customer">
-            <label for="account_filter">Select Customer Name</label>
+            <label for="account_filter">Select Account Name</label>
             <select name="account_filter" id="account_filter">
                 <option value="">All Customers</option>
                 <?php foreach ($customers as $customer): ?>
@@ -674,13 +674,18 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
+function showAccountFilterModal(tab) {
+    document.getElementById('accountFilterTab').value = tab;
+    document.getElementById('accountFilterModal').style.display = 'block';
+}
+
 function showCustomerViewModal(s_ref, s_ref2, c_id, customerName, s_subject, s_message, s_status) {
     const content = `
         <p><strong>Ticket Ref:</strong> ${s_ref}</p>
         <p><strong>Customer ID:</strong> ${c_id}</p>
-        <p><strong>Customer Name:</strong> ${customerName}</p>
+        <p><strong>Account Name:</strong> ${customerName}</p>
         <p><strong>Subject:</strong> ${s_subject}</p>
-        <p><strong>Message:</strong> ${s_message}</p>
+        <p><strong>Details:</strong> ${s_message}</p>
         <p><strong>Status:</strong> ${s_status}</p>
     `;
     document.getElementById('customerViewContent').innerHTML = content;

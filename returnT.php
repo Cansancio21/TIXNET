@@ -14,133 +14,10 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrfToken = $_SESSION['csrf_token'];
 
-// Initialize variables for edit form
-$return_assetsname = $return_quantity = $return_techname = $return_techid = $return_date = "";
-$return_assetsnameErr = $return_quantityErr = $return_technameErr = $return_techidErr = "";
-
-// Handle edit request via AJAX
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_asset']) && isset($_POST['r_id'])) {
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        $response = ['status' => 'error', 'message' => 'Invalid CSRF token'];
-        if (isset($_POST['ajax'])) {
-            header('Content-Type: application/json');
-            echo json_encode($response);
-            exit();
-        } else {
-            $_SESSION['error'] = $response['message'];
-            header("Location: returnT.php");
-            exit();
-        }
-    }
-
-    $id = (int)$_POST['r_id'];
-    $return_assetsname = trim($_POST['asset_name']);
-    $return_quantity = trim($_POST['return_quantity']);
-    $return_techname = trim($_POST['tech_name']);
-    $return_techid = trim($_POST['tech_id']);
-    $return_date = trim($_POST['date']);
-
-    // Basic validation
-    $errors = [];
-    $return_quantity = filter_var($return_quantity, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
-    if (empty($return_assetsname)) {
-        $errors[] = "Asset name is required.";
-    }
-    if ($return_quantity === false) {
-        $errors[] = "Quantity must be a positive integer.";
-    }
-    if (empty($return_techname)) {
-        $errors[] = "Technician name is required.";
-    }
-    if (empty($return_techid)) {
-        $errors[] = "Technician ID is required.";
-    }
-    if (empty($return_date) || !strtotime($return_date)) {
-        $errors[] = "Valid return date is required.";
-    }
-
-    if (empty($errors)) {
-        $sqlUpdate = "UPDATE tbl_returned SET r_assets_name = ?, r_quantity = ?, r_technician_name = ?, r_technician_id = ?, r_date = ? WHERE r_id = ?";
-        $stmtUpdate = $conn->prepare($sqlUpdate);
-        $stmtUpdate->bind_param("sisssi", $return_assetsname, $return_quantity, $return_techname, $return_techid, $return_date, $id);
-
-        if ($stmtUpdate->execute()) {
-            // Log action
-            $logDescription = "Admin {$_SESSION['username']} updated returned asset ID $id";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            $stmtLog->bind_param("s", $logDescription);
-            $stmtLog->execute();
-            $stmtLog->close();
-
-            $response = ['status' => 'success', 'message' => 'Record updated successfully!'];
-        } else {
-            $response = ['status' => 'error', 'message' => 'Error updating record: ' . $conn->error];
-        }
-        $stmtUpdate->close();
-    } else {
-        $response = ['status' => 'error', 'message' => implode(' ', $errors)];
-    }
-
-    if (isset($_POST['ajax'])) {
-        header('Content-Type: application/json');
-        echo json_encode($response);
-        exit();
-    } else {
-        $_SESSION[$response['status'] == 'success' ? 'message' : 'error'] = $response['message'];
-        header("Location: returnT.php?updated=true");
-        exit();
-    }
-}
-
-// Handle delete request
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_asset']) && isset($_POST['r_id'])) {
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        $_SESSION['error'] = "Invalid CSRF token";
-        header("Location: returnT.php");
-        exit();
-    }
-
-    $id = (int)$_POST['r_id'];
-    
-    $sql = "DELETE FROM tbl_returned WHERE r_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id);
-    
-    if ($stmt->execute()) {
-        // Log action
-        $logDescription = "Admin {$_SESSION['username']} deleted returned asset ID $id";
-        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
-        $stmtLog = $conn->prepare($sqlLog);
-        $stmtLog->bind_param("s", $logDescription);
-        $stmtLog->execute();
-        $stmtLog->close();
-
-        $_SESSION['message'] = "Record deleted successfully!";
-    } else {
-        $_SESSION['error'] = "Error deleting record: " . $conn->error;
-    }
-    
-    $stmt->close();
-    // Redirect to maintain pagination and search
-    $redirectParams = ['page' => isset($_GET['page']) ? (int)$_GET['page'] : 1];
-    if (isset($_GET['search'])) {
-        $redirectParams['search'] = trim($_GET['search']);
-    }
-    if (isset($_GET['asset_name'])) {
-        $redirectParams['asset_name'] = trim($_GET['asset_name']);
-    }
-    if (isset($_GET['technician_name'])) {
-        $redirectParams['technician_name'] = trim($_GET['technician_name']);
-    }
-    header("Location: returnT.php?" . http_build_query($redirectParams));
-    exit();
-}
-
 // Get user details for the header
 $username = $_SESSION['username'];
-$lastName = '';
 $firstName = '';
+$lastName = '';
 $userType = '';
 $avatarPath = 'default-avatar.png';
 $avatarFolder = 'Uploads/avatars/';
@@ -151,7 +28,6 @@ if (file_exists($userAvatar)) {
 } else {
     $_SESSION['avatarPath'] = 'default-avatar.png';
 }
-
 $avatarPath = $_SESSION['avatarPath'];
 
 // Handle AJAX export data request
@@ -161,25 +37,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
     $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
 
     // Build the WHERE clause dynamically
-    $whereClauses = [];
-    $params = [];
-    $paramTypes = '';
+    $whereClauses = ['a_status = ?'];
+    $params = ['Returned'];
+    $paramTypes = 's';
 
     if ($searchTerm !== '') {
-        $whereClauses[] = "(r_assets_name LIKE ? OR r_technician_name LIKE ? OR r_technician_id LIKE ? OR r_date LIKE ?)";
+        $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'ssss';
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'sssssss';
     }
 
     if ($assetNameFilter !== '') {
-        $whereClauses[] = "r_assets_name = ?";
+        $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
         $paramTypes .= 's';
     }
 
     if ($technicianNameFilter !== '') {
-        $whereClauses[] = "r_technician_name = ?";
+        $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
         $paramTypes .= 's';
     }
@@ -187,9 +63,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
     // Fetch all records for export (no limit/offset)
-    $sqlExport = "SELECT r_id, r_assets_name, r_quantity, r_technician_name, r_technician_id, r_date 
-                  FROM tbl_returned $whereClause 
-                  ORDER BY r_date DESC";
+    $sqlExport = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
+                  FROM tbl_asset_status $whereClause 
+                  ORDER BY a_return_date DESC";
     $stmtExport = $conn->prepare($sqlExport);
     if ($paramTypes !== '') {
         $stmtExport->bind_param($paramTypes, ...$params);
@@ -200,12 +76,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
     $records = [];
     while ($row = $resultExport->fetch_assoc()) {
         $records[] = [
-            'Return ID' => $row['r_id'],
-            'Asset Name' => $row['r_assets_name'] ?? '',
-            'Quantity' => $row['r_quantity'] ?? 0,
-            'Technician Name' => $row['r_technician_name'] ?? '',
-            'Technician ID' => $row['r_technician_id'] ?? '',
-            'Return Date' => $row['r_date'] ?? '-'
+            'Asset Ref No.' => $row['a_ref_no'] ?? '',
+            'Asset Name' => $row['a_name'] ?? '',
+            'Technician Name' => $row['tech_name'] ?? '',
+            'Technician ID' => $row['tech_id'] ?? '',
+            'Asset Serial No.' => $row['a_serial_no'] === '0' || empty($row['a_serial_no']) ? '' : $row['a_serial_no'],
+            'Date Borrowed' => $row['a_date'] ?? '-',
+            'Date Returned' => $row['a_return_date'] ?? '-'
         ];
     }
     $stmtExport->close();
@@ -225,25 +102,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
 
     // Build the WHERE clause dynamically
-    $whereClauses = [];
-    $params = [];
-    $paramTypes = '';
+    $whereClauses = ['a_status = ?'];
+    $params = ['Returned'];
+    $paramTypes = 's';
 
     if ($searchTerm !== '') {
-        $whereClauses[] = "(r_assets_name LIKE ? OR r_technician_name LIKE ? OR r_technician_id LIKE ? OR r_date LIKE ?)";
+        $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'ssss';
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'sssssss';
     }
 
     if ($assetNameFilter !== '') {
-        $whereClauses[] = "r_assets_name = ?";
+        $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
         $paramTypes .= 's';
     }
 
     if ($technicianNameFilter !== '') {
-        $whereClauses[] = "r_technician_name = ?";
+        $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
         $paramTypes .= 's';
     }
@@ -251,7 +128,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
     // Count total matching records for pagination
-    $countSql = "SELECT COUNT(*) as total FROM tbl_returned $whereClause";
+    $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status $whereClause";
     $countStmt = $conn->prepare($countSql);
     if ($paramTypes !== '') {
         $countStmt->bind_param($paramTypes, ...$params);
@@ -264,10 +141,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $totalPages = max(1, ceil($totalRecords / $limit));
 
     // Fetch paginated search results
-    $sql = "SELECT r_id, r_assets_name, r_quantity, r_technician_name, r_technician_id, r_date 
-            FROM tbl_returned 
+    $sql = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
+            FROM tbl_asset_status 
             $whereClause 
-            ORDER BY r_date DESC 
+            ORDER BY a_return_date DESC 
             LIMIT ?, ?";
     $stmt = $conn->prepare($sql);
     if ($paramTypes !== '') {
@@ -284,31 +161,32 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     ob_start();
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
+            $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
             $ticketData = json_encode([
-                'id' => $row['r_id'],
-                'asset_name' => $row['r_assets_name'] ?? '',
-                'quantity' => $row['r_quantity'] ?? 0,
-                'technician_name' => $row['r_technician_name'] ?? '',
-                'technician_id' => $row['r_technician_id'] ?? '',
-                'date' => $row['r_date'] ?? '-'
+                'id' => $row['a_id'],
+                'ref_no' => $row['a_ref_no'] ?? '',
+                'asset_name' => $row['a_name'] ?? '',
+                'technician_name' => $row['tech_name'] ?? '',
+                'technician_id' => $row['tech_id'] ?? '',
+                'serial_no' => $serialNo,
+                'date_borrowed' => $row['a_date'] ?? '-',
+                'date_returned' => $row['a_return_date'] ?? '-'
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
             echo "<tr> 
-                    <td>{$row['r_id']}</td> 
-                    <td>" . htmlspecialchars($row['r_assets_name'], ENT_QUOTES, 'UTF-8') . "</td>  
-                    <td>{$row['r_quantity']}</td>
-                    <td>" . htmlspecialchars($row['r_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
-                    <td>" . htmlspecialchars($row['r_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
-                    <td>" . htmlspecialchars($row['r_date'], ENT_QUOTES, 'UTF-8') . "</td> 
+                    <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
+                    <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
+                    <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . $serialNo . "</td>
+                    <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td class='action-buttons'>
-                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>";
-            if ($userType === 'admin') {
-                echo "<span class='edit-btn' onclick='showEditModal($ticketData)' title='Edit'><i class='fas fa-edit'></i></span>
-                      <span class='delete-btn' onclick=\"showDeleteModal('{$row['r_id']}', '" . htmlspecialchars($row['r_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
-            }
-            echo "</td></tr>";
+                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                    </td>
+                  </tr>";
         }
     } else {
-        echo "<tr><td colspan='7' style='text-align: center;'>No returned assets found.</td></tr>";
+        echo "<tr><td colspan='8' style='text-align: center;'>No returned assets found.</td></tr>";
     }
     $html = ob_get_clean();
     $stmt->close();
@@ -321,14 +199,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         'searchTerm' => $searchTerm
     ]);
     exit();
-}
-
-// Check for success messages
-if (isset($_GET['deleted']) && $_GET['deleted'] == 'true') {
-    $_SESSION['message'] = "Record deleted successfully!";
-}
-if (isset($_GET['updated']) && $_GET['updated'] == 'true') {
-    $_SESSION['message'] = "Record updated successfully!";
 }
 
 // Get user info for header
@@ -351,18 +221,18 @@ if ($conn) {
     $stmt->close();
 
     // Fetch unique asset names and technician names for filter modals
-    $assetNamesQuery = "SELECT DISTINCT r_assets_name FROM tbl_returned ORDER BY r_assets_name";
+    $assetNamesQuery = "SELECT DISTINCT a_name FROM tbl_asset_status WHERE a_status = 'Returned' ORDER BY a_name";
     $assetNamesResult = $conn->query($assetNamesQuery);
     $assetNames = [];
     while ($row = $assetNamesResult->fetch_assoc()) {
-        $assetNames[] = $row['r_assets_name'];
+        $assetNames[] = $row['a_name'];
     }
 
-    $technicianNamesQuery = "SELECT DISTINCT r_technician_name FROM tbl_returned ORDER BY r_technician_name";
+    $technicianNamesQuery = "SELECT DISTINCT tech_name FROM tbl_asset_status WHERE a_status = 'Returned' ORDER BY tech_name";
     $technicianNamesResult = $conn->query($technicianNamesQuery);
     $technicianNames = [];
     while ($row = $technicianNamesResult->fetch_assoc()) {
-        $technicianNames[] = $row['r_technician_name'];
+        $technicianNames[] = $row['tech_name'];
     }
 
     // Pagination setup
@@ -373,25 +243,25 @@ if ($conn) {
     $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
 
     // Build the WHERE clause dynamically
-    $whereClauses = [];
-    $params = [];
-    $paramTypes = '';
+    $whereClauses = ['a_status = ?'];
+    $params = ['Returned'];
+    $paramTypes = 's';
 
     if ($searchTerm !== '') {
-        $whereClauses[] = "(r_assets_name LIKE ? OR r_technician_name LIKE ? OR r_technician_id LIKE ? OR r_date LIKE ?)";
+        $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
         $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'ssss';
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $paramTypes .= 'sssssss';
     }
 
     if ($assetNameFilter !== '') {
-        $whereClauses[] = "r_assets_name = ?";
+        $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
         $paramTypes .= 's';
     }
 
     if ($technicianNameFilter !== '') {
-        $whereClauses[] = "r_technician_name = ?";
+        $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
         $paramTypes .= 's';
     }
@@ -399,7 +269,7 @@ if ($conn) {
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
     // Count total records for pagination
-    $countSql = "SELECT COUNT(*) as total FROM tbl_returned $whereClause";
+    $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status $whereClause";
     $countStmt = $conn->prepare($countSql);
     if ($paramTypes !== '') {
         $countStmt->bind_param($paramTypes, ...$params);
@@ -414,10 +284,10 @@ if ($conn) {
     $offset = ($page - 1) * $limit;
 
     // Main query with pagination
-    $sqlBorrowed = "SELECT r_id, r_assets_name, r_quantity, r_technician_name, r_technician_id, r_date 
-                    FROM tbl_returned 
+    $sqlBorrowed = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
+                    FROM tbl_asset_status 
                     $whereClause 
-                    ORDER BY r_date DESC 
+                    ORDER BY a_return_date DESC 
                     LIMIT ?, ?";
     $stmt = $conn->prepare($sqlBorrowed);
     if ($paramTypes !== '') {
@@ -532,7 +402,7 @@ if ($conn) {
         </div>
 
         <div class="table-box glass-container">
-           <h2>List of Returned Assets</h2>
+            <h2>List of Returned Assets</h2>
             
             <div class="action-buttons">
                 <div class="export-container">
@@ -547,12 +417,13 @@ if ($conn) {
             <table id="returned-assets-table">
                 <thead>
                     <tr>
-                        <th>Return ID</th>
+                        <th>Asset Ref No.</th>
                         <th>Asset Name <button class="filter-btn" onclick="showAssetFilterModal()" title="Filter by Asset Name"><i class='bx bx-filter'></i></button></th>
-                        <th>Quantity</th>
                         <th>Technician Name <button class="filter-btn" onclick="showTechnicianFilterModal()" title="Filter by Technician Name"><i class='bx bx-filter'></i></button></th>
                         <th>Technician ID</th>
-                        <th>Return Date</th>
+                        <th>Asset Serial No.</th>
+                        <th>Date Borrowed</th>
+                        <th>Date Returned</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -560,31 +431,32 @@ if ($conn) {
                     <?php 
                     if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
                         while ($row = $resultBorrowed->fetch_assoc()) {
+                            $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
                             $ticketData = json_encode([
-                                'id' => $row['r_id'],
-                                'asset_name' => $row['r_assets_name'] ?? '',
-                                'quantity' => $row['r_quantity'] ?? 0,
-                                'technician_name' => $row['r_technician_name'] ?? '',
-                                'technician_id' => $row['r_technician_id'] ?? '',
-                                'date' => $row['r_date'] ?? '-'
+                                'id' => $row['a_id'],
+                                'ref_no' => $row['a_ref_no'] ?? '',
+                                'asset_name' => $row['a_name'] ?? '',
+                                'technician_name' => $row['tech_name'] ?? '',
+                                'technician_id' => $row['tech_id'] ?? '',
+                                'serial_no' => $serialNo,
+                                'date_borrowed' => $row['a_date'] ?? '-',
+                                'date_returned' => $row['a_return_date'] ?? '-'
                             ], JSON_HEX_QUOT | JSON_HEX_TAG);
                             echo "<tr> 
-                                    <td>{$row['r_id']}</td> 
-                                    <td>" . htmlspecialchars($row['r_assets_name'], ENT_QUOTES, 'UTF-8') . "</td>  
-                                    <td>{$row['r_quantity']}</td>
-                                    <td>" . htmlspecialchars($row['r_technician_name'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . htmlspecialchars($row['r_technician_id'], ENT_QUOTES, 'UTF-8') . "</td>    
-                                    <td>" . htmlspecialchars($row['r_date'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
+                                    <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . $serialNo . "</td>
+                                    <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') . "</td>
                                     <td class='action-buttons'>
-                                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>";
-                            if ($userType === 'admin') {
-                                echo 
-                                      "<span class='delete-btn' onclick=\"showDeleteModal('{$row['r_id']}', '" . htmlspecialchars($row['r_assets_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>";
-                            }
-                            echo "</td></tr>";
+                                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                    </td>
+                                  </tr>";
                         } 
                     } else { 
-                        echo "<tr><td colspan='7' style='text-align: center;'>No returned assets found.</td></tr>"; 
+                        echo "<tr><td colspan='8' style='text-align: center;'>No returned assets found.</td></tr>"; 
                     } 
                     ?>
                 </tbody>
@@ -631,54 +503,6 @@ if ($conn) {
         <div class="modal-footer">
             <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
         </div>
-    </div>
-</div>
-
-<!-- Edit Asset Modal -->
-<div id="editAssetModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Edit Returned Asset</h2>
-        </div>
-        <form method="POST" id="editAssetForm" class="modal-form">
-            <input type="hidden" name="edit_asset" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <input type="hidden" name="r_id" id="edit_r_id">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-            <label for="edit_asset_name">Asset Name</label>
-            <input type="text" name="asset_name" id="edit_asset_name" required>
-            <label for="edit_return_quantity">Quantity</label>
-            <input type="number" name="return_quantity" id="edit_return_quantity" min="1" required>
-            <label for="edit_tech_name">Technician Name</label>
-            <input type="text" name="tech_name" id="edit_tech_name" required>
-            <label for="edit_tech_id">Technician ID</label>
-            <input type="text" name="tech_id" id="edit_tech_id" required>
-            <label for="edit_date">Return Date</label>
-            <input type="date" name="date" id="edit_date" required>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('editAssetModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Update Asset</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Delete Asset</h2>
-        </div>
-        <p>Are you sure you want to delete the returned asset: <span id="deleteAssetName"></span>?</p>
-        <form method="POST" id="deleteForm">
-            <input type="hidden" name="r_id" id="deleteAssetId">
-            <input type="hidden" name="delete_asset" value="1">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Delete</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -814,31 +638,16 @@ const debouncedSearchReturned = debounce(searchReturned, 300);
 function showViewModal(data) {
     document.getElementById('viewContent').innerHTML = `
         <div class="view-details">
-            <p><strong>Return ID:</strong> ${data.id}</p>
+            <p><strong>Asset Ref No.:</strong> ${data.ref_no}</p>
             <p><strong>Asset Name:</strong> ${data.asset_name}</p>
-            <p><strong>Quantity:</strong> ${data.quantity}</p>
             <p><strong>Technician Name:</strong> ${data.technician_name}</p>
             <p><strong>Technician ID:</strong> ${data.technician_id}</p>
-            <p><strong>Return Date:</strong> ${data.date}</p>
+            <p><strong>Asset Serial No.:</strong> ${data.serial_no}</p>
+            <p><strong>Date Borrowed:</strong> ${data.date_borrowed}</p>
+            <p><strong>Date Returned:</strong> ${data.date_returned}</p>
         </div>
     `;
     document.getElementById('viewModal').style.display = 'block';
-}
-
-function showEditModal(data) {
-    document.getElementById('edit_r_id').value = data.id;
-    document.getElementById('edit_asset_name').value = data.asset_name;
-    document.getElementById('edit_return_quantity').value = data.quantity;
-    document.getElementById('edit_tech_name').value = data.technician_name;
-    document.getElementById('edit_tech_id').value = data.technician_id;
-    document.getElementById('edit_date').value = data.date;
-    document.getElementById('editAssetModal').style.display = 'block';
-}
-
-function showDeleteModal(id, name) {
-    document.getElementById('deleteAssetName').textContent = name || 'Unknown Asset';
-    document.getElementById('deleteAssetId').value = id;
-    document.getElementById('deleteModal').style.display = 'block';
 }
 
 function showAssetFilterModal() {
@@ -911,9 +720,8 @@ function exportTable(format) {
                     XLSX.writeFile(wb, 'returned_assets.xlsx');
                 } else if (format === 'csv') {
                     // Create CSV file
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    const csv = XLSX.utils.sheet_to_csv(ws);
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const ws = XLSX.utils.sheet_to_csv(data);
+                    const blob = new Blob([ws], { type: 'text/csv;charset=utf-8;' });
                     saveAs(blob, 'returned_assets.csv');
                 }
             } catch (e) {
@@ -930,48 +738,6 @@ window.addEventListener('click', function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
     }
-});
-
-// Handle edit form submission via AJAX
-document.getElementById('editAssetForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-
-    fetch('returnT.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        const alertContainer = document.querySelector('.alert-container');
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${data.status}`;
-        alert.textContent = data.message;
-        alertContainer.appendChild(alert);
-
-        setTimeout(() => {
-            alert.classList.add('alert-hidden');
-            setTimeout(() => alert.remove(), 500);
-        }, 2000);
-
-        if (data.status === 'success') {
-            closeModal('editAssetModal');
-            updateTable();
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        const alertContainer = document.querySelector('.alert-container');
-        const alert = document.createElement('div');
-        alert.className = 'alert alert-error';
-        alert.textContent = 'An error occurred while updating the record.';
-        alertContainer.appendChild(alert);
-
-        setTimeout(() => {
-            alert.classList.add('alert-hidden');
-            setTimeout(() => alert.remove(), 500);
-        }, 2000);
-    });
 });
 
 // Handle asset filter form submission
@@ -1022,4 +788,3 @@ window.addEventListener('beforeunload', () => {
 <?php 
 $conn->close();
 ?>
-

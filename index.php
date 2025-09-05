@@ -57,16 +57,8 @@ $firstnameErr = $lastnameErr = $loginError = $passwordError = $usernameError = "
 $emailErr = $typeErr = $statusErr = $generalError = "";
 $hasError = false;
 
-// Define the registration code
-define('REGISTRATION_CODE', 'ADMIN1234!');
-
 // User Registration
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
-    $submittedCode = isset($_POST['reg_code']) ? trim($_POST['reg_code']) : '';
-    if ($submittedCode !== REGISTRATION_CODE) {
-        $hasError = true;
-    }
-
     $firstname = trim($_POST['firstname'] ?? '');
     $lastname = trim($_POST['lastname'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -345,9 +337,7 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 </div>
                 <div class="input-box">
                     <select name="type" required>
-                       
                         <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
-                       
                     </select>
                     <i class='bx bxs-user type-icon'></i>
                     <?php if (!empty($typeErr)) { ?>
@@ -365,8 +355,6 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                         <span class="error"><?php echo $statusErr; ?></span>
                     <?php } ?>
                 </div>
-                <!-- Hidden input for reg_code -->
-                <input type="hidden" name="reg_code" id="regCodeHidden">
                 <button type="submit" class="btn">Register</button>
             </form>
         </div>
@@ -377,13 +365,6 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 <h1>Hello Welcome!</h1>
                 <p>Don't have an account?</p>
                 <button class="btn register-btn">Register</button>
-                <div class="reg-password-container">
-                    <div class="input-wrapper">
-                        <input type="password" class="reg-password-input" id="regPassword" placeholder="Enter code">
-                        <i class='bx bxs-lock-alt reg-password-icon' id="toggleRegPassword" style="cursor: pointer;"></i>
-                    </div>
-                    <div class="reg-password-error error-message"></div>
-                </div>
             </div>
             <div class="toggle-panel toggle-right">
                 <h1>Welcome Back!</h1>
@@ -410,17 +391,14 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             }
         }
 
-        // Toggle password visibility and handle registration password
+        // Toggle password visibility
         document.addEventListener('DOMContentLoaded', function () {
             // Password visibility toggles
             const togglePassword = document.getElementById('togglePassword');
             const passwordInput = document.getElementById('password');
             const loginPasswordInput = document.getElementById('loginPassword');
             const toggleLoginPassword = document.getElementById('toggleLoginPassword');
-            const regPasswordInput = document.getElementById('regPassword');
-            const toggleRegPassword = document.getElementById('toggleRegPassword');
 
-            // Check if elements exist before adding event listeners
             if (togglePassword && passwordInput) {
                 togglePassword.addEventListener('click', function () {
                     const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
@@ -436,14 +414,6 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                     loginPasswordInput.setAttribute('type', type);
                     this.classList.remove('bxs-lock-alt', 'bx-show');
                     this.classList.add(type === 'password' ? 'bxs-lock-alt' : 'bx-show');
-                });
-            }
-
-            if (toggleRegPassword && regPasswordInput) {
-                toggleRegPassword.addEventListener('click', function () {
-                    const type = regPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                    regPasswordInput.setAttribute('type', type);
-                    // Keep the lock icon constant (no class changes)
                 });
             }
 
@@ -470,52 +440,14 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             const container = document.querySelector(".container");
             const registerBtn = document.querySelector(".register-btn");
             const loginBtn = document.querySelector(".login-btn");
-            const regPasswordContainer = document.querySelector(".reg-password-container");
 
-            if (container && registerBtn && loginBtn && regPasswordContainer && regPasswordInput) {
-                const REGISTRATION_CODE = 'ADMIN1234!';
-
+            if (container && registerBtn && loginBtn) {
                 registerBtn.addEventListener("click", () => {
-                    regPasswordContainer.classList.toggle("active");
-                    if (regPasswordContainer.classList.contains("active")) {
-                        regPasswordInput.focus();
-                    } else {
-                        regPasswordInput.value = "";
-                        document.querySelector(".reg-password-error").textContent = "";
-                    }
-                });
-
-                // Function to handle registration code submission
-                function submitRegCode() {
-                    const code = regPasswordInput.value;
-                    const errorDiv = document.querySelector(".reg-password-error");
-                    const hiddenRegCode = document.getElementById('regCodeHidden');
-                    if (code === REGISTRATION_CODE) {
-                        container.classList.add("active");
-                        regPasswordContainer.classList.remove("active");
-                        regPasswordInput.value = "";
-                        errorDiv.textContent = "";
-                        // Set hidden input for registration form
-                        if (hiddenRegCode) {
-                            hiddenRegCode.value = REGISTRATION_CODE;
-                        }
-                    } else {
-                        errorDiv.textContent = "Invalid registration password.";
-                    }
-                }
-
-                // Enter key submits registration code
-                regPasswordInput.addEventListener("keypress", (e) => {
-                    if (e.key === "Enter") {
-                        submitRegCode();
-                    }
+                    container.classList.add("active");
                 });
 
                 loginBtn.addEventListener("click", () => {
                     container.classList.remove("active");
-                    regPasswordContainer.classList.remove("active");
-                    regPasswordInput.value = "";
-                    document.querySelector(".reg-password-error").textContent = "";
                 });
             }
 

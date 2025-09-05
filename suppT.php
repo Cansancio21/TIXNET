@@ -14,8 +14,6 @@ $userType = $_SESSION['user_type'] ?? '';
 $isTechnician = $userType === 'technician';
 $isCustomer = $userType === 'customer';
 
-
-
 // Fetch user details
 $firstName = '';
 $lastName = '';
@@ -79,6 +77,7 @@ $_SESSION['avatarPath'] = $avatarPath;
 $ticket = null;
 $activeTickets = [];
 $archivedTickets = [];
+$pendingTickets = [];
 $error = '';
 $tab = isset($_GET['tab']) ? $_GET['tab'] : 'active';
 $activePage = isset($_GET['active_page']) ? max(1, (int)$_GET['active_page']) : 1;
@@ -287,6 +286,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     $s_subject = trim($_POST['subject'] ?? '');
     $s_message = trim($_POST['message'] ?? '');
     $s_status = 'Pending';
+
+    // Check for existing pending tickets
+    $sqlCheckPending = "SELECT COUNT(*) as count FROM tbl_customer_ticket WHERE c_id = ? AND s_status = 'Pending'";
+    $stmtCheckPending = $conn->prepare($sqlCheckPending);
+    if ($stmtCheckPending) {
+        $stmtCheckPending->bind_param("i", $c_id);
+        $stmtCheckPending->execute();
+        $resultCheckPending = $stmtCheckPending->get_result();
+        $pendingCount = $resultCheckPending->fetch_assoc()['count'] ?? 0;
+        $stmtCheckPending->close();
+        if ($pendingCount > 0) {
+            $_SESSION['error'] = "Cannot Create Ticket because there is a pending ticket in the tbl_customer_ticket.";
+            header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
+            exit();
+        }
+    } else {
+        error_log("Prepare failed for checking pending tickets: " . $conn->error);
+        $_SESSION['error'] = "Error checking for existing pending tickets.";
+        header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
+        exit();
+    }
 
     if (empty($s_subject) || empty($s_message)) {
         $_SESSION['error'] = "Subject and message are required.";
@@ -532,6 +552,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_ticket'])) {
     exit();
 }
 
+// Fetch pending tickets
+$pendingTickets = [];
+if ($filterCid != 0) {
+    $sqlPending = "SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ? AND s_status = 'Pending'";
+    $stmtPending = $conn->prepare($sqlPending);
+    if (!$stmtPending) {
+        error_log("Prepare failed for pending tickets: " . $conn->error);
+        $_SESSION['error'] = "Error preparing query for pending tickets.";
+    } else {
+        $stmtPending->bind_param("i", $filterCid);
+        if ($stmtPending->execute()) {
+            $resultPending = $stmtPending->get_result();
+            while ($row = $resultPending->fetch_assoc()) {
+                $pendingTickets[] = $row;
+            }
+        } else {
+            error_log("Execute failed for pending tickets: " . $stmtPending->error);
+            $_SESSION['error'] = "Error executing query for pending tickets.";
+        }
+        $stmtPending->close();
+    }
+}
+
 // Fetch ticket counts
 $totalActiveTickets = 0;
 $totalArchivedTickets = 0;
@@ -660,7 +703,7 @@ $conn->close();
             <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Rejected Tickets" class="icon" /> <span>Rejected Tickets</span></a></li>
         </ul>
         <footer>
-            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </footer>
     </div>
     <div class="container">
@@ -694,8 +737,8 @@ $conn->close();
             <!-- Active Tickets Table -->
             <div class="table-box <?php echo $tab === 'active' ? 'active' : ''; ?>" id="activeTable">
                 <div class="tab-buttons">
-                    <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')">Active (<?php echo $totalActiveTickets; ?>)</button>
-                    <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')">
+                    <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>Active (<?php echo $totalActiveTickets; ?>)</button>
+                    <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>
                         Archived <?php if ($totalArchivedTickets > 0): ?><span class="tab-badge"><?php echo $totalArchivedTickets; ?></span><?php endif; ?>
                     </button>
                     <button type="button" class="create-ticket-btn" onclick="openModal()">Create Ticket</button>
@@ -740,6 +783,21 @@ $conn->close();
                             </tr>
                         </tbody>
                     </table>
+                <?php elseif (!empty($pendingTickets)): ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Reported Ticket</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activeTableBody">
+                            <?php foreach ($pendingTickets as $row): ?>
+                                <tr>
+                                    <td>Ticket Ref No: <?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 <?php else: ?>
                     <table>
                         <thead>
@@ -779,7 +837,7 @@ $conn->close();
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="empty-state">No active tickets found.</td>
+                                    <td colspan="7" class="empty-state">No active or unofficially approved tickets found.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -803,8 +861,8 @@ $conn->close();
             <!-- Archived Tickets Table -->
             <div class="table-box <?php echo $tab === 'archived' ? 'active' : ''; ?>" id="archivedTable">
                 <div class="tab-buttons">
-                    <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')">Active (<?php echo $totalActiveTickets; ?>)</button>
-                    <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')">
+                    <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>Active (<?php echo $totalActiveTickets; ?>)</button>
+                    <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>
                         Archived <?php if ($totalArchivedTickets > 0): ?><span class="tab-badge"><?php echo $totalArchivedTickets; ?></span><?php endif; ?>
                     </button>
                     <button type="button" class="create-ticket-btn" onclick="openModal()">Create Ticket</button>
@@ -1046,6 +1104,11 @@ let currentActivePage = <?php echo $activePage; ?>;
 let currentArchivedPage = <?php echo $archivedPage; ?>;
 let currentSearchTerm = '';
 function showTab(tab) {
+    // Prevent tab switching if pending tickets are present
+    <?php if (!empty($pendingTickets)): ?>
+        showNotification('Cannot switch tabs while there are pending tickets.', 'error');
+        return;
+    <?php endif; ?>
     const activeTable = document.getElementById('activeTable');
     const archivedTable = document.getElementById('archivedTable');
     
@@ -1077,6 +1140,11 @@ function showTab(tab) {
 }
 
 function openModal() {
+    // Check for pending tickets before opening the modal
+    <?php if (!empty($pendingTickets)): ?>
+        showNotification('Cannot Create Ticket because there is a reported pending ticket.', 'error');
+        return;
+    <?php endif; ?>
     document.getElementById('addTicketModal').style.display = 'block';
 }
 
@@ -1155,7 +1223,6 @@ function showStatusRestrictedMessage() {
 }
 
 function htmlspecialchars(str) {
-    // Return unchanged if not a string or is null/undefined
     if (str == null || typeof str !== 'string') {
         return str;
     }
@@ -1229,4 +1296,3 @@ window.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>
 <?php ob_end_flush(); ?>
-

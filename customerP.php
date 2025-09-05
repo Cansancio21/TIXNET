@@ -69,12 +69,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Login</title>
-    <link rel="stylesheet" href="customersP.css">
+    <link rel="stylesheet" href="customerP.css">
 </head>
 <body>
 <div class="wrapper">
     <div class="form-container">
-        <img src="image/customer.png" alt="Login Image" class="login-image">
+        <div class="logo-container">
+            <h2>
+                <img src="image/portal.png" alt="TixNet Icon" class="side-left">
+                TixNet Pro
+            </h2>
+        </div>
         <div class="vertical-line"></div>
         <div class="form-content">
             <h1 class="login-title">Customer Portal</h1>

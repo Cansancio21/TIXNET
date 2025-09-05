@@ -139,6 +139,19 @@ body {
     transform: translateY(-3px);
 }
 
+.sidebar ul li a .icon {
+    font-size: 22px;
+    margin-right: 12px;
+    color: var(--light);
+    transition: transform 0.3s ease;
+}
+
+.sidebar ul li a:hover .icon,
+.sidebar ul li a.active .icon {
+    transform: scale(1.1);
+    color: #ffffff;
+}
+
 .sidebar ul li a i {
     margin-right: 10px;
     font-size: 22px;

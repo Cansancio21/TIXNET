@@ -199,7 +199,7 @@ $conn->close();
             <li><a href="reject_ticket.php" class="active"><img src="image/ticket.png" alt="Rejected Tickets" class="icon" /> <span>Rejected Tickets</span></a></li>
         </ul>
         <footer>
-            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </footer>
     </div>
     <div class="container">

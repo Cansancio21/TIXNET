@@ -45,12 +45,38 @@ body {
     backdrop-filter: blur(4px);
 }
 
-.login-image {
+.logo-container {
     width: 45%;
-    max-height: 500px; /* Prevent image overflow */
-    object-fit: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
     border-top-left-radius: 16px;
     border-bottom-left-radius: 16px;
+}
+
+.logo-container h2 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #1e3a8a;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    text-align: center;
+}
+
+.logo-container img.side-left {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 10px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.logo-container img.side-left:hover {
+    transform: scale(1.1);
 }
 
 .vertical-line {
@@ -88,7 +114,8 @@ label {
     font-size: 0.9rem;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="password"] {
     width: 100%;
     padding: 14px 16px; /* Increased padding for better touch targets */
     border: 1px solid #e5e7eb;
@@ -98,7 +125,8 @@ input[type="text"] {
     transition: all 0.3s ease;
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="password"]:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Enhanced focus for accessibility */

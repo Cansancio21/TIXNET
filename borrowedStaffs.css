@@ -601,12 +601,26 @@ tr:hover td {
 #deleteModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
-    margin-top: -55px;
+    margin-top: -85px;
 }
 
 #returnAssetModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
+    margin-top: 15px;
+    
+}
+
+#assetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -65px;
+}
+
+#technicianNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -65px;
 }
 
 
@@ -730,3 +744,4 @@ tr:hover td {
     justify-content: center; /* Center buttons horizontally */
     width: 100%; /* Ensure container fills cell for proper centering */
 }
+
