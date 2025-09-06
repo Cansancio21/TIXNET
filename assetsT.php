@@ -897,7 +897,7 @@ unset($_SESSION['open_modal']);
         <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
     </ul>
     <footer>
-        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </footer>
 </div>
 

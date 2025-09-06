@@ -691,19 +691,23 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppsT.css">
+    <link rel="stylesheet" href="suppT.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
 </head>
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-            <li><a href="portal.php"><img src="image/main.png" alt="Dashboard" class="icon" /> <span>Dashboard</span></a></li>
-            <li><a href="suppT.php" class="active"><img src="image/ticket.png" alt="Support Tickets" class="icon" /> <span>Support Tickets</span></a></li>
-            <li><a href="reject_ticket.php"><img src="image/ticket.png" alt="Rejected Tickets" class="icon" /> <span>Rejected Tickets</span></a></li>
+        <li><a href="portal.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
+        <li><a href="suppT.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Support Tickets</span></a></li>
+        <li><a href="reject_ticket.php"><i class="fas fa-times-circle icon"></i> <span>Declined Tickets</span></a></li>   
         </ul>
         <footer>
-            <a href="customerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            <a href="CustomerP.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
     <div class="container">

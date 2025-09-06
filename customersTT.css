@@ -3,7 +3,7 @@
     --secondary: #372fa7;
     --dark: #2d3436;
     --light: #f5f6fa;
-    --success: #00b894;
+    --success: #4CAF50;
     --danger: #d63031;
     --warning: #fdcb6e;
     --info: #0984e3;
@@ -49,7 +49,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    transition: width 0.3s ease;
 }
 
 .sidebar h2 {
@@ -108,7 +107,6 @@ body {
     border-radius: 8px;
     transition: all 0.3s;
     width: 100%;
-    font-size: clamp(0.875rem, 2vw, 1rem);
 }
 
 .sidebar ul li a:hover,
@@ -117,25 +115,22 @@ body {
     transform: translateY(-3px);
 }
 
-.sidebar ul li a i {
-    margin-right: 10px;
+.sidebar ul li a .icon {
     font-size: 22px;
+    margin-right: 12px;
+    color: var(--light);
+    transition: transform 0.3s ease;
+}
+
+.sidebar ul li a:hover .icon,
+.sidebar ul li a.active .icon {
+    transform: scale(1.1);
+    color: #ffffff;
 }
 
 .sidebar ul li a span {
     font-size: 14px;
     display: inline;
-}
-
-.sidebar ul li a img {
-    width: 35px;
-    height: 30px;
-    margin-right: 10px;
-}
-
-footer .back-home img {
-    width: 35px;
-    height: 35px;
 }
 
 footer {
@@ -166,6 +161,7 @@ footer {
 .back-home i {
     margin-right: 0;
     margin-bottom: 5px;
+    font-size: 22px;
 }
 
 /* Main Content */
@@ -290,7 +286,7 @@ footer {
 .export-btn {
     position: absolute;
     top: -37px;
-    right: -1265px;
+    right: -1420px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;
@@ -308,6 +304,7 @@ footer {
     background-color: #7494ec;
 }
 
+/* Export Dropdown */
 .export-container {
     position: relative;
     display: inline-block;
@@ -318,7 +315,7 @@ footer {
     position: absolute;
     top: 100%;
     right: 0;
-    left: 1100px;
+    left: 1250px;
     background: white;
     min-width: 120px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -396,15 +393,13 @@ footer {
     margin-right: 5px;
     border-radius: 4px 4px 0 0;
     position: relative;
+    color: #333;
+    font-weight: 500;
+    transition: all 0.3s ease;
 }
 
 .tab-btn.active {
-    background: #4CAF50;
-    color: white;
-}
-
-.tab-btn.archive {
-    background: #4CAF50;
+    background: var(--success);
     color: white;
 }
 
@@ -454,6 +449,7 @@ table {
     border-collapse: collapse;
     margin-top: 10px;
     table-layout: fixed;
+    display: table; /* Default display for tables */
 }
 
 thead {
@@ -488,39 +484,6 @@ td {
     line-height: 1.3;
 }
 
-/* Column-Specific Styling */
-th:nth-child(1), td:nth-child(1) { /* Account No. */
-    width: 10%;
-}
-
-th:nth-child(2), td:nth-child(2) { /* First Name */
-    width: 8%;
-}
-
-th:nth-child(3), td:nth-child(3) { /* Last Name */
-    width: 8%;
-}
-
-th:nth-child(4), td:nth-child(4) { /* Purok */
-    width: 10%;
-}
-
-th:nth-child(5), td:nth-child(5) { /* Barangay */
-    width: 12%;
-}
-
-th:nth-child(6), td:nth-child(6) { /* Contact */
-    width: 12%;
-}
-
-th:nth-child(7), td:nth-child(7) { /* Coordinates */
-    width: 13%;
-}
-
-th:nth-child(8), td:nth-child(8) { /* Email */
-    width: 17%;
-}
-
 tr:last-child td {
     border-bottom: none;
 }
@@ -547,8 +510,8 @@ tr:hover td {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    margin-bottom: 20px;
+    padding-top: 10px;
 }
 
 .pagination-link {
@@ -685,6 +648,23 @@ tr:hover td {
     max-width: 500px;
 }
 
+#viewModal .table-box {
+    display: flex;
+    flex-direction: column;
+}
+
+#viewModal .pagination {
+    order: 1;
+}
+
+#viewModal table {
+    order: 2;
+}
+
+#viewModal .customer-details-section {
+    order: 3;
+}
+
 #addAssetModal .modal-content {
     margin: 8% auto;
     max-width: 500px;
@@ -710,25 +690,201 @@ tr:hover td {
     max-width: 500px;
 }
 
-/* View Modal Styling */
-.customer-details h3 {
+/* Customer Details Section */
+.customer-details-section {
     margin-top: 20px;
+    width: 100%;
+}
+.customer-details-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for the initial layout */
+    gap: 10px; /* Reduced gap between columns */
+    background: white; /* Outer white background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.customer-details-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns for Account and Subscription */
+    gap: 10px; /* Same gap as container */
+    background-color: #f9f9f9; /* Shared inner background for Account and Subscription */
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.service-details-inner {
+    display: grid;
+    grid-template-columns: 1fr; /* Single column for Service Details */
+    gap: 10px;
+    background-color: #e6f3ff; /* Original light blue background */
+    padding: 15px;
+    border: 1px solid #b3d4fc; /* Original border color */
+    border-radius: 8px;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.customer-details-column {
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* Remove padding to avoid overlap */
+}
+
+.customer-details-column h3 {
     margin-bottom: 15px;
     font-size: 1.2em;
     color: var(--primary);
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
 }
 
-.customer-details p {
-    margin: 8px 0;
-    font-size: 0.95em;
+.customer-details-column h3 i {
+    font-size: 1.1em; /* Slightly smaller than the text for balance */
     color: var(--dark);
 }
 
-.customer-details hr {
-    border: 0;
-    border-top: 1px solid #ddd;
-    margin: 20px 0;
+.customer-details-column p {
+    margin: 8px 0;
+    font-size: 0.95em;
+    color: var(--dark);
+    border-bottom: 1px solid #ddd; /* Single line below info text */
+}
+
+.customer-details-column p:last-child {
+    border-bottom: none; /* Remove line from the last item */
+}
+
+.subscription-details-column {
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* Remove padding to avoid overlap */
+}
+
+.subscription-details-column h3 {
+    margin-bottom: 65px;
+    font-size: 1.2em;
+    color: var(--primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
+}
+
+.subscription-details-column h3 i {
+    font-size: 1.1em; /* Slightly smaller than the text for balance */
+    color: var(--dark);
+}
+
+.subscription-details-column p {
+    margin: 8px 0;
+    font-size: 0.95em;
+    color: var(--dark);
+    border-bottom: 1px solid #ddd; /* Single line below info text */
+}
+
+.subscription-details-column p:last-child {
+    border-bottom: none; /* Remove line from the last item */
+}
+
+.account-no-header {
+    margin: 8px 0;
+    font-size: 1em; /* Base size for the "Account No." text */
+    color: var(--primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none; /* No line under Account No. */
+}
+
+.account-no-header .account-no-value {
+    font-size: 1.5em; /* 3x larger than the "Account No." text */
+    font-weight: 600;
+}
+
+.account-details-content,
+.subscription-details-content,
+.service-details-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.balance-header {
+    margin: 8px 0;
+    font-size: 1em; /* Base size for the "Balance" text */
+    color: var(--primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: none; /* No line under Balance */
+}
+
+.balance-header .balance-value {
+    font-size: 1.5em; /* 3x larger than the "Balance" text */
+    font-weight: 600;
+}
+
+/* Service Details retains original background color and border */
+.service-details-inner {
+    display: grid;
+    grid-template-columns: 1fr; /* Single column for Service Details */
+    gap: 10px;
+    background-color: #e6f3ff; /* Original light blue background */
+    padding: 15px;
+    border: 1px solid #b3d4fc; /* Original border color */
+    border-radius: 8px;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.details-btn.cancel {
+    width: 100px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    background: var(--primary);
+    color: white;
+    transition: all 0.3s;
+    margin-top: 10px; /* Consistent spacing */
+}
+
+.details-btn.cancel:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.advance-text {
+    color: var(--success); 
+    font-weight: 500;
+    font-size: 0.9em;
+    margin-left: 5px; 
+}
+
+/* Modal Form Adjustments */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-form label {
+    margin-top: 10px;
+    font-weight: 500;
+}
+
+.modal-form input[type="date"],
+.modal-form input[type="number"] {
+    padding: 8px;
+    margin: 5px 0 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 100%;
 }
 
 /* Archive Header */
@@ -807,6 +963,17 @@ tr:hover td {
     transform: translateX(0);
 }
 
+/* Highlighted Field Styling */
+.highlight-field {
+    background-color: #f0f4f8; /* Light blue-gray background */
+    text-align: center; /* Center the text */
+    border: 1px solid #b3d4fc; /* Matching border color */
+    border-radius: 5px;
+    padding: 8px;
+    margin: 5px 0 15px;
+    width: 100%;
+}
+
 /* Empty state styling */
 .empty-state {
     height: 300px;
@@ -829,37 +996,41 @@ tr:hover td {
     opacity: 0;
 }
 
-.delete-btn {
-    display: inline-flex;
+.balance-type {
+    color: #28a745; /* Green color */
+    font-size: 0.8em;
+    margin-left: 8px;
+    font-weight: 500;
+    background-color: rgba(40, 167, 69, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.balance-header {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    background-color: #ff6200;
-    color: #fff;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.delete-btn:hover {
-    background-color: #e55a00;
-    color: #fff;
-}
-
-.delete-btn i {
-    font-size: 16px;
-}
-
+/* Action Buttons */
 .action-buttons {
     display: flex;
-    justify-content: center; /* Center buttons horizontally */
-    align-items: center; /* Center buttons vertically */
+    justify-content: center;
+    align-items: center;
     gap: 5px;
-    padding: 8px 5px; /* Adjusted padding for better vertical alignment */
+    padding: 10px;
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .ticket-btn {
+.action-buttons-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px; /* Space between buttons */
+    margin-top: 10px; /* Space above the button container */
+}
+
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -900,4 +1071,162 @@ tr:hover td {
 }
 .unarchive-btn:hover {
     background-color: #8e44ad;
+}
+
+.delete-btn {
+    background-color: #ff6200;
+    color: #fff;
+}
+.delete-btn:hover {
+    background-color: #e55a00;
+}
+.delete-btn i {
+    font-size: 16px;
+}
+
+.activate-btn {
+    background-color: #e67e22; /* Orange color for activation */
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+.activate-btn:hover {
+    background-color: #d35400;
+}
+.activate-btn i {
+    font-size: 16px; /* Match icon size with other buttons */
+}
+
+.payment-btn {
+    background-color: #2ecc71; /* Green color for payment, matching edit-btn for consistency */
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+.payment-btn:hover {
+    background-color: #27ae60; /* Darker green for hover state */
+}
+.payment-btn i {
+    font-size: 16px; /* Match icon size with other buttons */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 70px;
+    }
+
+    .sidebar h2 {
+        font-size: 1.2rem;
+        padding: 10px;
+    }
+
+    .sidebar ul li a span {
+        display: none;
+    }
+
+    .sidebar ul li a img {
+        margin-right: 0;
+    }
+
+    .container {
+        margin-left: 70px;
+        padding: 20px;
+        padding-top: 80px;
+    }
+
+    .upper {
+        left: 100px;
+        height: 60px;
+    }
+
+    .search-container {
+        width: 200px;
+    }
+
+    .user-details {
+        margin-left: 0;
+    }
+
+    .user-details span,
+    .user-details small {
+        margin-left: 0;
+    }
+
+    .customer-details-container {
+        grid-template-columns: 1fr;
+    }
+
+    .add-user-btn,
+    .export-btn {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+
+    .export-dropdown {
+        left: auto;
+        right: 0;
+    }
+
+    .action-buttons {
+        gap: 3px;
+    }
+
+    .action-buttons-container {
+        gap: 8px; /* Slightly reduced gap for smaller screens */
+    }
+
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    table {
+        table-layout: auto;
+    }
+
+    th, td {
+        font-size: 0.8rem;
+        padding: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .upper h1 {
+        font-size: 1.2rem;
+    }
+
+    .search-container {
+        width: 150px;
+    }
+
+    .user-icon img,
+    .user-icon i {
+        width: 35px;
+        height: 35px;
+    }
+
+    .pagination-link {
+        width: 35px;
+        height: 35px;
+    }
+
+    .current-page {
+        font-size: 0.9rem;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .modal-btn {
+        padding: 6px 15px;
+    }
+
+    .action-buttons-container {
+        gap: 6px; /* Further reduced gap for very small screens */
+    }
 }

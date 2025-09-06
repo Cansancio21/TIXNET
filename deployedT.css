@@ -49,8 +49,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    transition: width 0.3s ease;
-    
 }
 
 .sidebar h2 {
@@ -109,7 +107,6 @@ body {
     border-radius: 8px;
     transition: all 0.3s;
     width: 100%;
-    font-size: clamp(0.875rem, 2vw, 1rem);
 }
 
 .sidebar ul li a:hover,
@@ -118,9 +115,27 @@ body {
     transform: translateY(-3px);
 }
 
+.sidebar ul li a .icon {
+    font-size: 22px;
+    margin-right: 12px;
+    color: var(--light);
+    transition: transform 0.3s ease;
+}
+
+.sidebar ul li a:hover .icon,
+.sidebar ul li a.active .icon {
+    transform: scale(1.1);
+    color: #ffffff;
+}
+
 .sidebar ul li a i {
     margin-right: 10px;
     font-size: 22px;
+}
+
+.sidebar ul li a span {
+    font-size: 14px;
+    display: inline;
 }
 
 .sidebar ul li a span {
@@ -163,6 +178,7 @@ footer {
     margin-right: 0;
     margin-bottom: 5px;
 }
+
 
 /* Main Content */
 .container {

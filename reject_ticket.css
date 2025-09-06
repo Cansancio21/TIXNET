@@ -35,6 +35,7 @@ body {
     min-height: 100vh;
 }
 
+/* Sidebar */
 .sidebar {
     width: 200px;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -59,24 +60,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
 
 .sidebar ul {
@@ -112,25 +113,22 @@ body {
     transform: translateY(-3px);
 }
 
-.sidebar ul li a i {
-    margin-right: 10px;
+.sidebar ul li a .icon {
     font-size: 22px;
+    margin-right: 12px;
+    color: var(--light);
+    transition: transform 0.3s ease;
+}
+
+.sidebar ul li a:hover .icon,
+.sidebar ul li a.active .icon {
+    transform: scale(1.1);
+    color: #ffffff;
 }
 
 .sidebar ul li a span {
     font-size: 14px;
     display: inline;
-}
-
-.sidebar ul li a img {
-    width: 35px;
-    height: 30px;
-    margin-right: 10px;
-}
-
-footer .back-home img {
-    width: 35px;
-    height: 35px;
 }
 
 footer {
@@ -161,6 +159,7 @@ footer {
 .back-home i {
     margin-right: 0;
     margin-bottom: 5px;
+    font-size: 22px;
 }
 
 /* Main Content */

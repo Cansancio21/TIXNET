@@ -185,6 +185,7 @@ footer {
     margin-top: -15px;
     padding-top: 100px;
 }
+
 /* Header */
 .upper {
     display: flex;
@@ -294,7 +295,6 @@ footer {
     padding-bottom: 25px;
     margin-bottom: 25px;
     color: var(--primary);
-    
 }
 
 .admin-icon {
@@ -315,8 +315,8 @@ footer {
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none; /* Remove border */
-    outline: none; /* Remove outline on focus */
+    border: none;
+    outline: none;
 }
 
 .add-user-btn:hover {
@@ -447,7 +447,6 @@ button {
     outline: none;
 }
 
-
 /* Action Buttons */
 .delete-btn {
     display: inline-flex;
@@ -545,6 +544,7 @@ button {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
+
 .export-btn i {
     margin-right: 8px;
 }
@@ -593,7 +593,6 @@ button {
     background-color: var(--primary);
     color: white;
 }
-
 
 /* Pagination */
 .pagination {
@@ -800,7 +799,8 @@ button {
     transform: translateX(0);
 }
 
-/* Empty state styling */
+/* Empty state
+ styling */
 .empty-state {
     height: 300px;
     display: flex;
@@ -821,5 +821,4 @@ button {
 .alert-hidden {
     opacity: 0;
 }
-
 

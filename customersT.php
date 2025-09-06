@@ -237,51 +237,6 @@ if (isset($_GET['action'])) {
         echo json_encode($customers);
         $conn->close();
         exit();
-    } elseif ($_GET['action'] === 'get_transactions') {
-        $customer_name = $_GET['customer_name'];
-        $get_all = isset($_GET['all']) && $_GET['all'] === 'true';
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = 10;
-        $offset = ($page - 1) * $limit;
-
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_transactions WHERE t_customer_name = ?";
-        $stmtCount = $conn->prepare($sqlCount);
-        $stmtCount->bind_param("s", $customer_name);
-        $stmtCount->execute();
-        $countResult = $stmtCount->get_result();
-        $totalRow = $countResult->fetch_assoc();
-        $total = $totalRow['total'];
-        $totalPages = ceil($total / $limit);
-        $stmtCount->close();
-
-        if ($get_all) {
-            $sql = "SELECT t_date, t_balance, t_credit_date, t_description, t_amount FROM tbl_transactions WHERE t_customer_name = ? ORDER BY t_date DESC";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $customer_name);
-        } else {
-            $sql = "SELECT t_date, t_balance, t_credit_date, t_description, t_amount FROM tbl_transactions WHERE t_customer_name = ? ORDER BY t_date DESC LIMIT ?, ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sii", $customer_name, $offset, $limit);
-        }
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $transactions = [];
-        while ($row = $result->fetch_assoc()) {
-            $transactions[] = $row;
-        }
-        $stmt->close();
-
-        $response = ['transactions' => $transactions];
-        if (!$get_all) {
-            $response['totalPages'] = $totalPages;
-            $response['currentPage'] = $page;
-        }
-
-        header('Content-Type: application/json');
-        echo json_encode($response);
-        $conn->close();
-        exit();
     }
 } else {
     // Debug: Log when action is not set
@@ -567,29 +522,31 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customersT.css">
+    <link rel="stylesheet" href="customersTT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
-        <ul>
-            <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
-            <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
-            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
-            <li><a href="customersT.php" class="active"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
-            <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
-            <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-            <li><a href="AssignTech.php"><img src="image/technician.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
-            <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
-        </ul>
-        <footer>
-            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
-        </footer>
+    <ul>
+        <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
+        <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
+        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
+        <li><a href="customersT.php" class="active"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
+        <li><a href="borrowedStaff.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
+        <li><a href="addC.php"><i class="fas fa-user-plus icon"></i> <span>Add Customer</span></a></li>
+        <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
+        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+    </ul>
+    <footer>
+        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </footer>
     </div>
 
     <div class="container">
@@ -867,7 +824,7 @@ if ($conn) {
                 <input type="date" id="due_date" name="due_date" required onchange="calculateNextDates()">
                 <label for="advance_days">Advance Billing (days):</label>
                 <input type="number" id="advance_days" name="advance_days" min="1" required placeholder="Enter number of days" onchange="calculateNextDates()">
-                <p class="billing-note"><strong>Note:</strong> The next due date is calculated as 31 days from the due date. If the due date is August 14, 2025, the next due date is September 14, 2025. If advance billing is set to 7 days, the next bill date will be September 7, 2025 (7 days before September 14, 2025). For month-end dates (e.g., September 30, 2025), the next due date will be October 1, 2025.</p>
+                <p class="billing-note"><strong>Note:</strong> The next due date is calculated as 31 days from the due date.</p>
                 <input type="hidden" name="activate_billing" value="1">
                 <div class="modal-footer">
                     <button type="button" class="modal-btn cancel" onclick="closeModal('activateBillingModal')">Cancel</button>
@@ -901,12 +858,12 @@ if ($conn) {
                 echo date('Y-m-d');
                  ?>">
                 <label for="t_description">Transaction Description:</label>
-                <select id="t_description" name="t_description" required onchange="toggleCustomDescription()">
-                    <option value="No description">No description</option>
+                <select id="t_description" name="t_description" required onchange="toggleCustomDescription()">     
                     <option value="Custom description">Custom description</option>
-                    <option value="Stakeholder">Stakeholder</option>
                     <option value="Plan 500">Plan 500</option>
+                    <option value="Plan 799">Plan 799</option>
                     <option value="Plan 999">Plan 999</option>
+                    <option value="Plan 1299">Plan 1299</option>
                     <option value="Plan 1499">Plan 1499</option>
                     <option value="Plan 1799">Plan 1799</option>
                     <option value="Plan 1999">Plan 1999</option>
@@ -1092,48 +1049,40 @@ function calculateNextDates() {
 }
 
 function showViewDetails(account_no, fname, lname, purok, barangay, contact, email, coordinates, date, napname, napport, macaddress, status, plan, equipment, balance, startdate, nextdue, lastdue, nextbill, billstatus) {
-    try {
-        const tab = document.getElementById('customers_active')?.style.display !== 'none' ? 'active' : 'archived';
-        const detailsSection = document.getElementById(`customerDetails${tab === 'active' ? 'Active' : 'Archived'}`);
-        const contentDiv = document.getElementById(`customerDetailsContent${tab === 'active' ? 'Active' : 'Archived'}`);
-        const table = document.getElementById(`${tab}-customers-table`);
-        const pagination = document.getElementById(`${tab}-customers-pagination`);
-        const tabButtons = document.querySelector('.tab-buttons');
-        const exportContainer = document.querySelector('.export-container');
-        const addCustomerButton = document.querySelector('.add-user-btn');
-        const tableBoxTitle = document.querySelector('.table-box h2');
+    const tab = document.getElementById('customers_active').style.display !== 'none' ? 'active' : 'archived';
+    const detailsSection = document.getElementById(`customerDetails${tab === 'active' ? 'Active' : 'Archived'}`);
+    const contentDiv = document.getElementById(`customerDetailsContent${tab === 'active' ? 'Active' : 'Archived'}`);
+    const table = tab === 'active' ? document.getElementById('active-customers-table') : document.getElementById('archived-customers-table');
+    const pagination = tab === 'active' ? document.getElementById('active-customers-pagination') : document.getElementById('archived-customers-pagination');
+    const tabButtons = document.querySelector('.tab-buttons');
+    const exportContainer = document.querySelector('.export-container');
+    const addCustomerButton = document.querySelector('.add-user-btn');
+    const tableBoxTitle = document.querySelector('.table-box h2');
 
-        // Check if all required DOM elements exist
-        if (!detailsSection || !contentDiv || !table || !pagination) {
-            console.error('One or more DOM elements not found:', { detailsSection, contentDiv, table, pagination });
-            return;
-        }
+    // Hide the table, pagination, tab buttons, export button, add customer button, and title
+    table.style.display = 'none';
+    pagination.style.display = 'none';
+    tabButtons.style.display = 'none';
+    exportContainer.style.display = 'none';
+    addCustomerButton.style.display = 'none';
+    tableBoxTitle.style.display = 'none';
 
-        // Hide table, pagination, and other UI elements
-        table.style.display = 'none';
-        pagination.style.display = 'none';
-        tabButtons.style.display = 'none';
-        exportContainer.style.display = 'none';
-        addCustomerButton.style.display = 'none';
-        tableBoxTitle.style.display = 'none';
+    // Format dates consistently
+    const formatDate = (dateStr) => {
+        if (!dateStr || dateStr === '') return '';
+        const dateObj = new Date(dateStr);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const year = dateObj.getFullYear();
+        const month = months[dateObj.getMonth()];
+        const day = dateObj.getDate().toString().padStart(2, '0');
+        return `${year}/${month}/${day}`;
+    };
 
-        // Format dates
-        const formatDate = (dateStr) => {
-            if (!dateStr || dateStr === '') return '';
-            const dateObj = new Date(dateStr);
-            if (isNaN(dateObj)) return ''; // Handle invalid dates
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const year = dateObj.getFullYear();
-            const month = months[dateObj.getMonth()];
-            const day = dateObj.getDate().toString().padStart(2, '0');
-            return `${year}/${month}/${day}`;
-        };
+    const formattedStartDate = formatDate(startdate);
+    const formattedLastDue = formatDate(lastdue);
 
-        const formattedStartDate = formatDate(startdate);
-        const formattedLastDue = formatDate(lastdue);
-
-        // Set content for details section
-        contentDiv.innerHTML = `
+    // Populate and show the details section
+    contentDiv.innerHTML = `
     <div class="customer-details-container">
         <div class="customer-details-inner">
             <div class="customer-details-column">
@@ -1169,140 +1118,15 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
                 <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
                 <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
                 <div class="action-buttons-container">
-                    <a class="activate-btn" onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title="Activate"><i class="fas fa-play"></i></a>
-                    <a class="payment-btn" onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title="Record Payment"><i class="fas fa-money-bill-wave"></i></a>
+                    <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
+                    <a class='payment-btn' onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title='Record Payment'><i class='fas fa-money-bill-wave'></i></a>
                 </div>
             </div>
-        </div>
-        <div class="transactions-container" data-account-no="${account_no}" data-customer-name="${fname} ${lname}">
-            <h3><i class="fas fa-exchange-alt"></i> Transactions</h3>
-            <div class="transactions-export-container">
-                <button class="transactions-export-btn" onclick="exportTransactions()"><i class="fas fa-download"></i> Export</button>
-                <div class="transactions-export-dropdown">
-                    <button onclick="exportTransactions('excel')">Excel</button>
-                    <button onclick="exportTransactions('csv')">CSV</button>
-                </div>
-            </div>
-            <table class="customer-table transactions-table">
-                <thead>
-                    <tr>
-                        <th>Transaction</th>
-                        <th>Account</th>
-                        <th>Credit</th>
-                        <th>Debit</th>
-                        <th>Reference</th>
-                        <th>Amount</th>
-                    </tr>
-                </thead>
-                <tbody id="transactions-tbody">
-                </tbody>
-            </table>
-            <div id="transactions-pagination" class="pagination"></div>
         </div>
         <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
     </div>
-`;
-
-        // Show the details section
-        detailsSection.style.display = 'block';
-
-        // Load transactions
-        loadTransactions(account_no, 1);
-    } catch (error) {
-        console.error('Error in showViewDetails:', error);
-    }
-}
-
-function loadTransactions(account_no, page = 1) {
-    const transactionsContainer = document.querySelector('.transactions-container');
-    if (!transactionsContainer) {
-        console.error('Transactions container not found');
-        return;
-    }
-    const customer_name = transactionsContainer.dataset.customerName;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', `customersT.php?action=get_transactions&customer_name=${encodeURIComponent(customer_name)}&page=${page}`, true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            const tbody = document.getElementById('transactions-tbody');
-            if (!tbody) {
-                console.error('Transactions tbody not found');
-                return;
-            }
-            tbody.innerHTML = '';
-            if (response.transactions.length > 0) {
-                response.transactions.forEach(tx => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${tx.t_credit_date || 'N/A'}</td>
-                        <td>${account_no} - ${customer_name}</td>
-                        <td>${tx.t_amount ? parseFloat(tx.t_amount).toFixed(2) : '0.00'}</td>
-                        <td></td>
-                        <td>${tx.t_description || 'N/A'}</td>
-                        <td>${tx.t_amount ? parseFloat(tx.t_amount).toFixed(2) : '0.00'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } else {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No transactions found.</td></tr>';
-            }
-
-            const pagination = document.getElementById('transactions-pagination');
-            if (!pagination) {
-                console.error('Transactions pagination not found');
-                return;
-            }
-            pagination.innerHTML = '';
-            if (response.currentPage > 1) {
-                pagination.innerHTML += `<a href="javascript:loadTransactions('${account_no}', ${response.currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
-            } else {
-                pagination.innerHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
-            }
-            pagination.innerHTML += `<span class="current-page">Page ${response.currentPage} of ${response.totalPages}</span>`;
-            if (response.currentPage < response.totalPages) {
-                pagination.innerHTML += `<a href="javascript:loadTransactions('${account_no}', ${response.currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
-            } else {
-                pagination.innerHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
-            }
-        }
-    };
-    xhr.send();
-}
-
-function exportTransactions(format = 'excel') {
-    const section = document.querySelector('.transactions-section');
-    if (!section) return;
-    const account_no = section.dataset.accountNo;
-    const customer_name = section.dataset.customerName;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', `customersT.php?action=get_transactions&customer_name=${encodeURIComponent(customer_name)}&all=true`, true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            const data = response.transactions.map(tx => ({
-                'Transaction': tx.t_credit_date,
-                'Account': `${account_no} - ${customer_name}`,
-                'Credit': parseFloat(tx.t_amount).toFixed(2),
-                'Debit': '',
-                'Reference': tx.t_description,
-                'Amount': parseFloat(tx.t_amount).toFixed(2)
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-            
-            if (format === 'excel') {
-                XLSX.writeFile(wb, 'transactions.xlsx');
-            } else if (format === 'csv') {
-                XLSX.writeFile(wb, 'transactions.csv', { bookType: 'csv' });
-            }
-        }
-    };
-    xhr.send();
+    `;
+    detailsSection.style.display = 'block';
 }
 
 function hideViewDetails(sectionId) {
@@ -1425,9 +1249,9 @@ function exportTable(format) {
             XLSX.utils.book_append_sheet(wb, ws, 'Customers');
             
             if (format === 'excel') {
-                XLSX.writeFile(wb, 'customers.xlsx');
+                XLSX.write_file(wb, 'customers.xlsx');
             } else if (format === 'csv') {
-                XLSX.writeFile(wb, 'customers.csv', { bookType: 'csv' });
+                XLSX.write_file(wb, 'customers.csv', { bookType: 'csv' });
             }
         }
     };

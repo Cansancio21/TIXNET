@@ -113,31 +113,12 @@ if (isset($_POST['assign_ticket'])) {
         exit();
     }
 
-    $sqlCountAssigned = "SELECT 
-        (SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status != 'Closed') +
-        (SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status != 'Closed') AS total";
-    $stmtCountAssigned = $conn->prepare($sqlCountAssigned);
-    if (!$stmtCountAssigned) {
-        error_log("Prepare failed for count query: " . $conn->error);
-        echo json_encode(['success' => false, 'error' => 'Database error: Unable to check ticket count.']);
-        exit();
-    }
-    $stmtCountAssigned->bind_param("ss", $technician_username, $technician_username);
-    $stmtCountAssigned->execute();
-    $stmtCountAssigned->bind_result($totalAssigned);
-    $stmtCountAssigned->fetch();
-    $stmtCountAssigned->close();
-
-    if ($totalAssigned >= 5) {
-        error_log("Technician $technician_username has reached max tickets: $totalAssigned");
-        echo json_encode(['success' => false, 'error' => 'Technician has reached the maximum of 5 assigned tickets.']);
-        exit();
-    }
+    // REMOVED: The 5-ticket limitation check
 
     $table = ($ticket_type === 'regular') ? 'tbl_ticket' : 'tbl_supp_tickets';
     $refColumn = ($ticket_type === 'regular') ? 't_ref' : 's_ref';
     $statusColumn = ($ticket_type === 'regular') ? 't_status' : 's_status';
-    $sqlCheck = "SELECT COUNT(*) FROM $table WHERE $refColumn = ? AND (technician_username IS NULL OR technician_username = '') AND $statusColumn != 'Closed'";
+    $sqlCheck = "SELECT COUNT(*) FROM $table WHERE $refColumn = ? AND (technician_username IS NULL OR technician_username = '') AND $statusColumn NOT IN ('Closed', 'Archived')";
     $stmtCheck = $conn->prepare($sqlCheck);
     if (!$stmtCheck) {
         error_log("Prepare failed for ticket check query: " . $conn->error);
@@ -151,14 +132,14 @@ if (isset($_POST['assign_ticket'])) {
     $stmtCheck->close();
 
     if ($ticketExists == 0) {
-        error_log("Ticket does not exist or is already assigned/closed: t_ref=$t_ref, table=$table");
-        echo json_encode(['success' => false, 'error' => 'Ticket does not exist or is already assigned/closed.']);
+        error_log("Ticket does not exist or is already assigned/closed/archived: t_ref=$t_ref, table=$table");
+        echo json_encode(['success' => false, 'error' => 'Ticket does not exist or is already assigned/closed/archived.']);
         exit();
     }
 
     $sqlAssign = ($ticket_type === 'regular') ?
-        "UPDATE tbl_ticket SET technician_username = ? WHERE t_ref = ? AND t_status != 'Closed'" :
-        "UPDATE tbl_supp_tickets SET technician_username = ? WHERE s_ref = ? AND s_status != 'Closed'";
+        "UPDATE tbl_ticket SET technician_username = ? WHERE t_ref = ? AND t_status NOT IN ('Closed', 'Archived')" :
+        "UPDATE tbl_supp_tickets SET technician_username = ? WHERE s_ref = ? AND s_status NOT IN ('Closed', 'Archived')";
     $stmtAssign = $conn->prepare($sqlAssign);
     if (!$stmtAssign) {
         error_log("Prepare failed for assign query: " . $conn->error);
@@ -266,22 +247,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     if ($searchTerm && strtolower($searchTerm) === 'regular tickets') {
         $sql = "SELECT t_ref, IFNULL(t_aname, 'Unknown') AS display_name, 'regular' AS ticket_type 
                 FROM tbl_ticket 
-                WHERE t_status != 'Closed' AND (technician_username IS NULL OR technician_username = '')";
+                WHERE t_status NOT IN ('Closed', 'Archived') AND (technician_username IS NULL OR technician_username = '')";
     } elseif ($searchTerm && strtolower($searchTerm) === 'support tickets') {
         $sql = "SELECT st.s_ref AS t_ref, IFNULL(CONCAT(c.c_fname, ' ', c.c_lname), 'Unknown') AS display_name, 'support' AS ticket_type 
                 FROM tbl_supp_tickets st 
                 JOIN tbl_customer c ON st.c_id = c.c_id 
-                WHERE st.s_status != 'Closed' AND (st.technician_username IS NULL OR st.technician_username = '')";
+                WHERE st.s_status NOT IN ('Closed', 'Archived') AND (st.technician_username IS NULL OR st.technician_username = '')";
     } else {
         $sql = "SELECT t_ref, display_name, ticket_type FROM (
                     SELECT t_ref, IFNULL(t_aname, 'Unknown') AS display_name, 'regular' AS ticket_type 
                     FROM tbl_ticket 
-                    WHERE t_status != 'Closed' AND (technician_username IS NULL OR technician_username = '') " . ($searchTerm ? "AND t_ref LIKE ?" : "") . "
+                    WHERE t_status NOT IN ('Closed', 'Archived') AND (technician_username IS NULL OR technician_username = '') " . ($searchTerm ? "AND t_ref LIKE ?" : "") . "
                     UNION
                     SELECT st.s_ref AS t_ref, IFNULL(CONCAT(c.c_fname, ' ', c.c_lname), 'Unknown') AS display_name, 'support' AS ticket_type 
                     FROM tbl_supp_tickets st 
                     JOIN tbl_customer c ON st.c_id = c.c_id 
-                    WHERE st.s_status != 'Closed' AND (st.technician_username IS NULL OR st.technician_username = '') " . ($searchTerm ? "AND st.s_ref LIKE ?" : "") . "
+                    WHERE st.s_status NOT IN ('Closed', 'Archived') AND (st.technician_username IS NULL OR st.technician_username = '') " . ($searchTerm ? "AND st.s_ref LIKE ?" : "") . "
                 ) AS combined
                 ORDER BY t_ref";
         $paramTypes = $searchTerm ? "ss" : "";
@@ -338,10 +319,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                  WHERE u_type = 'technician' AND u_status = 'active' 
                  AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ?)";
     $sql = "SELECT u.u_fname, u.u_lname, u.u_email, u.u_type, u.u_status, u.u_username, u.is_online,
-                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status != 'Closed') +
-                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status != 'Closed') AS open_tickets,
-                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status = 'Closed') +
-                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status = 'Closed') AS closed_tickets
+                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status NOT IN ('Closed', 'Archived')) +
+                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status NOT IN ('Closed', 'Archived')) AS open_tickets,
+                   (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status IN ('Closed', 'Archived')) +
+                   (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status IN ('Closed', 'Archived')) AS closed_tickets
             FROM tbl_user u
             WHERE u.u_type = 'technician' AND u_status = 'active' 
             AND (u_fname LIKE ? OR u_lname LIKE ? OR u_email LIKE ?)
@@ -439,10 +420,10 @@ $sqlTechnicians = "SELECT
     u.u_status, 
     u.u_username,
     u.is_online,
-    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status != 'Closed') +
-    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status != 'Closed') AS open_tickets,
-    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status = 'Closed') +
-    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status = 'Closed') AS closed_tickets
+    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status NOT IN ('Closed', 'Archived')) +
+    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status NOT IN ('Closed', 'Archived')) AS open_tickets,
+    (SELECT COUNT(*) FROM tbl_ticket t WHERE t.technician_username = u.u_username AND t.t_status IN ('Closed', 'Archived')) +
+    (SELECT COUNT(*) FROM tbl_supp_tickets st WHERE st.technician_username = u.u_username AND st.s_status IN ('Closed', 'Archived')) AS closed_tickets
 FROM tbl_user u
 WHERE u.u_type = 'technician' AND u_status = 'active' 
 ORDER BY u.u_fname, u.u_lname
@@ -467,14 +448,18 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Technicians</title>
-    <link rel="stylesheet" href="AssignTech.css">
+    <link rel="stylesheet" href="AssignTechT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
             --primary: #3d28e2;
             --secondary: #372fa7;
+            --toggle-btn: #ff7d50; /* New color for toggle button */
         }
 
         .status-container {
@@ -506,7 +491,20 @@ $conn->close();
             white-space: nowrap;
         }
 
-        .toggle-btn, .assign-btn {
+        .toggle-btn {
+            background: var(--toggle-btn); /* Updated to new color */
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 5px;
+            margin-right: 5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        .assign-btn {
             background: #007bff;
             color: white;
             width: 32px;
@@ -519,7 +517,11 @@ $conn->close();
             box-sizing: border-box;
         }
 
-        .toggle-btn:hover, .assign-btn:hover:not(.disabled) {
+        .toggle-btn:hover {
+            background: #e86a3c; /* Darker shade for hover */
+        }
+
+        .assign-btn:hover:not(.disabled) {
             background: #0056b3;
         }
 
@@ -567,19 +569,19 @@ $conn->close();
 <div class="wrapper">
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
-        <ul>
-            <li><a href="staffD.php"><img src="image/ticket.png" alt="Regular Tickets" class="icon" /> <span>Regular Tickets</span></a></li>
-            <li><a href="assetsT.php"><img src="image/assets.png" alt="Assets" class="icon" /> <span>Assets</span></a></li>
-            <li><a href="AllCustomersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers Ticket</span></a></li>
-            <li><a href="customersT.php"><img src="image/users.png" alt="Customers" class="icon" /> <span>Customers</span></a></li>
-            <li><a href="borrowedStaff.php"><img src="image/borrowed.png" alt="Borrowed Assets" class="icon" /> <span>Borrowed Assets</span></a></li>
-            <li><a href="addC.php"><img src="image/add.png" alt="Add Customer" class="icon" /> <span>Add Customer</span></a></li>
-            <li><a href="AssignTech.php" class="active"><img src="image/technician.png" alt="Technicians" class="icon" /> <span>Technicians</span></a></li>
-            <li><a href="Payments.php"><img src="image/transactions.png" alt="Payment Transactions" class="icon" /> <span>Payment Transactions</span></a></li>
-        </ul>
-        <footer>
-            <a href="index.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
-        </footer>
+    <ul>
+        <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
+        <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
+        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
+        <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
+        <li><a href="borrowedStaff.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
+        <li><a href="addC.php"><i class="fas fa-user-plus icon"></i> <span>Add Customer</span></a></li>
+        <li><a href="AssignTech.php" class="active"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
+        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+    </ul>
+    <footer>
+        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </footer>
     </div>
 
     <div class="container">
@@ -1033,3 +1035,4 @@ document.getElementById('assignTicketForm').addEventListener('submit', function(
 </script>
 </body>
 </html>
+
