@@ -1,4 +1,5 @@
-<?php
+
+    <?php
     session_start();
     include 'db.php';
 
@@ -1047,14 +1048,11 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Staff Dashboard | Ticket Reports</title>
-        <link rel="stylesheet" href="staffsD.css">
+        <link rel="stylesheet" href="staffs.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet"> 
-        
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">   
         <style>
             /* Header Controls and Tab Buttons */
             .header-controls {
@@ -1762,6 +1760,7 @@ function showEditTicketModal(ref, name, subject, status, details) {
     document.getElementById('edit_ticket_subject').value = subject;
     document.getElementById('edit_ticket_status').value = status;
     document.getElementById('edit_ticket_details').value = details;
+    fetchCustomerEmail(name, 'editTicketForm');
     showModal('editTicketModal');
 }
 
@@ -1859,6 +1858,9 @@ function searchTickets(page) {
                     const pagination = document.getElementById(`${currentTab}-pagination`);
                     pagination.innerHTML = response.paginationHTML;
                     
+                    // Ensure pagination buttons are correctly displayed
+                    updatePaginationButtons(response.currentPage, response.totalPages, currentTab);
+                    
                     // Reattach event listeners to pagination links
                     attachPaginationListeners();
                     
@@ -1880,11 +1882,11 @@ function searchTickets(page) {
 function attachPaginationListeners() {
     const paginationLinks = document.querySelectorAll(`#${currentTab}-pagination .pagination-link:not(.disabled)`);
     paginationLinks.forEach(link => {
-        // Remove any existing click event listeners
+        // Remove any existing listeners to prevent duplicates
         const newLink = link.cloneNode(true);
         link.parentNode.replaceChild(newLink, link);
         
-        // Add new click event listener
+        // Add click event listener
         newLink.addEventListener('click', function(e) {
             e.preventDefault();
             const onclickAttr = this.getAttribute('onclick');
@@ -1897,6 +1899,30 @@ function attachPaginationListeners() {
             }
         });
     });
+}
+
+function updatePaginationButtons(currentPage, totalPages, tab) {
+    const pagination = document.getElementById(`${tab}-pagination`);
+    let paginationHTML = '';
+    
+    // Previous button
+    if (currentPage > 1) {
+        paginationHTML += `<a href="#" class="pagination-link" onclick="searchTickets(${currentPage - 1}); return false;"><i class="fas fa-chevron-left"></i></a>`;
+    } else {
+        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+    }
+    
+    // Current page info
+    paginationHTML += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
+    
+    // Next button
+    if (currentPage < totalPages) {
+        paginationHTML += `<a href="#" class="pagination-link" onclick="searchTickets(${currentPage + 1}); return false;"><i class="fas fa-chevron-right"></i></a>`;
+    } else {
+        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+    }
+    
+    pagination.innerHTML = paginationHTML;
 }
 
 function handleFormSubmissionSuccess(response, modalId) {
@@ -1913,7 +1939,6 @@ function debouncedSearchTickets() {
     window.searchTimeout = setTimeout(() => searchTickets(1), 500);
 }
 
-// Form submission handlers
 document.getElementById('addTicketForm').addEventListener('submit', function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -2068,7 +2093,6 @@ document.getElementById('closeTicketForm').addEventListener('submit', function (
     xhr.send(formData);
 });
 
-// Autocomplete functionality
 const customers = <?php echo json_encode(array_column($customers, 'full_name')); ?>;
 
 function setupAutocomplete(inputId, suggestionsId) {
@@ -2096,6 +2120,9 @@ function setupAutocomplete(inputId, suggestionsId) {
             div.addEventListener('click', () => {
                 input.value = match;
                 suggestionsContainer.style.display = 'none';
+                if (inputId === 'account_name' || inputId === 'edit_account_name') {
+                    fetchCustomerEmail(match, inputId === 'account_name' ? 'addTicketForm' : 'editTicketForm');
+                }
             });
             suggestionsContainer.appendChild(div);
         });
@@ -2109,7 +2136,36 @@ function setupAutocomplete(inputId, suggestionsId) {
     });
 }
 
-// Filter form handlers
+function fetchCustomerEmail(accountName, formId) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `staffD.php?action=get_customer_email&account_name=${encodeURIComponent(accountName)}`, true);
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                const emailField = document.getElementById(formId === 'addTicketForm' ? 'customer_email' : 'edit_customer_email');
+                const errorField = document.getElementById(`${formId === 'addTicketForm' ? 'account_name' : 'edit_account_name'}_error`);
+                if (response.success) {
+                    emailField.value = response.email;
+                    errorField.textContent = '';
+                } else {
+                    emailField.value = '';
+                    errorField.textContent = response.error;
+                }
+            } catch (e) {
+                console.error('Error parsing response:', e);
+                showAlert('Error fetching customer email.', 'error');
+            }
+        } else {
+            showAlert('Error fetching customer email.', 'error');
+        }
+    };
+    xhr.send();
+}
+
+setupAutocomplete('account_name', 'account_name_suggestions');
+setupAutocomplete('edit_account_name', 'edit_account_name_suggestions');
+
 document.getElementById('accountFilterForm').addEventListener('submit', function (e) {
     e.preventDefault();
     applyAccountFilter();
@@ -2138,34 +2194,9 @@ function fetchCounts() {
     xhr.send();
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Set up autocomplete
-    setupAutocomplete('account_name', 'account_name_suggestions');
-    setupAutocomplete('edit_account_name', 'edit_account_name_suggestions');
-    
-    // Set up pagination listeners
     attachPaginationListeners();
-    
-    // Fetch initial counts
     fetchCounts();
-    
-    // Set up search input
-    document.getElementById('searchInput').addEventListener('input', debouncedSearchTickets);
-    
-    // Generate initial ticket reference
-    if (document.getElementById('ticket_ref')) {
-        document.getElementById('ticket_ref').value = generateTicketRef();
-    }
-});
-
-// Close modals when clicking outside
-window.addEventListener('click', function(event) {
-    document.querySelectorAll('.modal').forEach(modal => {
-        if (event.target === modal) {
-            closeModal(modal.id);
-        }
-    });
 });
     </script>
     </body>
