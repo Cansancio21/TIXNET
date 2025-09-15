@@ -223,145 +223,140 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $currentTab = isset($_GET['tab']) ? $_GET['tab'] : 'active';
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $archivedPage = isset($_GET['archived_page']) ? (int)$_GET['archived_page'] : 1;
+if (isset($_POST['add_user'])) {
+    // Get form data and sanitize
+    $firstname = trim($_POST['firstname']);
+    $lastname = trim($_POST['lastname']);
+    $email = trim($_POST['email']);
+    $username = trim($_POST['username']);
+    $password = trim($_POST['password']);
+    $type = trim($_POST['type']);
+    $status = trim($_POST['status']);
+    
+    // Set is_online based on user type
+    $is_online = ($type === 'technician') ? 1 : 0; // 1 for technicians, 0 for others
 
-    if (isset($_POST['add_user'])) {
-        // Get form data and sanitize
-        $firstname = trim($_POST['firstname']);
-        $lastname = trim($_POST['lastname']);
-        $email = trim($_POST['email']);
-        $username = trim($_POST['username']);
-        $password = trim($_POST['password']);
-        $type = trim($_POST['type']);
-        $status = trim($_POST['status']);
+    // Validation
+    $errors = [];
+    if (empty($firstname) || !preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
+        $errors['firstname'] = "Firstname is required and must not contain numbers.";
+    }
+    if (empty($lastname) || !preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
+        $errors['lastname'] = "Lastname is required and must not contain numbers.";
+    }
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors['email'] = "A valid email is required.";
+    }
+    if (empty($username)) {
+        $errors['username'] = "Username is required.";
+    }
+    if (!preg_match("/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
+        $errors['password'] = "Password must be at least 8 characters, with 1 uppercase letter, 1 number, and 1 special character.";
+    }
+    if (empty($type) || !in_array($type, ['staff', 'technician'])) {
+        $errors['type'] = "Account type must be Staff or Technician.";
+    }
+    if (empty($status) || !in_array($status, ['active', 'pending'])) {
+        $errors['status'] = "Account status must be Active or Pending.";
+    }
 
-        // Validation
-        $errors = [];
-        if (empty($firstname) || !preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
-            $errors['firstname'] = "Firstname is required and must not contain numbers.";
-        }
-        if (empty($lastname) || !preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
-            $errors['lastname'] = "Lastname is required and must not contain numbers.";
-        }
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors['email'] = "A valid email is required.";
-        }
-        if (empty($username)) {
-            $errors['username'] = "Username is required.";
-        }
-        if (!preg_match("/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
-            $errors['password'] = "Password must be at least 8 characters, with 1 uppercase letter, 1 number, and 1 special character.";
-        }
-        if (empty($type) || !in_array($type, ['staff', 'technician'])) {
-            $errors['type'] = "Account type must be Staff or Technician.";
-        }
-        if (empty($status) || !in_array($status, ['active', 'pending'])) {
-            $errors['status'] = "Account status must be Active or Pending.";
-        }
+    // Check for duplicate username
+    $checkSql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
+    $checkStmt = $conn->prepare($checkSql);
+    if (!$checkStmt) {
+        error_log("Prepare failed for username check: " . $conn->error);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Database error: Unable to check username.']);
+        exit();
+    }
+    $checkStmt->bind_param("s", $username);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    if ($checkResult->num_rows > 0) {
+        $errors['username'] = "Username already exists.";
+    }
+    $checkStmt->close();
 
-        // Check for duplicate username
-        $checkSql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
-        $checkStmt = $conn->prepare($checkSql);
-        if (!$checkStmt) {
-            error_log("Prepare failed for username check: " . $conn->error);
+    if (empty($errors)) {
+        // Hash the password
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        
+        // Prepare and execute the INSERT query with is_online
+        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status, is_online)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("Prepare failed for user insertion: " . $conn->error);
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Database error: Unable to check username.']);
+            echo json_encode(['success' => false, 'message' => 'Database error: Unable to prepare statement.']);
             exit();
         }
-        $checkStmt->bind_param("s", $username);
-        $checkStmt->execute();
-        $checkResult = $checkStmt->get_result();
-        if ($checkResult->num_rows > 0) {
-            $errors['username'] = "Username already exists.";
-        }
-        $checkStmt->close();
-
-        if (empty($errors)) {
-            // Hash the password
-            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-
-            // Prepare and execute the INSERT query
-            $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            if (!$stmt) {
-                error_log("Prepare failed for user insertion: " . $conn->error);
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Database error: Unable to prepare statement.']);
-                exit();
+        $stmt->bind_param("sssssssi", $firstname, $lastname, $email, $username, $passwordHash, $type, $status, $is_online);
+        if ($stmt->execute()) {
+            // Send the confirmation email using PHPMailer
+            $mail = new PHPMailer(true);
+            $emailSuccess = true;
+            $emailError = '';
+            try {
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host = 'smtp.gmail.com';
+                $mail->SMTPAuth = true;
+                $mail->Username = 'jonwilyammayormita@gmail.com';
+                $mail->Password = 'mqkcqkytlwurwlks';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port = 587;
+                // Recipients
+                $mail->setFrom('jonwilyammayormita@gmail.com', 'TIXNET System');
+                $mail->addAddress($email, "$firstname $lastname");
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = 'Your Account Has Been Created';
+                $mail->Body = "
+                    <html>
+                    <head>
+                        <title>Your Account Details</title>
+                    </head>
+                    <body>
+                        <p>Dear $firstname $lastname,</p>
+                        <p>Your account has been successfully created. Here are your login credentials:</p>
+                        <p><strong>Username:</strong> $username</p>
+                        <p><strong>Password:</strong> $password</p>
+                        <p>Please use these credentials to log in to our system by clicking the link below:</p>
+                        <p><a href='http://localhost/TIMSSS/index.php'>Login Page</a></p>
+                        <p>For security reasons, we recommend changing your password after first login.</p>
+                        <p>Best regards,<br>Your System Administrator</p>
+                    </body>
+                    </html>
+                ";
+                $mail->AltBody = "Dear $firstname $lastname,\n\nYour account has been successfully created. Here are your login credentials:\nUsername: $username\nPassword: $password\n\nPlease use these credentials to log in to our system at http://localhost/TIMSSS/index.php\n\nFor security reasons, we recommend changing your password after first login.\n\nBest regards,\nYour System Administrator";
+                $mail->send();
+            } catch (Exception $e) {
+                $emailSuccess = false;
+                $emailError = $mail->ErrorInfo;
+                error_log("PHPMailer Error: " . $emailError);
             }
-            $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $passwordHash, $type, $status);
-
-            if ($stmt->execute()) {
-                // Send the confirmation email using PHPMailer
-                $mail = new PHPMailer(true); // Enable exceptions
-                $emailSuccess = true;
-                $emailError = '';
-
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = 'smtp.gmail.com';
-                    $mail->SMTPAuth = true;
-                    $mail->Username = 'jonwilyammayormita@gmail.com'; // Your Gmail address
-                    $mail->Password = 'mqkcqkytlwurwlks'; // Your Gmail App Password
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                    $mail->Port = 587;
-
-                    // Recipients
-                    $mail->setFrom('jonwilyammayormita@gmail.com', 'TIXNET System');
-                    $mail->addAddress($email, "$firstname $lastname");
-
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Your Account Has Been Created';
-                    $mail->Body = "
-                        <html>
-                        <head>
-                            <title>Your Account Details</title>
-                        </head>
-                        <body>
-                            <p>Dear $firstname $lastname,</p>
-                            <p>Your account has been successfully created. Here are your login credentials:</p>
-                            <p><strong>Username:</strong> $username</p>
-                            <p><strong>Password:</strong> $password</p>
-                            <p>Please use these credentials to log in to our system by clicking the link below:</p>
-                            <p><a href='http://localhost/TIMSSS/index.php'>Login Page</a></p>
-                            <p>For security reasons, we recommend changing your password after first login.</p>
-                            <p>Best regards,<br>Your System Administrator</p>
-                        </body>
-                        </html>
-                    ";
-                    $mail->AltBody = "Dear $firstname $lastname,\n\nYour account has been successfully created. Here are your login credentials:\nUsername: $username\nPassword: $password\n\nPlease use these credentials to log in to our system at http://localhost/TIMSSS/index.php\n\nFor security reasons, we recommend changing your password after first login.\n\nBest regards,\nYour System Administrator";
-
-                    // Send the email
-                    $mail->send();
-                } catch (Exception $e) {
-                    $emailSuccess = false;
-                    $emailError = $mail->ErrorInfo;
-                    error_log("PHPMailer Error: " . $emailError);
-                }
-
-                $stmt->close();
-                header('Content-Type: application/json');
-                if ($emailSuccess) {
-                    echo json_encode(['success' => true, 'message' => 'User has been registered successfully. A confirmation email has been sent.']);
-                } else {
-                    echo json_encode(['success' => true, 'message' => 'User registered, but error sending confirmation email: ' . $emailError]);
-                }
-                exit();
+            $stmt->close();
+            header('Content-Type: application/json');
+            if ($emailSuccess) {
+                echo json_encode(['success' => true, 'message' => 'User has been registered successfully. A confirmation email has been sent.']);
             } else {
-                error_log("Execution failed: " . $stmt->error);
-                $stmt->close();
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'message' => 'Database error: Unable to register user.']);
-                exit();
+                echo json_encode(['success' => true, 'message' => 'User registered, but error sending confirmation email: ' . $emailError]);
             }
+            exit();
         } else {
+            error_log("Execution failed: " . $stmt->error);
+            $stmt->close();
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'errors' => $errors]);
+            echo json_encode(['success' => false, 'message' => 'Database error: Unable to register user.']);
             exit();
         }
-    } elseif (isset($_POST['edit_user'])) {
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'errors' => $errors]);
+        exit();
+    }
+} elseif (isset($_POST['edit_user'])) {
         $user_id = (int)$_POST['u_id'];
         $firstname = trim($_POST['firstname']);
         $lastname = trim($_POST['lastname']);
@@ -1650,3 +1645,4 @@ $stmt->close();
 </div>
 </body>
 </html>
+

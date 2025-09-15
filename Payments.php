@@ -253,8 +253,7 @@ $conn->close();
         <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
         <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
         <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-        <li><a href="borrowedStaff.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
-        <li><a href="addC.php"><i class="fas fa-user-plus icon"></i> <span>Add Customer</span></a></li>
+        
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
         <li><a href="Payments.php" class="active"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
     </ul>

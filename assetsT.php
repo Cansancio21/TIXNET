@@ -1,4 +1,4 @@
-    <?php
+ <?php
     session_start();
     include 'db.php';
 
@@ -22,6 +22,128 @@
     } else {
         $avatarPath = 'default-avatar.png';
     }
+
+
+if (isset($_GET['action']) && $_GET['action'] === 'search' && in_array($_GET['tab'], ['active', 'borrowed'])) {
+    $tab = $_GET['tab'];
+    $status = $tab === 'active' ? 'Active' : 'Borrowed';
+    $searchTerm = trim($_GET['search'] ?? '');
+    $assetName = trim($_GET['asset_name'] ?? '');
+    $techName = trim($_GET['tech_name'] ?? '');
+    $filterStatus = $tab === 'active' ? trim($_GET['filter_status'] ?? '') : '';
+    $page = isset($_GET['search_page']) ? (int)$_GET['search_page'] : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    $output = '';
+
+    $params = [];
+    $types = '';
+    $whereClauses = ["a_status = ?"];
+    $params[] = $status;
+    $types .= 's';
+
+    if ($searchTerm !== '') {
+        $whereClauses[] = "(a_name LIKE ? OR a_ref_no LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_date LIKE ?)";
+        $searchWildcard = "%$searchTerm%";
+        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+        $types .= 'sssss';
+    }
+
+    if ($assetName !== '') {
+        $whereClauses[] = "a_name = ?";
+        $params[] = $assetName;
+        $types .= 's';
+    }
+
+    if ($techName !== '') {
+        $whereClauses[] = "tech_name = ?";
+        $params[] = $techName;
+        $types .= 's';
+    }
+
+    if ($tab === 'active' && $filterStatus !== '') {
+        $whereClauses[] = "a_status = ?";
+        $params[] = $filterStatus;
+        $types .= 's';
+    }
+
+    $whereClause = implode(' AND ', $whereClauses);
+
+    $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE $whereClause";
+    $countStmt = $conn->prepare($countSql);
+    if (!empty($params)) {
+        $countStmt->bind_param($types, ...$params);
+    }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result();
+    $totalRecords = $countResult->fetch_assoc()['total'];
+    $countStmt->close();
+
+    $totalPages = ceil($totalRecords / $limit);
+
+    $sql = "SELECT a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date 
+            FROM tbl_asset_status 
+            WHERE $whereClause 
+            ORDER BY a_ref_no ASC 
+            LIMIT ?, ?";
+    $stmt = $conn->prepare($sql);
+    $params[] = $offset;
+    $params[] = $limit;
+    $types .= 'ii';
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $output .= "<tr> 
+                <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
+                <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>
+                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '$status', '$status', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>";
+            if ($tab !== 'active') {
+                $output .= "<a class='borrowdelete-btn' onclick=\"showBorrowedDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
+            }
+            $output .= "</td></tr>";
+        }
+    } else {
+        $output .= "<tr><td colspan='7'>No $tab assets found.</td></tr>";
+    }
+    $stmt->close();
+
+    $output .= "<script>updatePagination($page, $totalPages, '$tab', '$searchTerm', '$tab-pagination');</script>";
+    echo $output;
+    exit();
+}
+
+if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['ref_no']) && isset($_POST['tab'])) {
+    $refNo = $_POST['ref_no'];
+    $tab = $_POST['tab'];
+    $status = $tab === 'borrowed' ? 'Borrowed' : 'Archive';
+    $deleteSql = "DELETE FROM tbl_asset_status WHERE a_ref_no = ? AND a_status = ?";
+    $deleteStmt = $conn->prepare($deleteSql);
+    $deleteStmt->bind_param("ss", $refNo, $status);
+    
+    if ($deleteStmt->execute()) {
+        // Update tbl_assets to set status back to Available
+        $updateSql = "UPDATE tbl_assets SET a_current_status = 'Available' WHERE a_ref_no = ?";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->bind_param("s", $refNo);
+        $updateStmt->execute();
+        $updateStmt->close();
+        
+        echo "Asset deleted successfully.";
+    } else {
+        http_response_code(500);
+        echo "Error deleting asset: " . $deleteStmt->error;
+    }
+    $deleteStmt->close();
+    exit();
+}
 
     // Fetch user details
     if ($conn) {
@@ -852,7 +974,7 @@ unset($_SESSION['open_modal']);
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Asset Management</title>
-        <link rel="stylesheet" href="assetsT.css"> 
+        <link rel="stylesheet" href="asset.css"> 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -891,10 +1013,8 @@ unset($_SESSION['open_modal']);
         <li><a href="assetsT.php" class="active"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
         <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
         <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-        <li><a href="borrowedStaff.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
-        <li><a href="addC.php"><i class="fas fa-user-plus icon"></i> <span>Add Customer</span></a></li>
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
-        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
     </ul>
     <footer>
         <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -958,6 +1078,15 @@ unset($_SESSION['open_modal']);
                 <div class="header-controls">
                    <div class="tab-buttons">
                    <button class="tab-btn active" onclick="showAssetTab('active')">Active (<?php echo $totalActive; ?>)</button>
+                   <button class="tab-btn" onclick="showAssetTab('borrowed')">Borrowed 
+                     <?php 
+                      $borrowedCountQuery = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE a_status = 'Borrowed'";
+                      $borrowedCountResult = $conn->query($borrowedCountQuery);
+                      $totalBorrowed = $borrowedCountResult ? $borrowedCountResult->fetch_assoc()['total'] : 0;
+                       if ($totalBorrowed > 0): ?>
+                    <span class="tab-badge"><?php echo $totalBorrowed; ?></span>
+                     <?php endif; ?>
+                   </button>
                    <button class="tab-btn" onclick="showAssetTab('archive')">Archive 
                       <?php if ($totalArchived > 0): ?>
                         <span class="tab-badge"><?php echo $totalArchived; ?></span>
@@ -1100,6 +1229,82 @@ unset($_SESSION['open_modal']);
                             <?php endif; ?>
                         </div>
                     </div>
+    <!-- In the borrowed assets table section (around line 1090) -->
+<div id="assets-borrowed" class="tab-content" style="display: none;">
+    <table id="borrowed-assets-table">
+        <thead>
+            <tr>
+                <th>Asset Ref No</th>
+                <th>Asset Name
+                    <button class="filter-btn" onclick="showBorrowedAssetNameFilterModal('borrowed')" title="Filter by Asset Name">
+                        <i class='bx bx-filter'></i>
+                    </button>
+                </th>
+                <th>Technician Name
+                    <button class="filter-btn" onclick="showBorrowedTechNameFilterModal('borrowed')" title="Filter by Technician Name">
+                        <i class='bx bx-filter'></i>
+                    </button>
+                </th>
+                <th>Technician Id</th>
+                <th>Asset Serial No</th>
+                <th>Date Borrowed</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="borrowed-assets-table-body">
+            <?php
+            $borrowedPage = isset($_GET['borrowed_page']) ? (int)$_GET['borrowed_page'] : 1;
+            $borrowedOffset = ($borrowedPage - 1) * $limit;
+            $borrowedCountQuery = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE a_status = 'Borrowed'";
+            $borrowedCountResult = $conn->query($borrowedCountQuery);
+            $totalBorrowed = $borrowedCountResult ? $borrowedCountResult->fetch_assoc()['total'] : 0;
+            $totalBorrowedPages = ceil($totalBorrowed / $limit);
+
+            $sqlBorrowed = "SELECT a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date 
+                            FROM tbl_asset_status 
+                            WHERE a_status = 'Borrowed' 
+                            ORDER BY a_ref_no ASC 
+                            LIMIT ?, ?";
+            $stmtBorrowed = $conn->prepare($sqlBorrowed);
+            $stmtBorrowed->bind_param("ii", $borrowedOffset, $limit);
+            $stmtBorrowed->execute();
+            $resultBorrowed = $stmtBorrowed->get_result();
+
+            if ($resultBorrowed && $resultBorrowed->num_rows > 0) {
+                while ($row = $resultBorrowed->fetch_assoc()) {
+                    echo "<tr>
+                            <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
+                            <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                            <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                            <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                            <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
+                            <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                            <td>
+                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                <a class='borrowdelete-btn' onclick=\"showBorrowedDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
+                            </td></tr>";
+                }   
+            } else {
+                echo "<tr><td colspan='7'>No borrowed assets found.</td></tr>";
+            }
+            $stmtBorrowed->close();
+            ?>
+        </tbody>
+    </table>
+    <div class="pagination" id="borrowed-pagination">
+        <?php if ($borrowedPage > 1): ?>
+            <a href="javascript:searchAssets(<?php echo $borrowedPage - 1; ?>, 'borrowed')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+        <?php else: ?>
+            <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+        <?php endif; ?>
+        <span class="current-page">Page <?php echo $borrowedPage; ?> of <?php echo $totalBorrowedPages; ?></span>
+        <?php if ($borrowedPage < $totalBorrowedPages): ?>
+            <a href="javascript:searchAssets(<?php echo $borrowedPage + 1; ?>, 'borrowed')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+        <?php else: ?>
+            <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+        <?php endif; ?>
+    </div>
+</div>
                 </div>
             </div>
 
@@ -1159,6 +1364,85 @@ unset($_SESSION['open_modal']);
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('addAssetModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Add Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modals -->
+
+<!-- Borrowed Delete Confirmation Modal -->
+<div id="borrowedDeleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Delete Borrowed Asset</h2>
+        </div>
+        <form id="borrowedDeleteForm" class="modal-form">
+            <input type="hidden" id="borrowed_delete_ref_no" name="delete_ref_no">
+            <p id="borrowed_delete_message">Are you sure you want to permanently delete "<span id="borrowed_delete_asset_name"></span>"? This action cannot be undone.</p>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('borrowedDeleteModal')">Cancel</button>
+                <button type="button" class="modal-btn confirm" onclick="confirmBorrowedDelete()">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Borrowed Asset Name Filter Modal -->
+<div id="borrowedAssetNameFilterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filter by Asset Name</h2>
+        </div>
+        <form id="borrowedAssetNameFilterForm" class="modal-form">
+            <input type="hidden" name="tab" id="borrowedAssetNameFilterTab" value="borrowed">
+            <label for="borrowed_asset_name_filter">Select Asset Name</label>
+            <select name="asset_name_filter" id="borrowed_asset_name_filter">
+                <option value="">All Assets</option>
+                <?php
+                $assetNameQuery = "SELECT DISTINCT a_name FROM tbl_asset_status WHERE a_status = 'Borrowed' ORDER BY a_name";
+                $assetNameResult = $conn->query($assetNameQuery);
+                if ($assetNameResult && $assetNameResult->num_rows > 0) {
+                    while ($row = $assetNameResult->fetch_assoc()) {
+                        echo "<option value='" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "'>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</option>";
+                    }
+                }
+                $assetNameResult->close();
+                ?>
+            </select>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('borrowedAssetNameFilterModal')">Cancel</button>
+                <button type="button" class="modal-btn confirm" onclick="applyBorrowedAssetNameFilter()">Apply Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Borrowed Technician Name Filter Modal -->
+<div id="borrowedTechNameFilterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filter by Technician Name</h2>
+        </div>
+        <form id="borrowedTechNameFilterForm" class="modal-form">
+            <input type="hidden" name="tab" id="borrowedTechNameFilterTab" value="borrowed">
+            <label for="borrowed_tech_name_filter">Select Technician Name</label>
+            <select name="tech_name_filter" id="borrowed_tech_name_filter">
+                <option value="">All Technicians</option>
+                <?php
+                $techNameQuery = "SELECT DISTINCT tech_name FROM tbl_asset_status WHERE a_status = 'Borrowed' AND tech_name IS NOT NULL ORDER BY tech_name";
+                $techNameResult = $conn->query($techNameQuery);
+                if ($techNameResult && $techNameResult->num_rows > 0) {
+                    while ($row = $techNameResult->fetch_assoc()) {
+                        echo "<option value='" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "'>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</option>";
+                    }
+                }
+                $techNameResult->close();
+                ?>
+            </select>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('borrowedTechNameFilterModal')">Cancel</button>
+                <button type="button" class="modal-btn confirm" onclick="applyBorrowedTechNameFilter()">Apply Filter</button>
             </div>
         </form>
     </div>
@@ -1744,41 +2028,51 @@ function showAddAssetModal() {
 
 
     function showAssetTab(tab) {
-        const activeContent = document.getElementById('assets-active');
-        const archiveContent = document.getElementById('assets-archive');
-        const buttons = document.querySelectorAll('.tab-buttons .tab-btn');
+    const activeContent = document.getElementById('assets-active');
+    const archiveContent = document.getElementById('assets-archive');
+    const borrowedContent = document.getElementById('assets-borrowed');
+    const buttons = document.querySelectorAll('.tab-buttons .tab-btn');
 
-        if (tab === 'active') {
-            activeContent.style.display = 'block';
-            archiveContent.style.display = 'none';
-        } else {
-            activeContent.style.display = 'none';
-            archiveContent.style.display = 'block';
-        }
-
-        buttons.forEach(button => {
-            button.classList.remove('active');
-            if (button.getAttribute('onclick').includes(tab)) {
-                button.classList.add('active');
-            }
-        });
-        searchAssets(1, tab);
+    if (tab === 'active') {
+        activeContent.style.display = 'block';
+        archiveContent.style.display = 'none';
+        borrowedContent.style.display = 'none';
+    } else if (tab === 'archive') {
+        activeContent.style.display = 'none';
+        archiveContent.style.display = 'block';
+        borrowedContent.style.display = 'none';
+    } else if (tab === 'borrowed') {
+        activeContent.style.display = 'none';
+        archiveContent.style.display = 'none';
+        borrowedContent.style.display = 'block';
     }
+
+    buttons.forEach(button => {
+        button.classList.remove('active');
+        if (button.getAttribute('onclick').includes(tab)) {
+            button.classList.add('active');
+        }
+    });
+    searchAssets(1, tab);
+}
     
 
-    function showAssetViewModal(ref_no, name, status, current_status, date, serial_no) {
-        document.getElementById('assetViewContent').innerHTML = `
-            <div class="asset-details">
-                <p><strong>Asset Ref No:</strong> ${ref_no}</p>
-                <p><strong>Asset Name:</strong> ${name}</p>
-                <p><strong>Category:</strong> ${status}</p>
-                <p><strong>Current Status:</strong> ${current_status}</p>
-                <p><strong>Serial No:</strong> ${serial_no || ''}</p>
-                <p><strong>Date Registered:</strong> ${date}</p>
-            </div>
-        `;
-        document.getElementById('assetViewModal').style.display = 'block';
-    }
+   function showAssetViewModal(ref_no, name, status, current_status, date, serial_no, tech_name = '', tech_id = '') {
+    document.getElementById('assetViewContent').innerHTML = `
+        <div class="asset-details">
+            <p><strong>Asset Ref No:</strong> ${ref_no}</p>
+            <p><strong>Asset Name:</strong> ${name}</p>
+            <p><strong>Category:</strong> ${status}</p>
+            <p><strong>Current Status:</strong> ${current_status}</p>
+            <p><strong>Serial No:</strong> ${serial_no || ''}</p>
+            <p><strong>Date ${status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${date}</p>
+            ${tech_name ? `<p><strong>Technician Name:</strong> ${tech_name}</p>` : ''}
+            ${tech_id ? `<p><strong>Technician ID:</strong> ${tech_id}</p>` : ''}
+        </div>
+    `;
+    document.getElementById('assetViewModal').style.display = 'block';
+}
+
 
     function showAddAssetModal() {
         document.getElementById('addAssetForm').reset();
@@ -1856,16 +2150,102 @@ function showAddAssetModal() {
         document.getElementById(modalId).style.display = 'none';
     }
 
+function showBorrowedAssetNameFilterModal(tab) {
+    document.getElementById('borrowedAssetNameFilterTab').value = tab;
+    document.getElementById('borrowedAssetNameFilterModal').style.display = 'block';
+}
+
+function showBorrowedAssetNameFilterModal(tab) {
+    document.getElementById('borrowedAssetNameFilterTab').value = tab;
+    document.getElementById('borrowedAssetNameFilterModal').style.display = 'block';
+}
+
+function showBorrowedTechNameFilterModal(tab) {
+    document.getElementById('borrowedTechNameFilterTab').value = tab;
+    document.getElementById('borrowedTechNameFilterModal').style.display = 'block';
+}
+
+function applyBorrowedAssetNameFilter() {
+    const tab = document.getElementById('borrowedAssetNameFilterTab').value;
+    const nameSelect = document.getElementById('borrowed_asset_name_filter');
+    const selectedName = nameSelect.value;
+    searchAssets(1, tab, selectedName, null, null);
+    closeModal('borrowedAssetNameFilterModal');
+}
+
+function applyBorrowedTechNameFilter() {
+    const tab = document.getElementById('borrowedTechNameFilterTab').value;
+    const techNameSelect = document.getElementById('borrowed_tech_name_filter');
+    const selectedTechName = techNameSelect.value;
+    searchAssets(1, tab, null, null, selectedTechName);
+    closeModal('borrowedTechNameFilterModal');
+}
+
+// In the script section (replace the deleteAsset function around line 1480)
+function showBorrowedDeleteModal(refNo, assetName) {
+    document.getElementById('borrowed_delete_ref_no').value = refNo;
+    document.getElementById('borrowed_delete_asset_name').textContent = assetName;
+    document.getElementById('borrowedDeleteModal').style.display = 'block';
+}
+
+function confirmBorrowedDelete() {
+    const refNo = document.getElementById('borrowed_delete_ref_no').value;
+    const formData = new FormData();
+    formData.append('action', 'delete');
+    formData.append('ref_no', refNo);
+    formData.append('tab', 'borrowed');
+
+    fetch('assetsT.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(data => {
+        showSuccessMessage(data);
+        closeModal('borrowedDeleteModal');
+        searchAssets(1, 'borrowed');
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showErrorMessage('Error deleting asset: ' + error.message);
+    });
+}
+
     // Initialize filter state
-window.currentFilters = { name: '', status: '' };
+window.currentFilters = { name: '', status: '', borrowedAssetName: '', borrowedTechName: '' };
 
-function searchAssets(page = 1, tab = 'active', filterName = '', filterStatus = '') {
+function searchAssets(page = 1, tab = 'active', filterName = null, filterStatus = null, filterTechName = null) {
     const searchTerm = document.getElementById('searchInput').value;
-    const tbody = document.getElementById(tab === 'active' ? 'assets-table-body' : 'archived-assets-table-body');
+    const tbody = document.getElementById(tab === 'active' ? 'assets-table-body' : tab === 'archive' ? 'archived-assets-table-body' : 'borrowed-assets-table-body');
+    
+    let assetName = '';
+    let techName = '';
+    let filterStatusValue = '';
 
-    // Update current filters only if new filter values are provided
-    if (filterName !== null) window.currentFilters.name = filterName;
-    if (filterStatus !== null) window.currentFilters.status = filterStatus;
+    if (tab === 'borrowed') {
+        assetName = filterName !== null ? filterName : window.currentFilters.borrowedAssetName || '';
+        techName = filterTechName !== null ? filterTechName : window.currentFilters.borrowedTechName || '';
+    } else if (tab === 'active') {
+        assetName = filterName !== null ? filterName : window.currentFilters.name || '';
+        filterStatusValue = filterStatus !== null ? filterStatus : window.currentFilters.status || '';
+    } else {
+        assetName = filterName !== null ? filterName : window.currentFilters.name || '';
+        filterStatusValue = filterStatus !== null ? filterStatus : window.currentFilters.status || '';
+    }
+
+    if (filterName !== null) {
+        if (tab === 'borrowed') {
+            window.currentFilters.borrowedAssetName = filterName;
+        } else {
+            window.currentFilters.name = filterName;
+        }
+    }
+    if (filterStatus !== null) {
+        window.currentFilters.status = filterStatusValue;
+    }
+    if (filterTechName !== null) {
+        window.currentFilters.borrowedTechName = filterTechName;
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
@@ -1880,8 +2260,15 @@ function searchAssets(page = 1, tab = 'active', filterName = '', filterStatus = 
             }
         }
     };
-    const url = `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}` +
-                `&filter_name=${encodeURIComponent(window.currentFilters.name)}&filter_status=${encodeURIComponent(window.currentFilters.status)}`;
+
+    let url;
+    if (tab === 'borrowed') {
+        url = `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&asset_name=${encodeURIComponent(assetName)}&tech_name=${encodeURIComponent(techName)}`;
+    } else if (tab === 'active') {
+        url = `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&asset_name=${encodeURIComponent(assetName)}&filter_status=${encodeURIComponent(filterStatusValue)}`;
+    } else {
+        url = `assetsT.php?action=search&tab=${tab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&filter_name=${encodeURIComponent(assetName)}&filter_status=${encodeURIComponent(filterStatusValue)}`;
+    }
     xhr.open('GET', url, true);
     xhr.send();
 }
@@ -1890,8 +2277,11 @@ function updatePagination(currentPage, totalPages, tab, searchTerm, paginationId
     const paginationContainer = document.getElementById(paginationId);
     let paginationHtml = '';
 
-    // Include filter parameters in pagination links
-    const filterParams = `, '${encodeURIComponent(window.currentFilters.name)}', '${encodeURIComponent(window.currentFilters.status)}'`;
+    const filterParams = tab === 'borrowed' 
+        ? `, document.getElementById('borrowed-filter-asset-name').value, document.getElementById('borrowed-filter-technician-name').value`
+        : tab === 'active'
+        ? `, document.getElementById('filter-asset-name').value, document.getElementById('filter-status').value`
+        : `, '${encodeURIComponent(window.currentFilters.name)}', '${encodeURIComponent(window.currentFilters.status)}'`;
 
     if (currentPage > 1) {
         paginationHtml += `<a href="javascript:searchAssets(${currentPage - 1}, '${tab}'${filterParams})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
@@ -1908,6 +2298,25 @@ function updatePagination(currentPage, totalPages, tab, searchTerm, paginationId
     }
 
     paginationContainer.innerHTML = paginationHtml;
+}
+
+function deleteAsset(refNo, tab) {
+    if (confirm('Are you sure you want to delete this asset? This action cannot be undone.')) {
+        const xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    alert('Asset deleted successfully.');
+                    searchAssets(1, tab);
+                } else {
+                    alert('Error deleting asset: ' + xhr.responseText);
+                }
+            }
+        };
+        xhr.open('POST', 'assetsT.php', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.send(`action=delete&ref_no=${encodeURIComponent(refNo)}&tab=${tab}`);
+    }
 }
 
 function applyAssetNameFilter() {
@@ -1995,3 +2404,4 @@ const debouncedSearchAssets = debounce((page) => searchAssets(page, document.get
     </script>
     </body>
     </html>
+

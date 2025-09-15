@@ -1,29 +1,19 @@
 <?php
 session_start();
 include 'db.php';
-
-// Include PHPMailer dependencies
 require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
 require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
 require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
-
-// Use PHPMailer classes
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-
-// Enable error reporting for debugging (remove in production)
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
-
-// Check if user is logged in and is a technician
 if (!isset($_SESSION['username'])) {
     error_log("No session username set, redirecting to index.php");
     $_SESSION['error'] = "Please log in to access the technician dashboard.";
     header("Location: index.php");
     exit();
 }
-
-// Fetch user data to verify technician role
 $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
 $stmt = $conn->prepare($sqlUser);
 if (!$stmt) {
@@ -46,15 +36,12 @@ $firstName = $row['u_fname'] ?: 'Unknown';
 $lastName = $row['u_lname'] ?: '';
 $userType = trim(strtolower($row['u_type'])) ?: 'unknown';
 $stmt->close();
-
 if ($userType !== 'technician') {
     error_log("User is not a technician: username={$_SESSION['username']}, u_type=$userType");
     $_SESSION['error'] = "Access denied. This page is for technicians only.";
     header("Location: index.php");
     exit();
 }
-
-// Initialize avatar
 $avatarPath = 'default-avatar.png';
 $avatarFolder = 'Uploads/avatars/';
 $userAvatar = $avatarFolder . $_SESSION['username'] . '.png';
@@ -64,36 +51,26 @@ if (file_exists($userAvatar)) {
     $_SESSION['avatarPath'] = 'default-avatar.png';
 }
 $avatarPath = $_SESSION['avatarPath'];
-
-// Ensure technician_username column exists
-$sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
-$sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
+$sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL, ADD COLUMN IF NOT EXISTS archive_status VARCHAR(20) DEFAULT 'active'";
+$sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL, ADD COLUMN IF NOT EXISTS archive_status VARCHAR(20) DEFAULT 'active'";
 if (!$conn->query($sqlAlterRegular)) {
     error_log("Failed to alter tbl_ticket: " . $conn->error);
 }
 if (!$conn->query($sqlAlterSupport)) {
     error_log("Failed to alter tbl_supp_tickets: " . $conn->error);
 }
-
-// Generate CSRF token
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrfToken = $_SESSION['csrf_token'];
-
-// Determine current tab
 $tab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
 $validTabs = ['regular', 'regularArchived', 'support', 'supportArchived'];
 if (!in_array($tab, $validTabs)) {
     $tab = 'regular';
 }
-
-// Function to fetch dashboard counts
 function fetchDashboardCounts($conn, $username) {
     $counts = [];
-
-    // Regular Tickets
-    $sqlRegularOpen = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND t_details NOT LIKE 'ARCHIVED:%'";
+    $sqlRegularOpen = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active'";
     $stmtRegularOpen = $conn->prepare($sqlRegularOpen);
     if ($stmtRegularOpen) {
         $stmtRegularOpen->bind_param("s", $username);
@@ -105,7 +82,6 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for regular open tickets count: " . $conn->error);
         $counts['openTickets'] = 0;
     }
-
     $sqlRegularClosed = "SELECT COUNT(*) FROM tbl_close_regular WHERE te_technician = ?";
     $stmtRegularClosed = $conn->prepare($sqlRegularClosed);
     if ($stmtRegularClosed) {
@@ -118,8 +94,7 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for regular closed tickets count: " . $conn->error);
         $counts['closedTickets'] = 0;
     }
-
-    $sqlRegularArchived = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_details LIKE 'ARCHIVED:%'";
+    $sqlRegularArchived = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND archive_status = 'archived'";
     $stmtRegularArchived = $conn->prepare($sqlRegularArchived);
     if ($stmtRegularArchived) {
         $stmtRegularArchived->bind_param("s", $username);
@@ -131,9 +106,7 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for regular archived tickets count: " . $conn->error);
         $counts['archivedRegular'] = 0;
     }
-
-    // Support Tickets
-    $sqlSupportOpen = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'open' AND s_message NOT LIKE 'ARCHIVED:%'";
+    $sqlSupportOpen = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'open' AND archive_status = 'active'";
     $stmtSupportOpen = $conn->prepare($sqlSupportOpen);
     if ($stmtSupportOpen) {
         $stmtSupportOpen->bind_param("s", $username);
@@ -145,7 +118,6 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for support open tickets count: " . $conn->error);
         $counts['supportOpen'] = 0;
     }
-
     $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_close_supp WHERE te_technician = ?";
     $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
     if ($stmtSupportClosed) {
@@ -158,8 +130,7 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for support closed tickets count: " . $conn->error);
         $counts['supportClosed'] = 0;
     }
-
-    $sqlSupportArchived = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_message LIKE 'ARCHIVED:%'";
+    $sqlSupportArchived = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND archive_status = 'archived'";
     $stmtSupportArchived = $conn->prepare($sqlSupportArchived);
     if ($stmtSupportArchived) {
         $stmtSupportArchived->bind_param("s", $username);
@@ -171,12 +142,9 @@ function fetchDashboardCounts($conn, $username) {
         error_log("Prepare failed for support archived tickets count: " . $conn->error);
         $counts['archivedSupport'] = 0;
     }
-
     $counts['pendingTasks'] = $counts['openTickets'] + $counts['supportOpen'];
     return $counts;
 }
-
-// Initial dashboard counts
 $counts = fetchDashboardCounts($conn, $_SESSION['username']);
 $openTickets = $counts['openTickets'];
 $closedTickets = $counts['closedTickets'];
@@ -185,8 +153,6 @@ $supportOpen = $counts['supportOpen'];
 $supportClosed = $counts['supportClosed'];
 $archivedSupport = $counts['archivedSupport'];
 $pendingTasks = $counts['pendingTasks'];
-
-// Handle AJAX actions (close, archive, unarchive, delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     ob_start();
@@ -195,28 +161,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $ticket_type = trim($_POST['type'] ?? '');
     $technician_name = trim($firstName . ' ' . $lastName);
     $submitted_csrf = $_POST['csrf_token'] ?? '';
-
     if ($submitted_csrf !== $csrfToken) {
         error_log("CSRF token mismatch: action=$action, t_ref=$t_ref");
         ob_end_clean();
         echo json_encode(['success' => false, 'error' => 'Invalid CSRF token.']);
         exit();
     }
-
     if (empty($t_ref) || empty($ticket_type)) {
         error_log("Missing action data: action=$action, t_ref=$t_ref, ticket_type=$ticket_type");
         ob_end_clean();
         echo json_encode(['success' => false, 'error' => 'Missing required fields.']);
         exit();
     }
-
     $table = ($ticket_type === 'regular') ? 'tbl_ticket' : 'tbl_supp_tickets';
     $refColumn = ($ticket_type === 'regular') ? 't_ref' : 's_ref';
     $detailsColumn = ($ticket_type === 'regular') ? 't_details' : 's_message';
     $statusColumn = ($ticket_type === 'regular') ? 't_status' : 's_status';
-
-    // Verify ticket exists and is assigned to technician
-    $sqlCheck = "SELECT COUNT(*) FROM $table WHERE $refColumn = ? AND technician_username = ?";
+    // Verify ticket exists in the table
+    $sqlCheck = "SELECT COUNT(*), archive_status, technician_username FROM $table WHERE $refColumn = ?";
     $stmtCheck = $conn->prepare($sqlCheck);
     if (!$stmtCheck) {
         error_log("Prepare failed for ticket check query: " . $conn->error);
@@ -224,26 +186,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         echo json_encode(['success' => false, 'error' => 'Database error: Unable to verify ticket.']);
         exit();
     }
-    $stmtCheck->bind_param("ss", $t_ref, $_SESSION['username']);
+    $stmtCheck->bind_param("s", $t_ref);
     $stmtCheck->execute();
-    $stmtCheck->bind_result($ticketExists);
+    $stmtCheck->bind_result($ticketExists, $archiveStatus, $ticketTechnician);
     $stmtCheck->fetch();
     $stmtCheck->close();
-
-    if ($ticketExists == 0) {
-        error_log("Ticket does not exist or not assigned to technician: t_ref=$t_ref, technician_username={$_SESSION['username']}");
+    if ($ticketExists == 0 || $archiveStatus !== 'archived') {
+        // Debug: Log ticket details to understand why it’s not found or not archived
+        $sqlDebug = "SELECT * FROM $table WHERE $refColumn = ?";
+        $stmtDebug = $conn->prepare($sqlDebug);
+        $stmtDebug->bind_param("s", $t_ref);
+        $stmtDebug->execute();
+        $resultDebug = $stmtDebug->get_result();
+        $ticketDetails = $resultDebug->fetch_assoc();
+        error_log("Ticket check failed: t_ref=$t_ref, ticket_type=$ticket_type, archive_status=$archiveStatus, technician_username=$ticketTechnician, details=" . json_encode($ticketDetails));
+        $stmtDebug->close();
         ob_end_clean();
-        echo json_encode(['success' => false, 'error' => 'Ticket does not exist or is not assigned to you.']);
+        echo json_encode(['success' => false, 'error' => 'Ticket does not exist or is not archived.']);
         exit();
     }
-
     if ($action === 'close') {
         if ($ticket_type === 'regular') {
-            // Begin transaction for regular ticket
             $conn->begin_transaction();
             try {
-                // Fetch ticket details including customer email
-                $sqlFetch = "SELECT t.t_ref, t.t_aname, t.t_subject, t.t_details, t.t_status, c.c_email 
+                $sqlFetch = "SELECT t.t_ref, t.t_aname, t.t_subject, t.t_details, t.t_status, c.c_email
                              FROM tbl_ticket t
                              JOIN tbl_customer c ON t.t_aname = CONCAT(c.c_fname, ' ', c.c_lname)
                              WHERE t.t_ref = ? AND t.technician_username = ?";
@@ -253,27 +219,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $resultFetch = $stmtFetch->get_result();
                 $ticket = $resultFetch->fetch_assoc();
                 $stmtFetch->close();
-
                 if (!$ticket) {
                     throw new Exception("Ticket not found for ref: $t_ref");
                 }
-
-                // Insert into tbl_close_regular
                 $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date)
                               VALUES (?, ?, ?, ?, 'closed', ?, NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
                 $stmtInsert->bind_param("sssss", $t_ref, $ticket['t_aname'], $technician_name, $ticket['t_subject'], $ticket['t_details']);
                 $stmtInsert->execute();
                 $stmtInsert->close();
-
-                // Delete from tbl_ticket
                 $sqlDelete = "DELETE FROM tbl_ticket WHERE t_ref = ? AND technician_username = ?";
                 $stmtDelete = $conn->prepare($sqlDelete);
                 $stmtDelete->bind_param("ss", $t_ref, $_SESSION['username']);
                 $stmtDelete->execute();
                 $stmtDelete->close();
-
-                // Log action
                 $logDescription = "Ticket $t_ref closed by technician $technician_name (Type: $ticket_type)";
                 $logType = "Technician $technician_name";
                 $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
@@ -281,12 +240,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
-
-                // Send email notification to customer
                 if (!empty($ticket['c_email'])) {
                     $mail = new PHPMailer(true);
                     try {
-                        // Server settings
                         $mail->isSMTP();
                         $mail->Host = 'smtp.gmail.com';
                         $mail->SMTPAuth = true;
@@ -294,12 +250,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $mail->Password = 'mqkcqkytlwurwlks';
                         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port = 587;
-
-                        // Recipients
                         $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
                         $mail->addAddress($ticket['c_email'], $ticket['t_aname']);
-
-                        // Content
                         $mail->isHTML(true);
                         $mail->Subject = 'Your Ticket Has Been Resolved';
                         $mail->Body = "
@@ -322,8 +274,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </html>
                         ";
                         $mail->AltBody = "Dear {$ticket['t_aname']},\n\nWe are pleased to inform you that your ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nSubject: {$ticket['t_subject']}\nMessage: {$ticket['t_details']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
-
-                        // Send the email
                         $mail->send();
                     } catch (Exception $e) {
                         error_log("PHPMailer Error for regular ticket {$t_ref}: " . $mail->ErrorInfo);
@@ -331,7 +281,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } else {
                     error_log("No customer email found for regular ticket {$t_ref}");
                 }
-
                 $conn->commit();
                 $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
                 ob_end_clean();
@@ -348,13 +297,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             exit();
         } else {
-            // Begin transaction for support ticket
             $conn->begin_transaction();
             try {
-                // Fetch ticket details including customer email
-                $sqlFetch = "SELECT st.s_ref, st.c_id, c.c_fname, c.c_lname, st.s_subject, st.s_message, st.s_status, c.c_email 
-                             FROM tbl_supp_tickets st 
-                             JOIN tbl_customer c ON st.c_id = c.c_id 
+                $sqlFetch = "SELECT st.s_ref, st.c_id, c.c_fname, c.c_lname, st.s_subject, st.s_message, st.s_status, c.c_email
+                             FROM tbl_supp_tickets st
+                             JOIN tbl_customer c ON st.c_id = c.c_id
                              WHERE st.s_ref = ? AND st.technician_username = ?";
                 $stmtFetch = $conn->prepare($sqlFetch);
                 $stmtFetch->bind_param("ss", $t_ref, $_SESSION['username']);
@@ -362,27 +309,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $resultFetch = $stmtFetch->get_result();
                 $ticket = $resultFetch->fetch_assoc();
                 $stmtFetch->close();
-
                 if (!$ticket) {
                     throw new Exception("Support ticket not found for ref: $t_ref");
                 }
-
-                // Insert into tbl_close_supp
                 $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, te_technician, s_subject, s_message, s_status, s_date)
                               VALUES (?, ?, ?, ?, ?, ?, ?, 'closed', NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
                 $stmtInsert->bind_param("sssssss", $t_ref, $ticket['c_id'], $ticket['c_fname'], $ticket['c_lname'], $technician_name, $ticket['s_subject'], $ticket['s_message']);
                 $stmtInsert->execute();
                 $stmtInsert->close();
-
-                // Delete from tbl_supp_tickets
                 $sqlDelete = "DELETE FROM tbl_supp_tickets WHERE s_ref = ? AND technician_username = ?";
                 $stmtDelete = $conn->prepare($sqlDelete);
                 $stmtDelete->bind_param("ss", $t_ref, $_SESSION['username']);
                 $stmtDelete->execute();
                 $stmtDelete->close();
-
-                // Log action
                 $logDescription = "Support ticket $t_ref closed by technician $technician_name";
                 $logType = "Technician $technician_name";
                 $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
@@ -390,12 +330,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
-
-                // Send email notification to customer
                 if (!empty($ticket['c_email'])) {
                     $mail = new PHPMailer(true);
                     try {
-                        // Server settings
                         $mail->isSMTP();
                         $mail->Host = 'smtp.gmail.com';
                         $mail->SMTPAuth = true;
@@ -403,12 +340,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $mail->Password = 'mqkcqkytlwurwlks';
                         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port = 587;
-
-                        // Recipients
                         $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
                         $mail->addAddress($ticket['c_email'], $ticket['c_fname'] . ' ' . $ticket['c_lname']);
-
-                        // Content
                         $mail->isHTML(true);
                         $mail->Subject = 'Your Support Ticket Has Been Resolved';
                         $mail->Body = "
@@ -432,8 +365,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </html>
                         ";
                         $mail->AltBody = "Dear {$ticket['c_fname']} {$ticket['c_lname']},\n\nWe are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nCustomer ID: {$ticket['c_id']}\nSubject: {$ticket['s_subject']}\nMessage: {$ticket['s_message']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
-
-                        // Send the email
                         $mail->send();
                     } catch (Exception $e) {
                         error_log("PHPMailer Error for support ticket {$t_ref}: " . $mail->ErrorInfo);
@@ -441,7 +372,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } else {
                     error_log("No customer email found for support ticket {$t_ref}");
                 }
-
                 $conn->commit();
                 $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
                 ob_end_clean();
@@ -459,7 +389,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
         }
     } elseif ($action === 'archive') {
-        $sqlArchive = "UPDATE $table SET $detailsColumn = CONCAT('ARCHIVED:', $detailsColumn) WHERE $refColumn = ? AND technician_username = ? AND $detailsColumn NOT LIKE 'ARCHIVED:%'";
+        $sqlArchive = "UPDATE $table SET archive_status = 'archived' WHERE $refColumn = ? AND technician_username = ? AND archive_status = 'active'";
         $stmtArchive = $conn->prepare($sqlArchive);
         if (!$stmtArchive) {
             error_log("Prepare failed for archive query: " . $conn->error);
@@ -468,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
         }
         $stmtArchive->bind_param("ss", $t_ref, $_SESSION['username']);
-        if ($stmtArchive->execute()) {
+        if ($stmtArchive->execute() && $stmtArchive->affected_rows > 0) {
             $logDescription = "Ticket $t_ref archived by technician $technician_name (Type: $ticket_type)";
             $logType = "Technician $technician_name";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
@@ -486,14 +416,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'counts' => $updatedCounts
             ]);
         } else {
-            error_log("Failed to execute archive query: " . $stmtArchive->error);
+            error_log("Failed to archive ticket or no rows affected: t_ref=$t_ref");
             ob_end_clean();
-            echo json_encode(['success' => false, 'error' => 'Failed to archive ticket: ' . $stmtArchive->error]);
+            echo json_encode(['success' => false, 'error' => 'Failed to archive ticket or ticket already archived.']);
         }
         $stmtArchive->close();
         exit();
     } elseif ($action === 'unarchive') {
-        $sqlUnarchive = "UPDATE $table SET $detailsColumn = REPLACE($detailsColumn, 'ARCHIVED:', '') WHERE $refColumn = ? AND technician_username = ? AND $detailsColumn LIKE 'ARCHIVED:%'";
+        $sqlUnarchive = "UPDATE $table SET archive_status = 'active' WHERE $refColumn = ? AND archive_status = 'archived'";
         $stmtUnarchive = $conn->prepare($sqlUnarchive);
         if (!$stmtUnarchive) {
             error_log("Prepare failed for unarchive query: " . $conn->error);
@@ -501,8 +431,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare unarchive query.']);
             exit();
         }
-        $stmtUnarchive->bind_param("ss", $t_ref, $_SESSION['username']);
-        if ($stmtUnarchive->execute()) {
+        $stmtUnarchive->bind_param("s", $t_ref);
+        if ($stmtUnarchive->execute() && $stmtUnarchive->affected_rows > 0) {
             $logDescription = "Ticket $t_ref unarchived by technician $technician_name (Type: $ticket_type)";
             $logType = "Technician $technician_name";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
@@ -511,6 +441,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtLog->bind_param("ss", $logDescription, $logType);
                 $stmtLog->execute();
                 $stmtLog->close();
+            } else {
+                error_log("Prepare failed for log query: " . $conn->error);
             }
             $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
             ob_end_clean();
@@ -520,14 +452,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'counts' => $updatedCounts
             ]);
         } else {
-            error_log("Failed to execute unarchive query: " . $stmtUnarchive->error);
+            error_log("Failed to unarchive ticket or no rows affected: t_ref=$t_ref, ticket_type=$ticket_type");
             ob_end_clean();
-            echo json_encode(['success' => false, 'error' => 'Failed to unarchive ticket: ' . $stmtUnarchive->error]);
+            echo json_encode(['success' => false, 'error' => 'Failed to unarchive ticket or ticket is not archived.']);
         }
         $stmtUnarchive->close();
         exit();
     } elseif ($action === 'delete') {
-        $sqlDelete = "DELETE FROM $table WHERE $refColumn = ? AND technician_username = ?";
+        $sqlDelete = "DELETE FROM $table WHERE $refColumn = ? AND technician_username = ? AND archive_status = 'archived'";
         $stmtDelete = $conn->prepare($sqlDelete);
         if (!$stmtDelete) {
             error_log("Prepare failed for delete query: " . $conn->error);
@@ -536,7 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit();
         }
         $stmtDelete->bind_param("ss", $t_ref, $_SESSION['username']);
-        if ($stmtDelete->execute()) {
+        if ($stmtDelete->execute() && $stmtDelete->affected_rows > 0) {
             $logDescription = "Ticket $t_ref deleted by technician $technician_name (Type: $ticket_type)";
             $logType = "Technician $technician_name";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
@@ -554,9 +486,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'counts' => $updatedCounts
             ]);
         } else {
-            error_log("Failed to execute delete query: " . $stmtDelete->error);
+            error_log("Failed to delete ticket or no rows affected: t_ref=$t_ref");
             ob_end_clean();
-            echo json_encode(['success' => false, 'error' => 'Failed to delete ticket: ' . $stmtDelete->error]);
+            echo json_encode(['success' => false, 'error' => 'No tickets found to delete.']);
         }
         $stmtDelete->close();
         exit();
@@ -565,8 +497,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     echo json_encode(['success' => false, 'error' => 'Invalid action.']);
     exit();
 }
-
-// Handle AJAX ticket search
 if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     header('Content-Type: application/json');
     ob_start();
@@ -575,16 +505,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
-
     $likeSearch = '%' . $searchTerm . '%';
     $sql = "";
     $sqlCount = "";
     $params = [$_SESSION['username']];
     $paramTypes = "s";
-
     if ($tab === 'regular') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND t_details NOT LIKE 'ARCHIVED:%'";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND t_details NOT LIKE 'ARCHIVED:%'";
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND archive_status = 'active'";
+        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND archive_status = 'active'";
         if ($searchTerm) {
             $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
             $sqlCount .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
@@ -596,8 +524,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params[] = $limit;
         $paramTypes .= "ii";
     } elseif ($tab === 'regularArchived') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_details LIKE 'ARCHIVED:%'";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_details LIKE 'ARCHIVED:%'";
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND archive_status = 'archived'";
+        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND archive_status = 'archived'";
         if ($searchTerm) {
             $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
             $sqlCount .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
@@ -609,10 +537,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params[] = $limit;
         $paramTypes .= "ii";
     } elseif ($tab === 'support') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.s_message NOT LIKE 'ARCHIVED:%'";
-        $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status 
-                FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id 
-                WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.s_message NOT LIKE 'ARCHIVED:%'";
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.archive_status = 'active'";
+        $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
+                FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
+                WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.archive_status = 'active'";
         if ($searchTerm) {
             $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
             $sqlCount .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
@@ -624,10 +552,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params[] = $limit;
         $paramTypes .= "ii";
     } elseif ($tab === 'supportArchived') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_message LIKE 'ARCHIVED:%'";
-        $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status 
-                FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id 
-                WHERE st.technician_username = ? AND st.s_message LIKE 'ARCHIVED:%'";
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.archive_status = 'archived'";
+        $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
+                FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
+                WHERE st.technician_username = ? AND st.archive_status = 'archived'";
         if ($searchTerm) {
             $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
             $sqlCount .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
@@ -639,8 +567,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params[] = $limit;
         $paramTypes .= "ii";
     }
-
-    // Get total count for pagination
     $stmtCount = $conn->prepare($sqlCount);
     if (!$stmtCount) {
         error_log("Prepare failed for count query: " . $conn->error);
@@ -659,8 +585,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $total = $totalRow['total'];
     $totalPages = ceil($total / $limit);
     $stmtCount->close();
-
-    // Fetch tickets
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed for ticket query: " . $conn->error);
@@ -671,20 +595,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $stmt->bind_param($paramTypes, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
-
     ob_start();
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details']);
-            $isArchived = ($tab === 'regularArchived' || $tab === 'supportArchived');
             $ticketData = json_encode([
                 'ref' => $row['t_ref'],
                 'c_id' => $row['c_id'] ?? '',
                 'aname' => $row['t_aname'] ?? '',
                 'subject' => $row['t_subject'] ?? '',
-                'details' => $display_details,
+                'details' => $row['t_details'],
                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
-                'isArchived' => $isArchived
+                'isArchived' => ($tab === 'regularArchived' || $tab === 'supportArchived')
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
             $status = trim(strtolower($row['t_status'] ?? ''));
             echo "<tr>";
@@ -694,13 +615,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
             }
             echo "<td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td>";
             echo "<td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
-            echo "<td>" . htmlspecialchars($display_details, ENT_QUOTES, 'UTF-8') . "</td>";
-            echo "<td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . 
-                 ($status === 'open' && !$isArchived ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") . 
+            echo "<td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>";
+            echo "<td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) .
+                 ($status === 'open' && !($tab === 'regularArchived' || $tab === 'supportArchived') ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") .
                  ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>";
             echo "<td class='action-buttons'>";
             echo "<span class='view-btn btn btn-primary' onclick='showViewModal(\"$tab\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>";
-            if (!$isArchived) {
+            if (!($tab === 'regularArchived' || $tab === 'supportArchived')) {
                 echo "<span class='archive-btn btn btn-secondary' onclick='openModal(\"archive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Archive'><i class='fas fa-archive'></i></span>";
             } else {
                 echo "<span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>";
@@ -713,7 +634,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         echo "<tr><td colspan='$colspan' style='text-align: center;'>No tickets found.</td></tr>";
     }
     $tableRows = ob_get_clean();
-
     $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
     ob_end_clean();
     echo json_encode([
@@ -727,21 +647,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $conn->close();
     exit();
 }
-
-// Pagination setup
 $limit = 10;
-
-// Regular Active Tickets
 $regularActivePage = isset($_GET['regularActivePage']) ? max(1, (int)$_GET['regularActivePage']) : 1;
 $offsetRegularActive = ($regularActivePage - 1) * $limit;
-$sqlRegularActive = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND t_details NOT LIKE 'ARCHIVED:%' LIMIT ?, ?";
+$sqlRegularActive = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND archive_status = 'active' LIMIT ?, ?";
 $stmtRegularActive = $conn->prepare($sqlRegularActive);
 if ($stmtRegularActive) {
     $stmtRegularActive->bind_param("sii", $_SESSION['username'], $offsetRegularActive, $limit);
     $stmtRegularActive->execute();
     $resultRegularActive = $stmtRegularActive->get_result();
-    
-    $sqlCountRegularActive = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND t_details NOT LIKE 'ARCHIVED:%'";
+    $sqlCountRegularActive = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status IN ('open', 'closed') AND archive_status = 'active'";
     $stmtCountRegularActive = $conn->prepare($sqlCountRegularActive);
     if ($stmtCountRegularActive) {
         $stmtCountRegularActive->bind_param("s", $_SESSION['username']);
@@ -753,7 +668,6 @@ if ($stmtRegularActive) {
         error_log("Prepare failed for regular active tickets count query: " . $conn->error);
         $totalRegularActive = 0;
     }
-    
     $totalRegularActivePages = ceil($totalRegularActive / $limit);
     $stmtRegularActive->close();
 } else {
@@ -761,18 +675,15 @@ if ($stmtRegularActive) {
     $totalRegularActive = 0;
     $totalRegularActivePages = 1;
 }
-
-// Regular Archived Tickets
 $regularArchivedPage = isset($_GET['regularArchivedPage']) ? max(1, (int)$_GET['regularArchivedPage']) : 1;
 $offsetRegularArchived = ($regularArchivedPage - 1) * $limit;
-$sqlRegularArchived = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_details LIKE 'ARCHIVED:%' LIMIT ?, ?";
+$sqlRegularArchived = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND archive_status = 'archived' LIMIT ?, ?";
 $stmtRegularArchived = $conn->prepare($sqlRegularArchived);
 if ($stmtRegularArchived) {
     $stmtRegularArchived->bind_param("sii", $_SESSION['username'], $offsetRegularArchived, $limit);
     $stmtRegularArchived->execute();
     $resultRegularArchived = $stmtRegularArchived->get_result();
-    
-    $sqlCountRegularArchived = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_details LIKE 'ARCHIVED:%'";
+    $sqlCountRegularArchived = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND archive_status = 'archived'";
     $stmtCountRegularArchived = $conn->prepare($sqlCountRegularArchived);
     if ($stmtCountRegularArchived) {
         $stmtCountRegularArchived->bind_param("s", $_SESSION['username']);
@@ -784,7 +695,6 @@ if ($stmtRegularArchived) {
         error_log("Prepare failed for regular archived tickets count query: " . $conn->error);
         $totalRegularArchived = 0;
     }
-    
     $totalRegularArchivedPages = ceil($totalRegularArchived / $limit);
     $stmtRegularArchived->close();
 } else {
@@ -792,20 +702,17 @@ if ($stmtRegularArchived) {
     $totalRegularArchived = 0;
     $totalRegularArchivedPages = 1;
 }
-
-// Support Active Tickets
 $supportActivePage = isset($_GET['supportActivePage']) ? max(1, (int)$_GET['supportActivePage']) : 1;
 $offsetSupportActive = ($supportActivePage - 1) * $limit;
-$sqlSupportActive = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status 
-                     FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id 
-                     WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.s_message NOT LIKE 'ARCHIVED:%' LIMIT ?, ?";
+$sqlSupportActive = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
+                     FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
+                     WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.archive_status = 'active' LIMIT ?, ?";
 $stmtSupportActive = $conn->prepare($sqlSupportActive);
 if ($stmtSupportActive) {
     $stmtSupportActive->bind_param("sii", $_SESSION['username'], $offsetSupportActive, $limit);
     $stmtSupportActive->execute();
     $resultSupportActive = $stmtSupportActive->get_result();
-    
-    $sqlCountSupportActive = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.s_message NOT LIKE 'ARCHIVED:%'";
+    $sqlCountSupportActive = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status IN ('open', 'closed') AND st.archive_status = 'active'";
     $stmtCountSupportActive = $conn->prepare($sqlCountSupportActive);
     if ($stmtCountSupportActive) {
         $stmtCountSupportActive->bind_param("s", $_SESSION['username']);
@@ -817,7 +724,6 @@ if ($stmtSupportActive) {
         error_log("Prepare failed for support active tickets count query: " . $conn->error);
         $totalSupportActive = 0;
     }
-    
     $totalSupportActivePages = ceil($totalSupportActive / $limit);
     $stmtSupportActive->close();
 } else {
@@ -825,20 +731,17 @@ if ($stmtSupportActive) {
     $totalSupportActive = 0;
     $totalSupportActivePages = 1;
 }
-
-// Support Archived Tickets
 $supportArchivedPage = isset($_GET['supportArchivedPage']) ? max(1, (int)$_GET['supportArchivedPage']) : 1;
 $offsetSupportArchived = ($supportArchivedPage - 1) * $limit;
-$sqlSupportArchived = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status 
-                       FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id 
-                       WHERE st.technician_username = ? AND st.s_message LIKE 'ARCHIVED:%' LIMIT ?, ?";
+$sqlSupportArchived = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
+                       FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
+                       WHERE st.technician_username = ? AND st.archive_status = 'archived' LIMIT ?, ?";
 $stmtSupportArchived = $conn->prepare($sqlSupportArchived);
 if ($stmtSupportArchived) {
     $stmtSupportArchived->bind_param("sii", $_SESSION['username'], $offsetSupportArchived, $limit);
     $stmtSupportArchived->execute();
     $resultSupportArchived = $stmtSupportArchived->get_result();
-    
-    $sqlCountSupportArchived = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_message LIKE 'ARCHIVED:%'";
+    $sqlCountSupportArchived = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.archive_status = 'archived'";
     $stmtCountSupportArchived = $conn->prepare($sqlCountSupportArchived);
     if ($stmtCountSupportArchived) {
         $stmtCountSupportArchived->bind_param("s", $_SESSION['username']);
@@ -850,7 +753,6 @@ if ($stmtSupportArchived) {
         error_log("Prepare failed for support archived tickets count query: " . $conn->error);
         $totalSupportArchived = 0;
     }
-    
     $totalSupportArchivedPages = ceil($totalSupportArchived / $limit);
     $stmtSupportArchived->close();
 } else {
@@ -858,7 +760,6 @@ if ($stmtSupportArchived) {
     $totalSupportArchived = 0;
     $totalSupportArchivedPages = 1;
 }
-
 $conn->close();
 ?>
 
@@ -868,22 +769,18 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Dashboard</title>
-    <link rel="stylesheet" href="technicianDash.css">
+    <link rel="stylesheet" href="technician.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
 </head>
 <body>
 <div class="wrapper">
     <div class="sidebar glass-container">
         <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-        <li><a href="technicianD.php" class="active"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
-        <li><a href="techBorrowed.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
+             <li><a href="technicianD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
+        <li><a href="techBorrowed.php" class="active"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
         <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         </ul>
         <footer>
@@ -1002,7 +899,7 @@ $conn->close();
                                     <?php
                                     if ($resultRegularActive && $resultRegularActive->num_rows > 0) {
                                         while ($row = $resultRegularActive->fetch_assoc()) {
-                                            $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
+                                            $display_details = preg_replace('/^TECH_ARCHIVED:/', '', $row['t_details'] ?? '');
                                             $ticketData = json_encode([
                                                 'ref' => $row['t_ref'],
                                                 'aname' => $row['t_aname'] ?? '',
@@ -1066,7 +963,7 @@ $conn->close();
                                     <?php
                                     if ($resultRegularArchived && $resultRegularArchived->num_rows > 0) {
                                         while ($row = $resultRegularArchived->fetch_assoc()) {
-                                            $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
+                                            $display_details = preg_replace('/^TECH_ARCHIVED:/', '', $row['t_details'] ?? '');
                                             $ticketData = json_encode([
                                                 'ref' => $row['t_ref'],
                                                 'aname' => $row['t_aname'] ?? '',
@@ -1075,6 +972,7 @@ $conn->close();
                                                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
                                                 'isArchived' => true
                                             ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                            $allowUnarchive = strpos($row['t_details'], 'TECH_ARCHIVED:') === 0;
                                             echo "<tr>
                                                     <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
                                                     <td>" . htmlspecialchars($row['t_aname'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
@@ -1083,7 +981,7 @@ $conn->close();
                                                     <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
                                                         <span class='view-btn btn btn-primary' onclick='showViewModal(\"regular\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                        " . ($allowUnarchive ? "<span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>" : "") . "
                                                         <span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"regular\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                     </td>
                                                   </tr>";
@@ -1145,7 +1043,7 @@ $conn->close();
                                     <?php
                                     if ($resultSupportActive && $resultSupportActive->num_rows > 0) {
                                         while ($row = $resultSupportActive->fetch_assoc()) {
-                                            $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
+                                            $display_details = preg_replace('/^TECH_ARCHIVED:/', '', $row['t_details'] ?? '');
                                             $ticketData = json_encode([
                                                 'ref' => $row['t_ref'],
                                                 'c_id' => $row['c_id'] ?? '',
@@ -1212,7 +1110,7 @@ $conn->close();
                                     <?php
                                     if ($resultSupportArchived && $resultSupportArchived->num_rows > 0) {
                                         while ($row = $resultSupportArchived->fetch_assoc()) {
-                                            $display_details = preg_replace('/^ARCHIVED:/', '', $row['t_details'] ?? '');
+                                            $display_details = preg_replace('/^TECH_ARCHIVED:/', '', $row['t_details'] ?? '');
                                             $ticketData = json_encode([
                                                 'ref' => $row['t_ref'],
                                                 'c_id' => $row['c_id'] ?? '',
@@ -1222,6 +1120,7 @@ $conn->close();
                                                 'status' => ucfirst(strtolower($row['t_status'] ?? '')),
                                                 'isArchived' => true
                                             ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                            $allowUnarchive = strpos($row['t_details'], 'TECH_ARCHIVED:') === 0;
                                             echo "<tr>
                                                     <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
                                                     <td>" . htmlspecialchars($row['c_id'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
@@ -1231,7 +1130,7 @@ $conn->close();
                                                     <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . "'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
                                                     <td class='action-buttons'>
                                                         <span class='view-btn btn btn-primary' onclick='showViewModal(\"support\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                                        <span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>
+                                                        " . ($allowUnarchive ? "<span class='unarchive-btn btn btn-secondary' onclick='openModal(\"unarchive\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Unarchive'><i class='fas fa-box-open'></i></span>" : "") . "
                                                         <span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"support\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>
                                                     </td>
                                                   </tr>";
@@ -1492,13 +1391,13 @@ $conn->close();
                     if (data.currentPage > 1) {
                         paginationHTML += `<a href="?tab=${tab}&${tab}Page=${data.currentPage - 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
                     } else {
-                        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+                        paginationHTML += `<span class="pagination-link disabled"><i class='fas fa-chevron-left'></i></span>`;
                     }
                     paginationHTML += `<span class="current-page">Page ${data.currentPage} of ${data.totalPages}</span>`;
                     if (data.currentPage < data.totalPages) {
                         paginationHTML += `<a href="?tab=${tab}&${tab}Page=${data.currentPage + 1}&search=${encodeURIComponent(searchTerm)}" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
                     } else {
-                        paginationHTML += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+                        paginationHTML += `<span class="pagination-link disabled"><i class='fas fa-chevron-right'></i></span>`;
                     }
                     pagination.innerHTML = paginationHTML;
                 } else {
@@ -1519,7 +1418,7 @@ $conn->close();
                 clearTimeout(timeout);
                 func(...args);
             };
-            clearTimeout(timeout);
+            clearTimeout(timeout);  
             timeout = setTimeout(later, wait);
         };
     }
@@ -1544,3 +1443,4 @@ $conn->close();
 
 </body>
 </html>
+

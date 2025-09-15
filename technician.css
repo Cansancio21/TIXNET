@@ -409,7 +409,7 @@ tr:hover td {
 .tab-badge {
     position: absolute;
     margin-left: 65px;
-    top: 10px;
+    top: -10px;
     background: #ff5722;
     color: white;
     border-radius: 50%;
@@ -787,4 +787,5 @@ tr:hover td {
         grid-template-columns: 1fr;
     }
 }
+
 
