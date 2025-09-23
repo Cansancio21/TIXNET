@@ -30,45 +30,61 @@ if (file_exists($userAvatar)) {
 }
 $avatarPath = $_SESSION['avatarPath'];
 
+// Initialize variables
+$currentTab = isset($_GET['tab']) ? $_GET['tab'] : 'returned';
+$searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+$assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
+$technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+$totalPages = 1;
+$resultAssets = null;
+$assetNames = [];
+$technicianNames = [];
+$deployedAssetNames = [];
+$deployedTechnicianNames = [];
+$totalReturnedAssets = 0;
+$totalDeployedAssets = 0;
+
 // Handle AJAX export data request
 if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
-    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
-    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
+    $status = $currentTab === 'returned' ? 'Returned' : 'Deployed';
+    $searchLike = $searchTerm ? "%$searchTerm%" : null;
+    $params = [];
+    $types = '';
+    $whereClauses = [];
 
-    // Build the WHERE clause dynamically
-    $whereClauses = ['a_status = ?'];
-    $params = ['Returned'];
-    $paramTypes = 's';
+    $whereClauses[] = "a_status = ?";
+    $params[] = $status;
+    $types .= 's';
 
-    if ($searchTerm !== '') {
+    if ($searchTerm) {
         $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
-        $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'sssssss';
+        $params = array_merge($params, array_fill(0, 7, $searchLike));
+        $types .= 'sssssss';
     }
-
-    if ($assetNameFilter !== '') {
+    if ($assetNameFilter) {
         $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
-
-    if ($technicianNameFilter !== '') {
+    if ($technicianNameFilter) {
         $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
 
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
     // Fetch all records for export (no limit/offset)
+    $orderBy = $currentTab === 'returned' ? 'a_return_date' : 'a_date';
     $sqlExport = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
                   FROM tbl_asset_status $whereClause 
-                  ORDER BY a_return_date DESC";
+                  ORDER BY $orderBy DESC";
     $stmtExport = $conn->prepare($sqlExport);
-    if ($paramTypes !== '') {
-        $stmtExport->bind_param($paramTypes, ...$params);
+    if ($types !== '') {
+        $stmtExport->bind_param($types, ...$params);
     }
     $stmtExport->execute();
     $resultExport = $stmtExport->get_result();
@@ -81,8 +97,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
             'Technician Name' => $row['tech_name'] ?? '',
             'Technician ID' => $row['tech_id'] ?? '',
             'Asset Serial No.' => $row['a_serial_no'] === '0' || empty($row['a_serial_no']) ? '' : $row['a_serial_no'],
-            'Date Borrowed' => $row['a_date'] ?? '-',
-            'Date Returned' => $row['a_return_date'] ?? '-'
+            'Date Borrowed/Deployed' => $row['a_date'] ?? '-',
+            'Date Returned' => $currentTab === 'returned' ? ($row['a_return_date'] ?? '-') : '-'
         ];
     }
     $stmtExport->close();
@@ -93,36 +109,31 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
 }
 
 // Handle AJAX search request with filters
-if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['search'])) {
-    $searchTerm = trim($_GET['search']);
-    $page = isset($_GET['search_page']) ? max(1, (int)$_GET['search_page']) : 1;
-    $limit = 10;
-    $offset = ($page - 1) * $limit;
-    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
-    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
+if (isset($_GET['action']) && $_GET['action'] === 'search') {
+    $status = $currentTab === 'returned' ? 'Returned' : 'Deployed';
+    $searchLike = $searchTerm ? "%$searchTerm%" : null;
+    $params = [];
+    $types = '';
+    $whereClauses = [];
 
-    // Build the WHERE clause dynamically
-    $whereClauses = ['a_status = ?'];
-    $params = ['Returned'];
-    $paramTypes = 's';
+    $whereClauses[] = "a_status = ?";
+    $params[] = $status;
+    $types .= 's';
 
-    if ($searchTerm !== '') {
+    if ($searchTerm) {
         $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
-        $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'sssssss';
+        $params = array_merge($params, array_fill(0, 7, $searchLike));
+        $types .= 'sssssss';
     }
-
-    if ($assetNameFilter !== '') {
+    if ($assetNameFilter) {
         $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
-
-    if ($technicianNameFilter !== '') {
+    if ($technicianNameFilter) {
         $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
 
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -130,8 +141,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     // Count total matching records for pagination
     $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status $whereClause";
     $countStmt = $conn->prepare($countSql);
-    if ($paramTypes !== '') {
-        $countStmt->bind_param($paramTypes, ...$params);
+    if ($types !== '') {
+        $countStmt->bind_param($types, ...$params);
     }
     $countStmt->execute();
     $countResult = $countStmt->get_result();
@@ -141,20 +152,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $totalPages = max(1, ceil($totalRecords / $limit));
 
     // Fetch paginated search results
+    $orderBy = $currentTab === 'returned' ? 'a_return_date' : 'a_date';
     $sql = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
             FROM tbl_asset_status 
             $whereClause 
-            ORDER BY a_return_date DESC 
+            ORDER BY $orderBy DESC 
             LIMIT ?, ?";
     $stmt = $conn->prepare($sql);
-    if ($paramTypes !== '') {
-        $params[] = $offset;
-        $params[] = $limit;
-        $paramTypes .= 'ii';
-        $stmt->bind_param($paramTypes, ...$params);
-    } else {
-        $stmt->bind_param("ii", $offset, $limit);
-    }
+    $params[] = $offset;
+    $params[] = $limit;
+    $types .= 'ii';
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -162,31 +170,32 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
-            $ticketData = json_encode([
+            $assetData = json_encode([
                 'id' => $row['a_id'],
                 'ref_no' => $row['a_ref_no'] ?? '',
                 'asset_name' => $row['a_name'] ?? '',
                 'technician_name' => $row['tech_name'] ?? '',
                 'technician_id' => $row['tech_id'] ?? '',
                 'serial_no' => $serialNo,
-                'date_borrowed' => $row['a_date'] ?? '-',
+                'date_deployed' => $row['a_date'] ?? '-',
                 'date_returned' => $row['a_return_date'] ?? '-'
             ], JSON_HEX_QUOT | JSON_HEX_TAG);
+            $dateColumn = $currentTab === 'returned' ? htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') : htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8');
             echo "<tr> 
                     <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
                     <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
                     <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>" . $serialNo . "</td>
-                    <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
-                    <td>" . htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                    <td>" . $dateColumn . "</td>
                     <td class='action-buttons'>
-                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                        <span class='view-btn' onclick='showViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>
                     </td>
                   </tr>";
         }
     } else {
-        echo "<tr><td colspan='8' style='text-align: center;'>No returned assets found.</td></tr>";
+        $statusText = $currentTab === 'returned' ? 'returned' : 'deployed';
+        echo "<tr><td colspan='7' style='text-align: center;'>No $statusText assets found.</td></tr>";
     }
     $html = ob_get_clean();
     $stmt->close();
@@ -220,50 +229,66 @@ if ($conn) {
     }
     $stmt->close();
 
-    // Fetch unique asset names and technician names for filter modals
+    // Count total assets for each tab
+    $sqlReturnedCount = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE a_status = 'Returned'";
+    $resultReturnedCount = $conn->query($sqlReturnedCount);
+    $totalReturnedAssets = $resultReturnedCount->fetch_assoc()['total'] ?? 0;
+
+    $sqlDeployedCount = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE a_status = 'Deployed'";
+    $resultDeployedCount = $conn->query($sqlDeployedCount);
+    $totalDeployedAssets = $resultDeployedCount->fetch_assoc()['total'] ?? 0;
+
+    // Fetch unique asset names and technician names for returned assets
     $assetNamesQuery = "SELECT DISTINCT a_name FROM tbl_asset_status WHERE a_status = 'Returned' ORDER BY a_name";
     $assetNamesResult = $conn->query($assetNamesQuery);
-    $assetNames = [];
     while ($row = $assetNamesResult->fetch_assoc()) {
         $assetNames[] = $row['a_name'];
     }
 
     $technicianNamesQuery = "SELECT DISTINCT tech_name FROM tbl_asset_status WHERE a_status = 'Returned' ORDER BY tech_name";
     $technicianNamesResult = $conn->query($technicianNamesQuery);
-    $technicianNames = [];
     while ($row = $technicianNamesResult->fetch_assoc()) {
         $technicianNames[] = $row['tech_name'];
     }
 
-    // Pagination setup
-    $limit = 10;
-    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $assetNameFilter = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
-    $technicianNameFilter = isset($_GET['technician_name']) ? trim($_GET['technician_name']) : '';
+    // Fetch unique asset names and technician names for deployed assets
+    $deployedAssetNamesQuery = "SELECT DISTINCT a_name FROM tbl_asset_status WHERE a_status = 'Deployed' ORDER BY a_name";
+    $deployedAssetNamesResult = $conn->query($deployedAssetNamesQuery);
+    while ($row = $deployedAssetNamesResult->fetch_assoc()) {
+        $deployedAssetNames[] = $row['a_name'];
+    }
+
+    $deployedTechnicianNamesQuery = "SELECT DISTINCT tech_name FROM tbl_asset_status WHERE a_status = 'Deployed' ORDER BY tech_name";
+    $deployedTechnicianNamesResult = $conn->query($deployedTechnicianNamesQuery);
+    while ($row = $deployedTechnicianNamesResult->fetch_assoc()) {
+        $deployedTechnicianNames[] = $row['tech_name'];
+    }
 
     // Build the WHERE clause dynamically
-    $whereClauses = ['a_status = ?'];
-    $params = ['Returned'];
-    $paramTypes = 's';
+    $searchLike = $searchTerm ? "%$searchTerm%" : null;
+    $params = [];
+    $types = '';
+    $whereClauses = [];
 
-    if ($searchTerm !== '') {
+    $status = $currentTab === 'returned' ? 'Returned' : 'Deployed';
+    $whereClauses[] = "a_status = ?";
+    $params[] = $status;
+    $types .= 's';
+
+    if ($searchTerm) {
         $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_serial_no LIKE ? OR a_date LIKE ? OR a_return_date LIKE ?)";
-        $searchWildcard = "%$searchTerm%";
-        $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
-        $paramTypes .= 'sssssss';
+        $params = array_merge($params, array_fill(0, 7, $searchLike));
+        $types .= 'sssssss';
     }
-
-    if ($assetNameFilter !== '') {
+    if ($assetNameFilter) {
         $whereClauses[] = "a_name = ?";
         $params[] = $assetNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
-
-    if ($technicianNameFilter !== '') {
+    if ($technicianNameFilter) {
         $whereClauses[] = "tech_name = ?";
         $params[] = $technicianNameFilter;
-        $paramTypes .= 's';
+        $types .= 's';
     }
 
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -271,8 +296,8 @@ if ($conn) {
     // Count total records for pagination
     $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status $whereClause";
     $countStmt = $conn->prepare($countSql);
-    if ($paramTypes !== '') {
-        $countStmt->bind_param($paramTypes, ...$params);
+    if ($types !== '') {
+        $countStmt->bind_param($types, ...$params);
     }
     $countStmt->execute();
     $countResult = $countStmt->get_result();
@@ -280,26 +305,23 @@ if ($conn) {
     $countStmt->close();
 
     $totalPages = max(1, ceil($totalRecords / $limit));
-    $page = min($page, $totalPages); // Ensure page doesn't exceed total pages
+    $page = min($page, $totalPages);
     $offset = ($page - 1) * $limit;
 
     // Main query with pagination
-    $sqlBorrowed = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
-                    FROM tbl_asset_status 
-                    $whereClause 
-                    ORDER BY a_return_date DESC 
-                    LIMIT ?, ?";
-    $stmt = $conn->prepare($sqlBorrowed);
-    if ($paramTypes !== '') {
-        $params[] = $offset;
-        $params[] = $limit;
-        $paramTypes .= 'ii';
-        $stmt->bind_param($paramTypes, ...$params);
-    } else {
-        $stmt->bind_param("ii", $offset, $limit);
-    }
+    $orderBy = $currentTab === 'returned' ? 'a_return_date' : 'a_date';
+    $sqlAssets = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
+                  FROM tbl_asset_status 
+                  $whereClause 
+                  ORDER BY $orderBy DESC 
+                  LIMIT ?, ?";
+    $stmt = $conn->prepare($sqlAssets);
+    $params[] = $offset;
+    $params[] = $limit;
+    $types .= 'ii';
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
-    $resultBorrowed = $stmt->get_result();
+    $resultAssets = $stmt->get_result();
     $stmt->close();
 } else {
     echo "Database connection failed.";
@@ -312,17 +334,16 @@ if ($conn) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Returned Assets</title>
-    <link rel="stylesheet" href="returnTT.css"> 
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-        <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <title>Asset Records</title>
+    <link rel="stylesheet" href="regular_closes.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-    
     <style>
         .filter-btn {
             background: transparent !important;
@@ -342,6 +363,91 @@ if ($conn) {
         th .filter-btn {
             background: transparent !important;
         }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        body.modal-open {
+            overflow: hidden;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        .modal-body {
+            margin: 20px 0;
+        }
+        .modal-footer {
+            text-align: right;
+            margin-top: 15px;
+        }
+        .modal-btn {
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: all 0.3s;
+        }
+        .modal-btn.cancel {
+            background: var(--primary);
+            color: var(--light);
+        }
+        .modal-btn.confirm {
+            background: var(--primary);
+            color: white;
+        }
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .modal-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .modal-form select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        #returnedAssetFilterModal .modal-content,
+        #returnedTechnicianFilterModal .modal-content,
+        #deployedAssetFilterModal .modal-content,
+        #deployedTechnicianFilterModal .modal-content {
+            margin-top: 165px;
+        }
     </style>
 </head>
 <body>
@@ -351,12 +457,10 @@ if ($conn) {
          <ul>
           <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
           <li><a href="viewU.php"><i class="fas fa-users icon"></i> <span>View Users</span></a></li>
-          <li><a href="regular_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Record</span></a></li>
-          <li><a href="support_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Support Record</span></a></li>
+          <li><a href="regular_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Ticket Record</span></a></li>
           <li><a href="logs.php"><i class="fas fa-file-alt icon"></i> <span>Logs</span></a></li>
-          <li><a href="returnT.php" class="active"><i class="fas fa-undo icon"></i> <span>Returned Records</span></a></li>
-          <li><a href="deployedT.php"><i class="fas fa-box icon"></i> <span>Deployed Records</span></a></li>
-          <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+          <li><a href="returnT.php" class="active"><i class="fas fa-box icon"></i> <span>Asset Record</span></a></li>
+          <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
          </ul>
       <footer>
        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -365,9 +469,9 @@ if ($conn) {
 
     <div class="container">
         <div class="upper">
-            <h1>Returned Assets</h1>
+            <h1>Asset Records</h1>
             <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search returned assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchReturned()">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchAssets()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
             <div class="user-profile">
@@ -403,162 +507,321 @@ if ($conn) {
             <?php endif; ?>
         </div>
 
-        <div class="table-box glass-container">
-            <h2>List of Returned Assets</h2>
-            
-            <div class="action-buttons">
-                <div class="export-container">
-                    <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                    <div class="export-dropdown">
-                        <button onclick="exportTable('excel')">Excel</button>
-                        <button onclick="exportTable('csv')">CSV</button>
+        <!-- Returned Assets Tab -->
+        <div id="returned-tab" class="tab-content <?php echo $currentTab === 'returned' ? 'active' : ''; ?>">
+            <!-- View Modal -->
+            <div id="viewReturnedModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Returned Asset Details</h2>
+                    </div>
+                    <div id="viewReturnedContent"></div>
+                    <div class="modal-footer">
+                        <button class="modal-btn cancel" onclick="closeModal('viewReturnedModal')">Close</button>
                     </div>
                 </div>
             </div>
-            
-            <table id="returned-assets-table">
-                <thead>
-                    <tr>
-                        <th>Asset Ref No.</th>
-                        <th>Asset Name <button class="filter-btn" onclick="showAssetFilterModal()" title="Filter by Asset Name"><i class='bx bx-filter'></i></button></th>
-                        <th>Technician Name <button class="filter-btn" onclick="showTechnicianFilterModal()" title="Filter by Technician Name"><i class='bx bx-filter'></i></button></th>
-                        <th>Technician ID</th>
-                        <th>Asset Serial No.</th>
-                        <th>Date Borrowed</th>
-                        <th>Date Returned</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <?php 
-                    if ($resultBorrowed && $resultBorrowed->num_rows > 0) { 
-                        while ($row = $resultBorrowed->fetch_assoc()) {
-                            $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
-                            $ticketData = json_encode([
-                                'id' => $row['a_id'],
-                                'ref_no' => $row['a_ref_no'] ?? '',
-                                'asset_name' => $row['a_name'] ?? '',
-                                'technician_name' => $row['tech_name'] ?? '',
-                                'technician_id' => $row['tech_id'] ?? '',
-                                'serial_no' => $serialNo,
-                                'date_borrowed' => $row['a_date'] ?? '-',
-                                'date_returned' => $row['a_return_date'] ?? '-'
-                            ], JSON_HEX_QUOT | JSON_HEX_TAG);
-                            echo "<tr> 
-                                    <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                    <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
-                                    <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . $serialNo . "</td>
-                                    <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td class='action-buttons'>
-                                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                    </td>
-                                  </tr>";
+
+            <!-- Returned Asset Filter Modal -->
+            <div id="returnedAssetFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Asset Name</h2>
+                    </div>
+                    <form id="returnedAssetFilterForm" class="modal-form">
+                        <label for="returned_filter_asset_name">Asset Name</label>
+                        <select name="asset_name" id="returned_filter_asset_name">
+                            <option value="">All Assets</option>
+                            <?php foreach ($assetNames as $name): ?>
+                                <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $assetNameFilter === $name ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('returnedAssetFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyReturnedAssetFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Returned Technician Filter Modal -->
+            <div id="returnedTechnicianFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Technician Name</h2>
+                    </div>
+                    <form id="returnedTechnicianFilterForm" class="modal-form">
+                        <label for="returned_filter_technician_name">Technician Name</label>
+                        <select name="technician_name" id="returned_filter_technician_name">
+                            <option value="">All Technicians</option>
+                            <?php foreach ($technicianNames as $name): ?>
+                                <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianNameFilter === $name ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('returnedTechnicianFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyReturnedTechnicianFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-box glass-container">
+                <h2>List of Returned Assets</h2>
+                
+                <!-- Tab Buttons -->
+                <div class="tab-buttons">
+                    <button class="tab-btn <?php echo $currentTab === 'returned' ? 'active' : ''; ?>" onclick="showTab('returned')">
+                        Returned (<?php echo $totalReturnedAssets; ?>)
+                    </button>
+                    <button class="tab-btn <?php echo $currentTab === 'deployed' ? 'active' : ''; ?>" onclick="showTab('deployed')">
+                        Deployed (<?php echo $totalDeployedAssets; ?>)
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="export-container">
+                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                        <div class="export-dropdown">
+                            <button onclick="exportTable('excel')">Excel</button>
+                            <button onclick="exportTable('csv')">CSV</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <table id="returned-assets-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Ref No.</th>
+                            <th>Asset Name <button class="filter-btn" onclick="showReturnedAssetFilterModal()" title="Filter by Asset Name"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician Name <button class="filter-btn" onclick="showReturnedTechnicianFilterModal()" title="Filter by Technician Name"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician ID</th>
+                            <th>Asset Serial No.</th>
+                            <th>Date Returned</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returned-table-body">
+                        <?php 
+                        if ($currentTab === 'returned' && $resultAssets && $resultAssets->num_rows > 0) { 
+                            while ($row = $resultAssets->fetch_assoc()) {
+                                $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
+                                $assetData = json_encode([
+                                    'id' => $row['a_id'],
+                                    'ref_no' => $row['a_ref_no'] ?? '',
+                                    'asset_name' => $row['a_name'] ?? '',
+                                    'technician_name' => $row['tech_name'] ?? '',
+                                    'technician_id' => $row['tech_id'] ?? '',
+                                    'serial_no' => $serialNo,
+                                    'date_borrowed' => $row['a_date'] ?? '-',
+                                    'date_returned' => $row['a_return_date'] ?? '-'
+                                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                echo "<tr> 
+                                        <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
+                                        <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . $serialNo . "</td>
+                                        <td>" . htmlspecialchars($row['a_return_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td class='action-buttons'>
+                                            <span class='view-btn' onclick='showReturnedViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>
+                                        </td>
+                                      </tr>";
+                            } 
+                        } else if ($currentTab === 'returned') { 
+                            echo "<tr><td colspan='7' style='text-align: center;'>No returned assets found.</td></tr>"; 
                         } 
-                    } else { 
-                        echo "<tr><td colspan='8' style='text-align: center;'>No returned assets found.</td></tr>"; 
-                    } 
+                        ?>
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="returned-pagination">
+                    <?php
+                    if ($currentTab === 'returned') {
+                        $paginationParams = ['tab' => $currentTab];
+                        if ($searchTerm) $paginationParams['search'] = $searchTerm;
+                        if ($assetNameFilter) $paginationParams['asset_name'] = $assetNameFilter;
+                        if ($technicianNameFilter) $paginationParams['technician_name'] = $technicianNameFilter;
+                        if ($page > 1) {
+                            $paginationParams['page'] = $page - 1;
+                            echo "<a href='returnT.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                        }
+                        echo "<span class='current-page'>Page $page of $totalPages</span>";
+                        if ($page < $totalPages) {
+                            $paginationParams['page'] = $page + 1;
+                            echo "<a href='returnT.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                        }
+                    }
                     ?>
-                </tbody>
-            </table>
+                </div>
+            </div>
+        </div>
 
-            <div class="pagination" id="returned-pagination">
-                <?php
-                $paginationParams = [];
-                if ($searchTerm) {
-                    $paginationParams['search'] = urlencode($searchTerm);
-                }
-                if ($assetNameFilter) {
-                    $paginationParams['asset_name'] = urlencode($assetNameFilter);
-                }
-                if ($technicianNameFilter) {
-                    $paginationParams['technician_name'] = urlencode($technicianNameFilter);
-                }
-                if ($page > 1) {
-                    $paginationParams['page'] = $page - 1;
-                    echo "<a href='javascript:searchReturned(" . ($page - 1) . ")' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
-                } else {
-                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
-                }
-                echo "<span class='current-page'>Page $page of $totalPages</span>";
-                if ($page < $totalPages) {
-                    $paginationParams['page'] = $page + 1;
-                    echo "<a href='javascript:searchReturned(" . ($page + 1) . ")' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
-                } else {
-                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
-                }
-                ?>
+        <!-- Deployed Assets Tab -->
+        <div id="deployed-tab" class="tab-content <?php echo $currentTab === 'deployed' ? 'active' : ''; ?>">
+            <!-- View Modal -->
+            <div id="viewDeployedModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Deployed Asset Details</h2>
+                    </div>
+                    <div id="viewDeployedContent"></div>
+                    <div class="modal-footer">
+                        <button class="modal-btn cancel" onclick="closeModal('viewDeployedModal')">Close</button>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<!-- View Asset Modal -->
-<div id="viewModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Returned Asset</h2>
-        </div>
-        <div id="viewContent"></div>
-        <div class="modal-footer">
-            <button class="modal-btn cancel" onclick="closeModal('viewModal')">Close</button>
-        </div>
-    </div>
-</div>
+            <!-- Deployed Asset Filter Modal -->
+            <div id="deployedAssetFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Asset Name</h2>
+                    </div>
+                    <form id="deployedAssetFilterForm" class="modal-form">
+                        <label for="deployed_filter_asset_name">Asset Name</label>
+                        <select name="asset_name" id="deployed_filter_asset_name">
+                            <option value="">All Assets</option>
+                            <?php foreach ($deployedAssetNames as $name): ?>
+                                <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $assetNameFilter === $name ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('deployedAssetFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyDeployedAssetFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-<!-- Asset Name Filter Modal -->
-<div id="assetFilterModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Filter by Asset Name</h2>
-        </div>
-        <form method="GET" id="assetFilterForm" class="modal-form">
-            <input type="hidden" name="ajax" value="true">
-            <div class="form-group">
-                <label for="filter_asset_name">Asset Name</label>
-                <select name="asset_name" id="filter_asset_name">
-                    <option value="">All Assets</option>
-                    <?php foreach ($assetNames as $name): ?>
-                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $assetNameFilter === $name ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <!-- Deployed Technician Filter Modal -->
+            <div id="deployedTechnicianFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Technician Name</h2>
+                    </div>
+                    <form id="deployedTechnicianFilterForm" class="modal-form">
+                        <label for="deployed_filter_technician_name">Technician Name</label>
+                        <select name="technician_name" id="deployed_filter_technician_name">
+                            <option value="">All Technicians</option>
+                            <?php foreach ($deployedTechnicianNames as $name): ?>
+                                <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianNameFilter === $name ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('deployedTechnicianFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyDeployedTechnicianFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('assetFilterModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Apply Filter</button>
-            </div>
-        </form>
-    </div>
-</div>
 
-<!-- Technician Name Filter Modal -->
-<div id="technicianFilterModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Filter by Technician Name</h2>
+            <div class="table-box glass-container">
+                <h2>List of Deployed Assets</h2>
+                
+                <!-- Tab Buttons -->
+                <div class="tab-buttons">
+                    <button class="tab-btn <?php echo $currentTab === 'returned' ? 'active' : ''; ?>" onclick="showTab('returned')">
+                        Returned (<?php echo $totalReturnedAssets; ?>)
+                    </button>
+                    <button class="tab-btn <?php echo $currentTab === 'deployed' ? 'active' : ''; ?>" onclick="showTab('deployed')">
+                        Deployed (<?php echo $totalDeployedAssets; ?>)
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="export-container">
+                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                        <div class="export-dropdown">
+                            <button onclick="exportTable('excel')">Excel</button>
+                            <button onclick="exportTable('csv')">CSV</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <table id="deployed-assets-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Ref No.</th>
+                            <th>Asset Name <button class="filter-btn" onclick="showDeployedAssetFilterModal()" title="Filter by Asset Name"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician Name <button class="filter-btn" onclick="showDeployedTechnicianFilterModal()" title="Filter by Technician Name"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician ID</th>
+                            <th>Asset Serial No.</th>
+                            <th>Date Deployed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deployed-table-body">
+                        <?php 
+                        if ($currentTab === 'deployed' && $resultAssets && $resultAssets->num_rows > 0) { 
+                            while ($row = $resultAssets->fetch_assoc()) {
+                                $serialNo = ($row['a_serial_no'] === '0' || empty($row['a_serial_no'])) ? '' : htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8');
+                                $assetData = json_encode([
+                                    'id' => $row['a_id'],
+                                    'ref_no' => $row['a_ref_no'] ?? '',
+                                    'asset_name' => $row['a_name'] ?? '',
+                                    'technician_name' => $row['tech_name'] ?? '',
+                                    'technician_id' => $row['tech_id'] ?? '',
+                                    'serial_no' => $serialNo,
+                                    'date_deployed' => $row['a_date'] ?? '-',
+                                    'date_returned' => $row['a_return_date'] ?? '-'
+                                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                echo "<tr> 
+                                        <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                        <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
+                                        <td>" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td>" . $serialNo . "</td>
+                                        <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
+                                        <td class='action-buttons'>
+                                            <span class='view-btn' onclick='showDeployedViewModal($assetData)' title='View'><i class='fas fa-eye'></i></span>
+                                        </td>
+                                      </tr>";
+                            } 
+                        } else if ($currentTab === 'deployed') { 
+                            echo "<tr><td colspan='7' style='text-align: center;'>No deployed assets found.</td></tr>"; 
+                        } 
+                        ?>
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="deployed-pagination">
+                    <?php
+                    if ($currentTab === 'deployed') {
+                        $paginationParams = ['tab' => $currentTab];
+                        if ($searchTerm) $paginationParams['search'] = $searchTerm;
+                        if ($assetNameFilter) $paginationParams['asset_name'] = $assetNameFilter;
+                        if ($technicianNameFilter) $paginationParams['technician_name'] = $technicianNameFilter;
+                        if ($page > 1) {
+                            $paginationParams['page'] = $page - 1;
+                            echo "<a href='returnT.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                        }
+                        echo "<span class='current-page'>Page $page of $totalPages</span>";
+                        if ($page < $totalPages) {
+                            $paginationParams['page'] = $page + 1;
+                            echo "<a href='returnT.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                        }
+                    }
+                    ?>
+                </div>
+            </div>
         </div>
-        <form method="GET" id="technicianFilterForm" class="modal-form">
-            <input type="hidden" name="ajax" value="true">
-            <div class="form-group">
-                <label for="filter_technician_name">Technician Name</label>
-                <select name="technician_name" id="filter_technician_name">
-                    <option value="">All Technicians</option>
-                    <?php foreach ($technicianNames as $name): ?>
-                        <option value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianNameFilter === $name ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('technicianFilterModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Apply Filter</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -566,8 +829,9 @@ if ($conn) {
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
 let updateInterval = null;
-let currentAssetFilter = '<?php echo htmlspecialchars($assetNameFilter); ?>';
-let currentTechnicianFilter = '<?php echo htmlspecialchars($technicianNameFilter); ?>';
+let currentAssetFilter = '<?php echo addslashes($assetNameFilter); ?>';
+let currentTechnicianFilter = '<?php echo addslashes($technicianNameFilter); ?>';
+const currentTab = '<?php echo $currentTab; ?>';
 
 // Debounce function to limit search calls
 function debounce(func, wait) {
@@ -582,10 +846,18 @@ function debounce(func, wait) {
     };
 }
 
-function searchReturned(page = 1) {
+function showTab(tab) {
+    // Update URL
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', tab);
+    params.delete('page'); // Reset to first page
+    window.location.href = `returnT.php?${params.toString()}`;
+}
+
+function searchAssets(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
-    const tbody = document.getElementById('tableBody');
-    const paginationContainer = document.getElementById('returned-pagination');
+    const tbody = document.getElementById(currentTab === 'returned' ? 'returned-table-body' : 'deployed-table-body');
+    const paginationContainer = document.getElementById(currentTab === 'returned' ? 'returned-pagination' : 'deployed-pagination');
 
     currentSearchPage = page;
 
@@ -599,10 +871,11 @@ function searchReturned(page = 1) {
                 updatePagination(response.currentPage, response.totalPages, response.searchTerm);
             } catch (e) {
                 console.error('Error parsing JSON:', e, xhr.responseText);
+                alert('Error loading assets. Please try again.');
             }
         }
     };
-    let url = `returnT.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${page}`;
+    let url = `returnT.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&page=${page}`;
     if (currentAssetFilter) {
         url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
     }
@@ -614,11 +887,11 @@ function searchReturned(page = 1) {
 }
 
 function updatePagination(currentPage, totalPages, searchTerm) {
-    const paginationContainer = document.getElementById('returned-pagination');
+    const paginationContainer = document.getElementById(currentTab === 'returned' ? 'returned-pagination' : 'deployed-pagination');
     let paginationHtml = '';
 
     if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchReturned(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+        paginationHtml += `<a href="javascript:searchAssets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     }
@@ -626,7 +899,7 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
     if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchReturned(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+        paginationHtml += `<a href="javascript:searchAssets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     }
@@ -635,10 +908,12 @@ function updatePagination(currentPage, totalPages, searchTerm) {
 }
 
 // Debounced search function
-const debouncedSearchReturned = debounce(searchReturned, 300);
+const debouncedSearchAssets = debounce(searchAssets, 300);
 
-function showViewModal(data) {
-    document.getElementById('viewContent').innerHTML = `
+// Returned Tab Functions
+function showReturnedViewModal(data) {
+    const content = document.getElementById('viewReturnedContent');
+    content.innerHTML = `
         <div class="view-details">
             <p><strong>Asset Ref No.:</strong> ${data.ref_no}</p>
             <p><strong>Asset Name:</strong> ${data.asset_name}</p>
@@ -649,57 +924,86 @@ function showViewModal(data) {
             <p><strong>Date Returned:</strong> ${data.date_returned}</p>
         </div>
     `;
-    document.getElementById('viewModal').style.display = 'block';
+    document.getElementById('viewReturnedModal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
-function showAssetFilterModal() {
-    document.getElementById('filter_asset_name').value = currentAssetFilter;
-    document.getElementById('assetFilterModal').style.display = 'block';
+function showReturnedAssetFilterModal() {
+    document.getElementById('returned_filter_asset_name').value = currentAssetFilter;
+    document.getElementById('returnedAssetFilterModal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
-function showTechnicianFilterModal() {
-    document.getElementById('filter_technician_name').value = currentTechnicianFilter;
-    document.getElementById('technicianFilterModal').style.display = 'block';
+function showReturnedTechnicianFilterModal() {
+    document.getElementById('returned_filter_technician_name').value = currentTechnicianFilter;
+    document.getElementById('returnedTechnicianFilterModal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
-function updateTable() {
-    const searchTerm = document.getElementById('searchInput').value;
-    if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
-        searchReturned(currentSearchPage);
-    } else {
-        let url = `returnT.php?page=${defaultPage}`;
-        if (currentAssetFilter) {
-            url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
-        }
-        if (currentTechnicianFilter) {
-            url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
-        }
-        fetch(url)
-            .then(response => response.text())
-            .then(data => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(data, 'text/html');
-                const newTableBody = doc.querySelector('#tableBody');
-                const currentTableBody = document.querySelector('#tableBody');
-                currentTableBody.innerHTML = newTableBody.innerHTML;
-            })
-            .catch(error => console.error('Error updating table:', error));
-    }
+function applyReturnedAssetFilter() {
+    currentAssetFilter = document.getElementById('returned_filter_asset_name').value;
+    closeModal('returnedAssetFilterModal');
+    searchAssets(1); // Reset to page 1 when applying filters
 }
 
+function applyReturnedTechnicianFilter() {
+    currentTechnicianFilter = document.getElementById('returned_filter_technician_name').value;
+    closeModal('returnedTechnicianFilterModal');
+    searchAssets(1); // Reset to page 1 when applying filters
+}
+
+// Deployed Tab Functions
+function showDeployedViewModal(data) {
+    const content = document.getElementById('viewDeployedContent');
+    content.innerHTML = `
+        <div class="view-details">
+            <p><strong>Asset Ref No.:</strong> ${data.ref_no}</p>
+            <p><strong>Asset Name:</strong> ${data.asset_name}</p>
+            <p><strong>Technician Name:</strong> ${data.technician_name}</p>
+            <p><strong>Technician ID:</strong> ${data.technician_id}</p>
+            <p><strong>Asset Serial No.:</strong> ${data.serial_no}</p>
+            <p><strong>Date Deployed:</strong> ${data.date_deployed}</p>
+        </div>
+    `;
+    document.getElementById('viewDeployedModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function showDeployedAssetFilterModal() {
+    document.getElementById('deployed_filter_asset_name').value = currentAssetFilter;
+    document.getElementById('deployedAssetFilterModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function showDeployedTechnicianFilterModal() {
+    document.getElementById('deployed_filter_technician_name').value = currentTechnicianFilter;
+    document.getElementById('deployedTechnicianFilterModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function applyDeployedAssetFilter() {
+    currentAssetFilter = document.getElementById('deployed_filter_asset_name').value;
+    closeModal('deployedAssetFilterModal');
+    searchAssets(1); // Reset to page 1 when applying filters
+}
+
+function applyDeployedTechnicianFilter() {
+    currentTechnicianFilter = document.getElementById('deployed_filter_technician_name').value;
+    closeModal('deployedTechnicianFilterModal');
+    searchAssets(1); // Reset to page 1 when applying filters
+}
+
+// Shared Modal Functions
 function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-    if (modalId === 'assetFilterModal') {
-        document.getElementById('assetFilterForm').reset();
-    } else if (modalId === 'technicianFilterModal') {
-        document.getElementById('technicianFilterForm').reset();
-    }
+    const modal = document.getElementById(modalId);
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
 }
 
 function exportTable(format) {
     const searchTerm = document.getElementById('searchInput').value;
 
-    let url = `returnT.php?action=export_data&search=${encodeURIComponent(searchTerm)}`;
+    let url = `returnT.php?action=export_data&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}`;
     if (currentAssetFilter) {
         url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
     }
@@ -718,18 +1022,24 @@ function exportTable(format) {
                     // Create Excel file
                     const ws = XLSX.utils.json_to_sheet(data);
                     const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Returned Assets');
-                    XLSX.writeFile(wb, 'returned_assets.xlsx');
+                    const sheetName = currentTab === 'returned' ? 'Returned Assets' : 'Deployed Assets';
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    XLSX.writeFile(wb, `${currentTab}_assets.xlsx`);
                 } else if (format === 'csv') {
                     // Create CSV file
-                    const ws = XLSX.utils.sheet_to_csv(data);
-                    const blob = new Blob([ws], { type: 'text/csv;charset=utf-8;' });
-                    saveAs(blob, 'returned_assets.csv');
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const csv = XLSX.utils.sheet_to_csv(ws);
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const fileName = currentTab === 'returned' ? 'returned_assets.csv' : 'deployed_assets.csv';
+                    saveAs(blob, fileName);
                 }
             } catch (e) {
                 console.error('Error during export:', e);
                 alert('Error exporting data: ' + e.message);
             }
+        } else if (xhr.status !== 200) {
+            console.error('Export request failed:', xhr.status, xhr.statusText);
+            alert('Error exporting data. Please try again.');
         }
     };
     xhr.open('GET', url, true);
@@ -739,28 +1049,18 @@ function exportTable(format) {
 window.addEventListener('click', function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
+        document.body.classList.remove('modal-open');
     }
-});
-
-// Handle asset filter form submission
-document.getElementById('assetFilterForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    currentAssetFilter = document.getElementById('filter_asset_name').value;
-    closeModal('assetFilterModal');
-    searchReturned(1); // Reset to page 1 when applying filters
-});
-
-// Handle technician filter form submission
-document.getElementById('technicianFilterForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    currentTechnicianFilter = document.getElementById('filter_technician_name').value;
-    closeModal('technicianFilterModal');
-    searchReturned(1); // Reset to page 1 when applying filters
 });
 
 // Initialize auto-update table every 30 seconds
 document.addEventListener('DOMContentLoaded', () => {
-    updateInterval = setInterval(updateTable, 30000);
+    updateInterval = setInterval(() => {
+        const searchTerm = document.getElementById('searchInput').value;
+        if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
+            searchAssets(currentSearchPage);
+        }
+    }, 30000);
 
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
@@ -773,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize search on page load if there's a search term or filter
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value || currentAssetFilter || currentTechnicianFilter) {
-        searchReturned();
+        searchAssets();
     }
 });
 
@@ -788,5 +1088,7 @@ window.addEventListener('beforeunload', () => {
 </html>
 
 <?php 
-$conn->close();
+if (isset($conn)) {
+    $conn->close();
+}
 ?>

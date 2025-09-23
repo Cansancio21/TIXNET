@@ -86,7 +86,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | User Management</title>
-    <link rel="stylesheet" href="adminDD.css"> 
+    <link rel="stylesheet" href="adminD.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -104,12 +104,10 @@ if ($conn) {
        <ul>
         <li><a href="adminD.php" class="active"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
         <li><a href="viewU.php"><i class="fas fa-users icon"></i> <span>View Users</span></a></li>
-        <li><a href="regular_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Record</span></a></li>
-        <li><a href="support_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Support Record</span></a></li>
+        <li><a href="regular_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Ticket Record</span></a></li>
         <li><a href="logs.php"><i class="fas fa-file-alt icon"></i> <span>Logs</span></a></li>
-        <li><a href="returnT.php"><i class="fas fa-undo icon"></i> <span>Returned Records</span></a></li>
-        <li><a href="deployedT.php"><i class="fas fa-box icon"></i> <span>Deployed Records</span></a></li>
-        <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+        <li><a href="returnT.php"><i class="fas fa-box icon"></i> <span>Asset Record</span></a></li>
+        <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
        </ul>
     <footer>
     <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>

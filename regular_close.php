@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db.php'; // Include your database connection file
+include 'db.php';
 
 // Enable error reporting for debugging (remove in production)
 ini_set('display_errors', 1);
@@ -35,11 +35,16 @@ $customerFilter = isset($_GET['customer']) ? trim($_GET['customer']) : '';
 $technicianFilter = isset($_GET['technician']) ? trim($_GET['technician']) : '';
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $totalPages = 1;
-$limit = 10; // Tickets per page
+$limit = 10;
 $offset = ($page - 1) * $limit;
+$currentTab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
 $resultTickets = null;
 $customerNames = [];
 $technicianNames = [];
+$supportCustomerNames = [];
+$supportTechnicianNames = [];
+$totalRegularTickets = 0;
+$totalSupportTickets = 0;
 
 // Set avatar path
 if (file_exists($userAvatar)) {
@@ -77,18 +82,41 @@ try {
     }
     $stmt->close();
 
-    // Fetch unique customer names
+    // Count total tickets for each tab
+    $sqlRegularCount = "SELECT COUNT(*) AS total FROM tbl_close_regular";
+    $resultRegularCount = $conn->query($sqlRegularCount);
+    $totalRegularTickets = $resultRegularCount->fetch_assoc()['total'] ?? 0;
+
+    $sqlSupportCount = "SELECT COUNT(*) AS total FROM tbl_close_supp";
+    $resultSupportCount = $conn->query($sqlSupportCount);
+    $totalSupportTickets = $resultSupportCount->fetch_assoc()['total'] ?? 0;
+
+    // Fetch unique customer names for regular tickets
     $sqlCustomers = "SELECT DISTINCT t_aname FROM tbl_close_regular WHERE t_aname IS NOT NULL AND t_aname != '' ORDER BY t_aname";
     $resultCustomers = $conn->query($sqlCustomers);
     while ($row = $resultCustomers->fetch_assoc()) {
         $customerNames[] = $row['t_aname'];
     }
 
-    // Fetch unique technician names
+    // Fetch unique technician names for regular tickets
     $sqlTechnicians = "SELECT DISTINCT te_technician FROM tbl_close_regular WHERE te_technician IS NOT NULL AND te_technician != '' ORDER BY te_technician";
     $resultTechnicians = $conn->query($sqlTechnicians);
     while ($row = $resultTechnicians->fetch_assoc()) {
         $technicianNames[] = $row['te_technician'];
+    }
+
+    // Fetch unique customer names for support tickets
+    $sqlSupportCustomers = "SELECT DISTINCT CONCAT(c.c_fname, ' ', c.c_lname) as customer_name FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id WHERE CONCAT(c.c_fname, ' ', c.c_lname) != '' ORDER BY customer_name";
+    $resultSupportCustomers = $conn->query($sqlSupportCustomers);
+    while ($row = $resultSupportCustomers->fetch_assoc()) {
+        $supportCustomerNames[] = $row['customer_name'];
+    }
+
+    // Fetch unique technician names for support tickets
+    $sqlSupportTechnicians = "SELECT DISTINCT te_technician FROM tbl_close_supp WHERE te_technician IS NOT NULL AND te_technician != '' ORDER BY te_technician";
+    $resultSupportTechnicians = $conn->query($sqlSupportTechnicians);
+    while ($row = $resultSupportTechnicians->fetch_assoc()) {
+        $supportTechnicianNames[] = $row['te_technician'];
     }
 
     // Handle AJAX search request
@@ -98,82 +126,162 @@ try {
         $types = '';
         $whereClauses = [];
 
-        // Build WHERE clause
-        if ($searchTerm) {
-            $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
-            $params = array_fill(0, 5, $searchLike);
-            $types .= 'sssss';
-        }
-        if ($customerFilter) {
-            $whereClauses[] = "t_aname = ?";
-            $params[] = $customerFilter;
-            $types .= 's';
-        }
-        if ($technicianFilter) {
-            $whereClauses[] = "te_technician = ?";
-            $params[] = $technicianFilter;
-            $types .= 's';
+        if ($currentTab === 'regular') {
+            // Build WHERE clause for regular tickets
+            if ($searchTerm) {
+                $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
+                $params = array_fill(0, 5, $searchLike);
+                $types .= 'sssss';
+            }
+            if ($customerFilter) {
+                $whereClauses[] = "t_aname = ?";
+                $params[] = $customerFilter;
+                $types .= 's';
+            }
+            if ($technicianFilter) {
+                $whereClauses[] = "te_technician = ?";
+                $params[] = $technicianFilter;
+                $types .= 's';
+            }
+
+            // Count total regular tickets
+            $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_regular";
+            if ($whereClauses) {
+                $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $stmtTotal = $conn->prepare($sqlTotal);
+            if ($params) {
+                $stmtTotal->bind_param($types, ...$params);
+            }
+            $stmtTotal->execute();
+            $resultTotal = $stmtTotal->get_result();
+            $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
+            $stmtTotal->close();
+
+            $totalPages = max(1, ceil($totalTickets / $limit));
+
+            // Fetch regular tickets
+            $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
+                           FROM tbl_close_regular";
+            if ($whereClauses) {
+                $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $sqlTickets .= " ORDER BY t_ref ASC LIMIT ? OFFSET ?";
+            $stmtTickets = $conn->prepare($sqlTickets);
+            $params[] = $limit;
+            $params[] = $offset;
+            $types .= 'ii';
+            $stmtTickets->bind_param($types, ...$params);
+            $stmtTickets->execute();
+            $resultTickets = $stmtTickets->get_result();
+
+            ob_start();
+            while ($row = $resultTickets->fetch_assoc()) {
+                $ticketData = json_encode([
+                    'ref' => $row['t_ref'],
+                    'aname' => $row['t_aname'] ?? '',
+                    'technician' => $row['te_technician'] ?? '',
+                    'subject' => $row['t_subject'] ?? '',
+                    'details' => $row['t_details'] ?? '',
+                    'status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                    'closed_date' => $row['te_date'] ?? 'N/A'
+                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                echo "<tr>
+                        <td>" . htmlspecialchars($row['t_ref']) . "</td>
+                        <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
+                        <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
+                        <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
+                        <td class='action-buttons'>
+                            <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                            <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', 'regular')\" title='Delete'><i class='fas fa-trash'></i></span>
+                        </td>
+                      </tr>";
+            }
+            if ($resultTickets->num_rows === 0) {
+                echo "<tr><td colspan='8'>No closed regular tickets found.</td></tr>";
+            }
+        } else {
+            // Build WHERE clause for support tickets - FIXED: Added table aliases
+            if ($searchTerm) {
+                $whereClauses[] = "(CONCAT(c.c_fname, ' ', c.c_lname) LIKE ? OR s.s_subject LIKE ? OR s.s_message LIKE ? OR s.te_technician LIKE ? OR s.s_ref LIKE ?)";
+                $params = array_fill(0, 5, $searchLike);
+                $types .= 'sssss';
+            }
+            if ($customerFilter) {
+                $whereClauses[] = "CONCAT(c.c_fname, ' ', c.c_lname) = ?";
+                $params[] = $customerFilter;
+                $types .= 's';
+            }
+            if ($technicianFilter) {
+                $whereClauses[] = "s.te_technician = ?";
+                $params[] = $technicianFilter;
+                $types .= 's';
+            }
+
+            // Count total support tickets - FIXED: Added table aliases
+            $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
+            if ($whereClauses) {
+                $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $stmtTotal = $conn->prepare($sqlTotal);
+            if ($params) {
+                $stmtTotal->bind_param($types, ...$params);
+            }
+            $stmtTotal->execute();
+            $resultTotal = $stmtTotal->get_result();
+            $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
+            $stmtTotal->close();
+
+            $totalPages = max(1, ceil($totalTickets / $limit));
+
+            // Fetch support tickets - ALREADY HAD PROPER ALIASES
+            $sqlTickets = "SELECT s.s_ref, CONCAT(c.c_fname, ' ', c.c_lname) as customer_name, s.te_technician, s.s_subject, s.s_status, s.s_message, s.s_date 
+                           FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
+            if ($whereClauses) {
+                $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $sqlTickets .= " ORDER BY s.s_ref ASC LIMIT ? OFFSET ?";
+            $stmtTickets = $conn->prepare($sqlTickets);
+            $params[] = $limit;
+            $params[] = $offset;
+            $types .= 'ii';
+            $stmtTickets->bind_param($types, ...$params);
+            $stmtTickets->execute();
+            $resultTickets = $stmtTickets->get_result();
+
+            ob_start();
+            while ($row = $resultTickets->fetch_assoc()) {
+                $ticketData = json_encode([
+                    'ref' => $row['s_ref'],
+                    'aname' => $row['customer_name'] ?? '',
+                    'technician' => $row['te_technician'] ?? '',
+                    'subject' => $row['s_subject'] ?? '',
+                    'details' => $row['s_message'] ?? '',
+                    'status' => ucfirst(strtolower($row['s_status'] ?? '')),
+                    'closed_date' => $row['s_date'] ?? 'N/A'
+                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                echo "<tr>
+                        <td>" . htmlspecialchars($row['s_ref']) . "</td>
+                        <td>" . htmlspecialchars($row['customer_name'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
+                        <td>" . htmlspecialchars($row['s_message'] ?? '') . "</td>
+                        <td class='status-closed'>" . ucfirst(strtolower($row['s_status'] ?? '')) . "</td>
+                        <td>" . htmlspecialchars($row['s_date'] ?? 'N/A') . "</td>
+                        <td class='action-buttons'>
+                            <span class='view-btn' onclick='showSupportViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                            <span class='delete-btn' onclick=\"openSupportDeleteModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
+                        </td>
+                      </tr>";
+            }
+            if ($resultTickets->num_rows === 0) {
+                echo "<tr><td colspan='8'>No closed support tickets found.</td></tr>";
+            }
         }
 
-        // Count total tickets
-        $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_regular";
-        if ($whereClauses) {
-            $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
-        }
-        $stmtTotal = $conn->prepare($sqlTotal);
-        if ($params) {
-            $stmtTotal->bind_param($types, ...$params);
-        }
-        $stmtTotal->execute();
-        $resultTotal = $stmtTotal->get_result();
-        $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
-        $stmtTotal->close();
-
-        $totalPages = max(1, ceil($totalTickets / $limit));
-
-        // Fetch tickets
-        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
-                       FROM tbl_close_regular";
-        if ($whereClauses) {
-            $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
-        }
-        $sqlTickets .= " ORDER BY t_ref ASC LIMIT ? OFFSET ?";
-        $stmtTickets = $conn->prepare($sqlTickets);
-        $params[] = $limit;
-        $params[] = $offset;
-        $types .= 'ii';
-        $stmtTickets->bind_param($types, ...$params);
-        $stmtTickets->execute();
-        $resultTickets = $stmtTickets->get_result();
-
-        ob_start();
-        while ($row = $resultTickets->fetch_assoc()) {
-            $ticketData = json_encode([
-                'ref' => $row['t_ref'],
-                'aname' => $row['t_aname'] ?? '',
-                'technician' => $row['te_technician'] ?? '',
-                'subject' => $row['t_subject'] ?? '',
-                'details' => $row['t_details'] ?? '',
-                'status' => ucfirst(strtolower($row['t_status'] ?? '')),
-                'closed_date' => $row['te_date'] ?? 'N/A'
-            ], JSON_HEX_QUOT | JSON_HEX_TAG);
-            echo "<tr>
-                    <td>" . htmlspecialchars($row['t_ref']) . "</td>
-                    <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
-                    <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
-                    <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
-                    <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
-                    <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
-                    <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
-                    <td class='action-buttons'>
-                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                        <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
-                    </td>
-                  </tr>";
-        }
-        if ($resultTickets->num_rows === 0) {
-            echo "<tr><td colspan='8'>No closed regular tickets found.</td></tr>";
-        }
         $html = ob_get_clean();
         $stmtTickets->close();
 
@@ -189,54 +297,97 @@ try {
         exit;
     }
 
-    // Handle AJAX export data request
+    // Handle AJAX export data request - FIXED: Added table aliases for support
     if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
         $searchLike = $searchTerm ? "%$searchTerm%" : null;
         $params = [];
         $types = '';
         $whereClauses = [];
 
-        if ($searchTerm) {
-            $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
-            $params = array_fill(0, 5, $searchLike);
-            $types .= 'sssss';
-        }
-        if ($customerFilter) {
-            $whereClauses[] = "t_aname = ?";
-            $params[] = $customerFilter;
-            $types .= 's';
-        }
-        if ($technicianFilter) {
-            $whereClauses[] = "te_technician = ?";
-            $params[] = $technicianFilter;
-            $types .= 's';
+        if ($currentTab === 'regular') {
+            if ($searchTerm) {
+                $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
+                $params = array_fill(0, 5, $searchLike);
+                $types .= 'sssss';
+            }
+            if ($customerFilter) {
+                $whereClauses[] = "t_aname = ?";
+                $params[] = $customerFilter;
+                $types .= 's';
+            }
+            if ($technicianFilter) {
+                $whereClauses[] = "te_technician = ?";
+                $params[] = $technicianFilter;
+                $types .= 's';
+            }
+
+            // Fetch all regular tickets for export
+            $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
+                           FROM tbl_close_regular";
+            if ($whereClauses) {
+                $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $sqlTickets .= " ORDER BY t_ref ASC";
+            $stmtTickets = $conn->prepare($sqlTickets);
+            if ($params) {
+                $stmtTickets->bind_param($types, ...$params);
+            }
+        } else {
+            if ($searchTerm) {
+                $whereClauses[] = "(CONCAT(c.c_fname, ' ', c.c_lname) LIKE ? OR s.s_subject LIKE ? OR s.s_message LIKE ? OR s.te_technician LIKE ? OR s.s_ref LIKE ?)";
+                $params = array_fill(0, 5, $searchLike);
+                $types .= 'sssss';
+            }
+            if ($customerFilter) {
+                $whereClauses[] = "CONCAT(c.c_fname, ' ', c.c_lname) = ?";
+                $params[] = $customerFilter;
+                $types .= 's';
+            }
+            if ($technicianFilter) {
+                $whereClauses[] = "s.te_technician = ?";
+                $params[] = $technicianFilter;
+                $types .= 's';
+            }
+
+            // Fetch all support tickets for export
+            $sqlTickets = "SELECT s.s_ref, CONCAT(c.c_fname, ' ', c.c_lname) as customer_name, s.te_technician, s.s_subject, s.s_status, s.s_message, s.s_date 
+                           FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
+            if ($whereClauses) {
+                $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $sqlTickets .= " ORDER BY s.s_ref ASC";
+            $stmtTickets = $conn->prepare($sqlTickets);
+            if ($params) {
+                $stmtTickets->bind_param($types, ...$params);
+            }
         }
 
-        // Fetch all tickets for export
-        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
-                       FROM tbl_close_regular";
-        if ($whereClauses) {
-            $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
-        }
-        $sqlTickets .= " ORDER BY t_ref ASC";
-        $stmtTickets = $conn->prepare($sqlTickets);
-        if ($params) {
-            $stmtTickets->bind_param($types, ...$params);
-        }
         $stmtTickets->execute();
         $resultTickets = $stmtTickets->get_result();
 
         $tickets = [];
         while ($row = $resultTickets->fetch_assoc()) {
-            $tickets[] = [
-                'Ref#' => $row['t_ref'],
-                'Customer Name' => $row['t_aname'] ?? '',
-                'Technician' => $row['te_technician'] ?? '',
-                'Subject' => $row['t_subject'] ?? '',
-                'Details' => $row['t_details'] ?? '',
-                'Status' => ucfirst(strtolower($row['t_status'] ?? '')),
-                'Closed Date' => $row['te_date'] ?? 'N/A'
-            ];
+            if ($currentTab === 'regular') {
+                $tickets[] = [
+                    'Ref#' => $row['t_ref'],
+                    'Customer Name' => $row['t_aname'] ?? '',
+                    'Technician' => $row['te_technician'] ?? '',
+                    'Subject' => $row['t_subject'] ?? '',
+                    'Details' => $row['t_details'] ?? '',
+                    'Status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                    'Closed Date' => $row['te_date'] ?? 'N/A'
+                ];
+            } else {
+                $tickets[] = [
+                    'Ref#' => $row['s_ref'],
+                    'Customer Name' => $row['customer_name'] ?? '',
+                    'Technician' => $row['te_technician'] ?? '',
+                    'Subject' => $row['s_subject'] ?? '',
+                    'Details' => $row['s_message'] ?? '',
+                    'Status' => ucfirst(strtolower($row['s_status'] ?? '')),
+                    'Closed Date' => $row['s_date'] ?? 'N/A'
+                ];
+            }
         }
         $stmtTickets->close();
 
@@ -251,20 +402,26 @@ try {
             throw new Exception('Invalid CSRF token');
         }
 
-        $t_ref = isset($_POST['t_ref']) ? trim($_POST['t_ref']) : '';
-        if (empty($t_ref)) {
-            throw new Exception('Invalid ticket reference');
+        $ref = isset($_POST['ref']) ? trim($_POST['ref']) : '';
+        $table = isset($_POST['table']) ? $_POST['table'] : '';
+        
+        if (empty($ref) || !in_array($table, ['regular', 'support'])) {
+            throw new Exception('Invalid ticket reference or table');
         }
 
-        // Delete ticket
-        $sqlDelete = "DELETE FROM tbl_close_regular WHERE t_ref = ?";
+        if ($table === 'regular') {
+            $sqlDelete = "DELETE FROM tbl_close_regular WHERE t_ref = ?";
+        } else {
+            $sqlDelete = "DELETE FROM tbl_close_supp WHERE s_ref = ?";
+        }
+
         $stmtDelete = $conn->prepare($sqlDelete);
-        $stmtDelete->bind_param("s", $t_ref);
+        $stmtDelete->bind_param("s", $ref);
         $stmtDelete->execute();
 
         if ($stmtDelete->affected_rows > 0) {
             // Log action
-            $logDescription = "Technician $firstName $lastName deleted closed regular ticket Ref# $t_ref";
+            $logDescription = "Admin $firstName $lastName deleted closed $table ticket Ref# $ref";
             $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description) VALUES (NOW(), ?)";
             $stmtLog = $conn->prepare($sqlLog);
             $stmtLog->bind_param("s", $logDescription);
@@ -272,7 +429,7 @@ try {
             $stmtLog->close();
 
             // Redirect to maintain pagination and filters
-            $redirectParams = ['page' => $page];
+            $redirectParams = ['page' => $page, 'tab' => $currentTab];
             if ($searchTerm) {
                 $redirectParams['search'] = $searchTerm;
             }
@@ -290,62 +447,118 @@ try {
         $stmtDelete->close();
     }
 
-    // Initial page load: Fetch tickets
-    $searchLike = $searchTerm ? "%$searchTerm%" : null;
-    $params = [];
-    $types = '';
-    $whereClauses = [];
+    // Initial page load: Fetch tickets based on current tab - FIXED: Added table aliases for support
+    if ($currentTab === 'regular') {
+        $searchLike = $searchTerm ? "%$searchTerm%" : null;
+        $params = [];
+        $types = '';
+        $whereClauses = [];
 
-    if ($searchTerm) {
-        $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
-        $params = array_fill(0, 5, $searchLike);
-        $types .= 'sssss';
-    }
-    if ($customerFilter) {
-        $whereClauses[] = "t_aname = ?";
-        $params[] = $customerFilter;
-        $types .= 's';
-    }
-    if ($technicianFilter) {
-        $whereClauses[] = "te_technician = ?";
-        $params[] = $technicianFilter;
-        $types .= 's';
-    }
+        if ($searchTerm) {
+            $whereClauses[] = "(t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ? OR te_technician LIKE ? OR t_ref LIKE ?)";
+            $params = array_fill(0, 5, $searchLike);
+            $types .= 'sssss';
+        }
+        if ($customerFilter) {
+            $whereClauses[] = "t_aname = ?";
+            $params[] = $customerFilter;
+            $types .= 's';
+        }
+        if ($technicianFilter) {
+            $whereClauses[] = "te_technician = ?";
+            $params[] = $technicianFilter;
+            $types .= 's';
+        }
 
-    // Count total tickets
-    $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_regular";
-    if ($whereClauses) {
-        $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
-    }
-    $stmtTotal = $conn->prepare($sqlTotal);
-    if ($params) {
-        $stmtTotal->bind_param($types, ...$params);
-    }
-    $stmtTotal->execute();
-    $resultTotal = $stmtTotal->get_result();
-    $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
-    $stmtTotal->close();
+        // Count total regular tickets
+        $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_regular";
+        if ($whereClauses) {
+            $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
+        }
+        $stmtTotal = $conn->prepare($sqlTotal);
+        if ($params) {
+            $stmtTotal->bind_param($types, ...$params);
+        }
+        $stmtTotal->execute();
+        $resultTotal = $stmtTotal->get_result();
+        $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
+        $stmtTotal->close();
 
-    // Calculate pagination
-    $totalPages = max(1, ceil($totalTickets / $limit));
-    $page = min($page, $totalPages);
-    $offset = ($page - 1) * $limit;
+        $totalPages = max(1, ceil($totalTickets / $limit));
+        $page = min($page, $totalPages);
+        $offset = ($page - 1) * $limit;
 
-    // Fetch tickets
-    $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
-                   FROM tbl_close_regular";
-    if ($whereClauses) {
-        $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+        // Fetch regular tickets
+        $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
+                       FROM tbl_close_regular";
+        if ($whereClauses) {
+            $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+        }
+        $sqlTickets .= " ORDER BY t_ref ASC LIMIT ? OFFSET ?";
+        $stmtTickets = $conn->prepare($sqlTickets);
+        $params[] = $limit;
+        $params[] = $offset;
+        $types .= 'ii';
+        $stmtTickets->bind_param($types, ...$params);
+        $stmtTickets->execute();
+        $resultTickets = $stmtTickets->get_result();
+        $stmtTickets->close();
+    } else {
+        $searchLike = $searchTerm ? "%$searchTerm%" : null;
+        $params = [];
+        $types = '';
+        $whereClauses = [];
+
+        if ($searchTerm) {
+            $whereClauses[] = "(CONCAT(c.c_fname, ' ', c.c_lname) LIKE ? OR s.s_subject LIKE ? OR s.s_message LIKE ? OR s.te_technician LIKE ? OR s.s_ref LIKE ?)";
+            $params = array_fill(0, 5, $searchLike);
+            $types .= 'sssss';
+        }
+        if ($customerFilter) {
+            $whereClauses[] = "CONCAT(c.c_fname, ' ', c.c_lname) = ?";
+            $params[] = $customerFilter;
+            $types .= 's';
+        }
+        if ($technicianFilter) {
+            $whereClauses[] = "s.te_technician = ?";
+            $params[] = $technicianFilter;
+            $types .= 's';
+        }
+
+        // Count total support tickets
+        $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
+        if ($whereClauses) {
+            $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
+        }
+        $stmtTotal = $conn->prepare($sqlTotal);
+        if ($params) {
+            $stmtTotal->bind_param($types, ...$params);
+        }
+        $stmtTotal->execute();
+        $resultTotal = $stmtTotal->get_result();
+        $totalTickets = $resultTotal->fetch_assoc()['total'] ?? 0;
+        $stmtTotal->close();
+
+        $totalPages = max(1, ceil($totalTickets / $limit));
+        $page = min($page, $totalPages);
+        $offset = ($page - 1) * $limit;
+
+        // Fetch support tickets
+        $sqlTickets = "SELECT s.s_ref, CONCAT(c.c_fname, ' ', c.c_lname) as customer_name, s.te_technician, s.s_subject, s.s_status, s.s_message, s.s_date 
+                       FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
+        if ($whereClauses) {
+            $sqlTickets .= " WHERE " . implode(' AND ', $whereClauses);
+        }
+        $sqlTickets .= " ORDER BY s.s_ref ASC LIMIT ? OFFSET ?";
+        $stmtTickets = $conn->prepare($sqlTickets);
+        $params[] = $limit;
+        $params[] = $offset;
+        $types .= 'ii';
+        $stmtTickets->bind_param($types, ...$params);
+        $stmtTickets->execute();
+        $resultTickets = $stmtTickets->get_result();
+        $stmtTickets->close();
     }
-    $sqlTickets .= " ORDER BY t_ref ASC LIMIT ? OFFSET ?";
-    $stmtTickets = $conn->prepare($sqlTickets);
-    $params[] = $limit;
-    $params[] = $offset;
-    $types .= 'ii';
-    $stmtTickets->bind_param($types, ...$params);
-    $stmtTickets->execute();
-    $resultTickets = $stmtTickets->get_result();
-    $stmtTickets->close();
 
 } catch (Exception $e) {
     $errorMessage = htmlspecialchars($e->getMessage());
@@ -358,8 +571,8 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Closed Regular Tickets</title>
-    <link rel="stylesheet" href="regular_closed.css">
+    <title>Closed Tickets</title>
+    <link rel="stylesheet" href="regular_closes.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -473,12 +686,10 @@ try {
          <ul>
           <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
           <li><a href="viewU.php"><i class="fas fa-users icon"></i> <span>View Users</span></a></li>
-          <li><a href="regular_close.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Regular Record</span></a></li>
-          <li><a href="support_close.php"><i class="fas fa-ticket-alt icon"></i> <span>Support Record</span></a></li>
+          <li><a href="regular_close.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Ticket Record</span></a></li>
           <li><a href="logs.php"><i class="fas fa-file-alt icon"></i> <span>Logs</span></a></li>
-          <li><a href="returnT.php"><i class="fas fa-undo icon"></i> <span>Returned Records</span></a></li>
-          <li><a href="deployedT.php"><i class="fas fa-box icon"></i> <span>Deployed Records</span></a></li>
-          <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+          <li><a href="returnT.php"><i class="fas fa-box icon"></i> <span>Asset Record</span></a></li>
+          <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
          </ul>
       <footer>
        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -486,7 +697,7 @@ try {
     </div>
     <div class="container">
         <div class="upper">
-            <h1>Closed Regular Tickets</h1>
+            <h1>Closed Tickets</h1>
             <div class="search-container">
                 <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchTickets()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
@@ -515,174 +726,379 @@ try {
             </div>
         </div>
 
-        <!-- View Modal -->
-        <div id="viewTicketModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Ticket Details</h2>
-                </div>
-                <div id="viewTicketContent"></div>
-                <div class="modal-footer">
-                    <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delete Modal -->
-        <div id="deleteModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Delete Ticket</h2>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete ticket Ref# <span id="deleteTicketRef"></span>?</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
-                    <button class="modal-btn confirm" id="confirmDeleteBtn" onclick="submitDeleteAction()">Confirm</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Customer Filter Modal -->
-        <div id="customerFilterModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Filter by Customer</h2>
-                </div>
-                <form id="customerFilterForm" class="modal-form">
-                    <label for="customer_filter">Select Customer Name</label>
-                    <select name="customer_filter" id="customer_filter">
-                        <option value="">All Customers</option>
-                        <?php foreach ($customerNames as $customer): ?>
-                            <option value="<?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $customerFilter === $customer ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+        <!-- Regular Tickets Tab -->
+        <div id="regular-tab" class="tab-content <?php echo $currentTab === 'regular' ? 'active' : ''; ?>">
+            <!-- View Modal -->
+            <div id="viewTicketModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Ticket Details</h2>
+                    </div>
+                    <div id="viewTicketContent"></div>
                     <div class="modal-footer">
-                        <button type="button" class="modal-btn cancel" onclick="closeModal('customerFilterModal')">Cancel</button>
-                        <button type="button" class="modal-btn confirm" onclick="applyCustomerFilter()">Apply Filter</button>
+                        <button class="modal-btn cancel" onclick="closeModal('viewTicketModal')">Close</button>
                     </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Technician Filter Modal -->
-        <div id="technicianFilterModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Filter by Technician</h2>
                 </div>
-                <form id="technicianFilterForm" class="modal-form">
-                    <label for="technician_filter">Select Technician Name</label>
-                    <select name="technician_filter" id="technician_filter">
-                        <option value="">All Technicians</option>
-                        <?php foreach ($technicianNames as $technician): ?>
-                            <option value="<?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianFilter === $technician ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+            </div>
+
+            <!-- Delete Modal -->
+            <div id="deleteModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Delete Ticket</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete ticket Ref# <span id="deleteTicketRef"></span>?</p>
+                    </div>
                     <div class="modal-footer">
-                        <button type="button" class="modal-btn cancel" onclick="closeModal('technicianFilterModal')">Cancel</button>
-                        <button type="button" class="modal-btn confirm" onclick="applyTechnicianFilter()">Apply Filter</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <form id="actionForm" method="POST" style="display: none;">
-            <input type="hidden" name="action" id="formAction">
-            <input type="hidden" name="t_ref" id="formRef">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
-        </form>
-
-        <div class="table-box">
-            <h2>List of Closed Regular Tickets</h2>
-            <div class="action-buttons">
-                <div class="export-container">
-                    <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                    <div class="export-dropdown">
-                        <button onclick="exportTable('excel')">Excel</button>
-                        <button onclick="exportTable('csv')">CSV</button>
+                        <button class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
+                        <button class="modal-btn confirm" id="confirmDeleteBtn" onclick="submitDeleteAction()">Confirm</button>
                     </div>
                 </div>
             </div>
 
-            <table class="tickets-table">
-                <thead>
-                    <tr>
-                        <th>Ticket No</th>
-                        <th>Customer Name<button class="filter-btn" onclick="showCustomerFilterModal()"><i class='bx bx-filter'></i></button></th>
-                        <th>Technician<button class="filter-btn" onclick="showTechnicianFilterModal()"><i class='bx bx-filter'></i></button></th>
-                        <th>Subject</th>
-                        <th>Ticket Details</th>
-                        <th>Status</th>
-                        <th>Closed Date</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="tickets-table-body">
-                    <?php
-                    if ($resultTickets !== null && $resultTickets->num_rows > 0) {
-                        while ($row = $resultTickets->fetch_assoc()) {
-                            $ticketData = json_encode([
-                                'ref' => $row['t_ref'],
-                                'aname' => $row['t_aname'] ?? '',
-                                'technician' => $row['te_technician'] ?? '',
-                                'subject' => $row['t_subject'] ?? '',
-                                'details' => $row['t_details'] ?? '',
-                                'status' => ucfirst(strtolower($row['t_status'] ?? '')),
-                                'closed_date' => $row['te_date'] ?? 'N/A'
-                            ], JSON_HEX_QUOT | JSON_HEX_TAG);
-                            echo "<tr>
-                                    <td>" . htmlspecialchars($row['t_ref']) . "</td>
-                                    <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
-                                    <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
-                                    <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
-                                    <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
-                                    <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
-                                    <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
-                                    <td class='action-buttons'>
-                                        <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                        <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
-                                    </td>
-                                  </tr>";
+            <!-- Customer Filter Modal -->
+            <div id="customerFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Customer</h2>
+                    </div>
+                    <form id="customerFilterForm" class="modal-form">
+                        <label for="customer_filter">Select Customer Name</label>
+                        <select name="customer_filter" id="customer_filter">
+                            <option value="">All Customers</option>
+                            <?php foreach ($customerNames as $customer): ?>
+                                <option value="<?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $customerFilter === $customer ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('customerFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyCustomerFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Technician Filter Modal -->
+            <div id="technicianFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Technician</h2>
+                    </div>
+                    <form id="technicianFilterForm" class="modal-form">
+                        <label for="technician_filter">Select Technician Name</label>
+                        <select name="technician_filter" id="technician_filter">
+                            <option value="">All Technicians</option>
+                            <?php foreach ($technicianNames as $technician): ?>
+                                <option value="<?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianFilter === $technician ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('technicianFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applyTechnicianFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <form id="actionForm" method="POST" style="display: none;">
+                <input type="hidden" name="action" id="formAction" value="delete">
+                <input type="hidden" name="ref" id="formRef">
+                <input type="hidden" name="table" id="formTable">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+            </form>
+
+            <div class="table-box">
+                <h2>List of Closed Regular Tickets</h2>
+                
+                <!-- Tab Buttons - MOVED INSIDE table-box and below h2 -->
+                <div class="tab-buttons">
+                    <button class="tab-btn <?php echo $currentTab === 'regular' ? 'active' : ''; ?>" onclick="showTab('regular')">
+                        Regular (<?php echo $totalRegularTickets; ?>)
+                    </button>
+                    <button class="tab-btn <?php echo $currentTab === 'support' ? 'active' : ''; ?>" onclick="showTab('support')">
+                        Support (<?php echo $totalSupportTickets; ?>)
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="export-container">
+                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                        <div class="export-dropdown">
+                            <button onclick="exportTable('excel')">Excel</button>
+                            <button onclick="exportTable('csv')">CSV</button>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="tickets-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket No</th>
+                            <th>Customer Name<button class="filter-btn" onclick="showCustomerFilterModal()"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician<button class="filter-btn" onclick="showTechnicianFilterModal()"><i class='bx bx-filter'></i></button></th>
+                            <th>Subject</th>
+                            <th>Ticket Details</th>
+                            <th>Status</th>
+                            <th>Closed Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tickets-table-body">
+                        <?php
+                        if ($currentTab === 'regular' && $resultTickets !== null && $resultTickets->num_rows > 0) {
+                            while ($row = $resultTickets->fetch_assoc()) {
+                                $ticketData = json_encode([
+                                    'ref' => $row['t_ref'],
+                                    'aname' => $row['t_aname'] ?? '',
+                                    'technician' => $row['te_technician'] ?? '',
+                                    'subject' => $row['t_subject'] ?? '',
+                                    'details' => $row['t_details'] ?? '',
+                                    'status' => ucfirst(strtolower($row['t_status'] ?? '')),
+                                    'closed_date' => $row['te_date'] ?? 'N/A'
+                                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                echo "<tr>
+                                        <td>" . htmlspecialchars($row['t_ref']) . "</td>
+                                        <td>" . htmlspecialchars($row['t_aname'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['t_subject'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['t_details'] ?? '') . "</td>
+                                        <td class='status-closed'>" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
+                                        <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
+                                        <td class='action-buttons'>
+                                            <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                            <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', 'regular')\" title='Delete'><i class='fas fa-trash'></i></span>
+                                        </td>
+                                      </tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='8'>No closed regular tickets found or an error occurred.</td></tr>";
                         }
-                    } else {
-                        echo "<tr><td colspan='8'>No closed regular tickets found or an error occurred.</td></tr>";
+                        ?>
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="tickets-pagination">
+                    <?php
+                    if ($currentTab === 'regular') {
+                        $paginationParams = ['tab' => $currentTab];
+                        if ($searchTerm) {
+                            $paginationParams['search'] = $searchTerm;
+                        }
+                        if ($customerFilter) {
+                            $paginationParams['customer'] = $customerFilter;
+                        }
+                        if ($technicianFilter) {
+                            $paginationParams['technician'] = $technicianFilter;
+                        }
+                        if ($page > 1) {
+                            $paginationParams['page'] = $page - 1;
+                            echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                        }
+                        echo "<span class='current-page'>Page $page of $totalPages</span>";
+                        if ($page < $totalPages) {
+                            $paginationParams['page'] = $page + 1;
+                            echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                        }
                     }
                     ?>
-                </tbody>
-            </table>
+                </div>
+            </div>
+        </div>
 
-            <div class="pagination" id="tickets-pagination">
-                <?php
-                $paginationParams = [];
-                if ($searchTerm) {
-                    $paginationParams['search'] = $searchTerm;
-                }
-                if ($customerFilter) {
-                    $paginationParams['customer'] = $customerFilter;
-                }
-                if ($technicianFilter) {
-                    $paginationParams['technician'] = $technicianFilter;
-                }
-                if ($page > 1) {
-                    $paginationParams['page'] = $page - 1;
-                    echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
-                } else {
-                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
-                }
-                echo "<span class='current-page'>Page $page of $totalPages</span>";
-                if ($page < $totalPages) {
-                    $paginationParams['page'] = $page + 1;
-                    echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
-                } else {
-                    echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
-                }
-                ?>
+        <!-- Support Tickets Tab -->
+        <div id="support-tab" class="tab-content <?php echo $currentTab === 'support' ? 'active' : ''; ?>">
+            <!-- View Modal -->
+            <div id="viewSupportTicketModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Support Ticket Details</h2>
+                    </div>
+                    <div id="viewSupportTicketContent"></div>
+                    <div class="modal-footer">
+                        <button class="modal-btn cancel" onclick="closeModal('viewSupportTicketModal')">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Modal -->
+            <div id="deleteSupportModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Delete Support Ticket</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete support ticket Ref# <span id="deleteSupportTicketRef"></span>?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="modal-btn cancel" onclick="closeModal('deleteSupportModal')">Cancel</button>
+                        <button class="modal-btn confirm" id="confirmDeleteSupportBtn" onclick="submitSupportDeleteAction()">Confirm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Support Customer Filter Modal -->
+            <div id="supportCustomerFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Customer</h2>
+                    </div>
+                    <form id="supportCustomerFilterForm" class="modal-form">
+                        <label for="support_customer_filter">Select Customer Name</label>
+                        <select name="support_customer_filter" id="support_customer_filter">
+                            <option value="">All Customers</option>
+                            <?php foreach ($supportCustomerNames as $customer): ?>
+                                <option value="<?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $customerFilter === $customer ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($customer, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('supportCustomerFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applySupportCustomerFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Support Technician Filter Modal -->
+            <div id="supportTechnicianFilterModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Filter by Technician</h2>
+                    </div>
+                    <form id="supportTechnicianFilterForm" class="modal-form">
+                        <label for="support_technician_filter">Select Technician Name</label>
+                        <select name="support_technician_filter" id="support_technician_filter">
+                            <option value="">All Technicians</option>
+                            <?php foreach ($supportTechnicianNames as $technician): ?>
+                                <option value="<?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $technicianFilter === $technician ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($technician, ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="modal-footer">
+                            <button type="button" class="modal-btn cancel" onclick="closeModal('supportTechnicianFilterModal')">Cancel</button>
+                            <button type="button" class="modal-btn confirm" onclick="applySupportTechnicianFilter()">Apply Filter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <form id="supportActionForm" method="POST" style="display: none;">
+                <input type="hidden" name="action" id="supportFormAction" value="delete">
+                <input type="hidden" name="ref" id="supportFormRef">
+                <input type="hidden" name="table" id="supportFormTable" value="support">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+            </form>
+
+            <div class="table-box">
+                <h2>List of Closed Support Tickets</h2>
+                
+                <!-- Tab Buttons - MOVED INSIDE table-box and below h2 -->
+                <div class="tab-buttons">
+                    <button class="tab-btn <?php echo $currentTab === 'regular' ? 'active' : ''; ?>" onclick="showTab('regular')">
+                        Regular (<?php echo $totalRegularTickets; ?>)
+                    </button>
+                    <button class="tab-btn <?php echo $currentTab === 'support' ? 'active' : ''; ?>" onclick="showTab('support')">
+                        Support (<?php echo $totalSupportTickets; ?>)
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="export-container">
+                        <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
+                        <div class="export-dropdown">
+                            <button onclick="exportTable('excel')">Excel</button>
+                            <button onclick="exportTable('csv')">CSV</button>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="tickets-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket No</th>
+                            <th>Customer Name<button class="filter-btn" onclick="showSupportCustomerFilterModal()"><i class='bx bx-filter'></i></button></th>
+                            <th>Technician<button class="filter-btn" onclick="showSupportTechnicianFilterModal()"><i class='bx bx-filter'></i></button></th>
+                            <th>Subject</th>
+                            <th>Ticket Details</th>
+                            <th>Status</th>
+                            <th>Closed Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="support-tickets-table-body">
+                        <?php
+                        if ($currentTab === 'support' && $resultTickets !== null && $resultTickets->num_rows > 0) {
+                            while ($row = $resultTickets->fetch_assoc()) {
+                                $ticketData = json_encode([
+                                    'ref' => $row['s_ref'],
+                                    'aname' => $row['customer_name'] ?? '',
+                                    'technician' => $row['te_technician'] ?? '',
+                                    'subject' => $row['s_subject'] ?? '',
+                                    'details' => $row['s_message'] ?? '',
+                                    'status' => ucfirst(strtolower($row['s_status'] ?? '')),
+                                    'closed_date' => $row['s_date'] ?? 'N/A'
+                                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                                echo "<tr>
+                                        <td>" . htmlspecialchars($row['s_ref']) . "</td>
+                                        <td>" . htmlspecialchars($row['customer_name'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['te_technician'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['s_subject'] ?? '') . "</td>
+                                        <td>" . htmlspecialchars($row['s_message'] ?? '') . "</td>
+                                        <td class='status-closed'>" . ucfirst(strtolower($row['s_status'] ?? '')) . "</td>
+                                        <td>" . htmlspecialchars($row['s_date'] ?? 'N/A') . "</td>
+                                        <td class='action-buttons'>
+                                            <span class='view-btn' onclick='showSupportViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
+                                            <span class='delete-btn' onclick=\"openSupportDeleteModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
+                                        </td>
+                                      </tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='8'>No closed support tickets found or an error occurred.</td></tr>";
+                        }
+                        ?>
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="support-tickets-pagination">
+                    <?php
+                    if ($currentTab === 'support') {
+                        $paginationParams = ['tab' => $currentTab];
+                        if ($searchTerm) {
+                            $paginationParams['search'] = $searchTerm;
+                        }
+                        if ($customerFilter) {
+                            $paginationParams['customer'] = $customerFilter;
+                        }
+                        if ($technicianFilter) {
+                            $paginationParams['technician'] = $technicianFilter;
+                        }
+                        if ($page > 1) {
+                            $paginationParams['page'] = $page - 1;
+                            echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-left'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
+                        }
+                        echo "<span class='current-page'>Page $page of $totalPages</span>";
+                        if ($page < $totalPages) {
+                            $paginationParams['page'] = $page + 1;
+                            echo "<a href='regular_close.php?" . http_build_query($paginationParams) . "' class='pagination-link'><i class='fas fa-chevron-right'></i></a>";
+                        } else {
+                            echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
+                        }
+                    }
+                    ?>
+                </div>
             </div>
         </div>
     </div>
@@ -701,16 +1117,26 @@ function debounce(func, wait) {
     };
 }
 
+function showTab(tab) {
+    // Update URL
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', tab);
+    params.delete('page'); // Reset to first page
+    window.location.href = `regular_close.php?${params.toString()}`;
+}
+
 function searchTickets(page = 1) {
     const searchTerm = document.getElementById('searchInput').value;
+    const currentTab = '<?php echo $currentTab; ?>';
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
-    const tbody = document.getElementById('tickets-table-body');
-    const paginationContainer = document.getElementById('tickets-pagination');
+    const tbody = document.getElementById(currentTab === 'regular' ? 'tickets-table-body' : 'support-tickets-table-body');
+    const paginationContainer = document.getElementById(currentTab === 'regular' ? 'tickets-pagination' : 'support-tickets-pagination');
 
     const params = new URLSearchParams();
     params.append('action', 'search');
     params.append('page', page);
+    params.append('tab', currentTab);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
     if (technicianFilter) params.append('technician', technicianFilter);
@@ -722,8 +1148,8 @@ function searchTickets(page = 1) {
                 try {
                     const response = JSON.parse(xhr.responseText);
                     tbody.innerHTML = response.html;
-                    updatePagination(response.currentPage, response.totalPages, response.searchTerm, response.customerFilter, response.technicianFilter);
-                    updateURL(response.currentPage, response.searchTerm, response.customerFilter, response.technicianFilter);
+                    updatePagination(response.currentPage, response.totalPages, response.searchTerm, response.customerFilter, response.technicianFilter, currentTab);
+                    updateURL(response.currentPage, response.searchTerm, response.customerFilter, response.technicianFilter, currentTab);
                 } catch (e) {
                     console.error('Error parsing JSON:', e, xhr.responseText);
                     alert('Error loading tickets. Please try again.');
@@ -738,10 +1164,11 @@ function searchTickets(page = 1) {
     xhr.send();
 }
 
-function updatePagination(currentPage, totalPages, searchTerm, customerFilter, technicianFilter) {
-    const paginationContainer = document.getElementById('tickets-pagination');
+function updatePagination(currentPage, totalPages, searchTerm, customerFilter, technicianFilter, tab) {
+    const paginationContainer = document.getElementById(tab === 'regular' ? 'tickets-pagination' : 'support-tickets-pagination');
     let paginationHtml = '';
     const params = new URLSearchParams();
+    params.append('tab', tab);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
     if (technicianFilter) params.append('technician', technicianFilter);
@@ -765,8 +1192,9 @@ function updatePagination(currentPage, totalPages, searchTerm, customerFilter, t
     paginationContainer.innerHTML = paginationHtml;
 }
 
-function updateURL(page, searchTerm, customerFilter, technicianFilter) {
+function updateURL(page, searchTerm, customerFilter, technicianFilter, tab) {
     const params = new URLSearchParams();
+    params.append('tab', tab);
     params.append('page', page);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
@@ -777,6 +1205,7 @@ function updateURL(page, searchTerm, customerFilter, technicianFilter) {
 
 const debouncedSearchTickets = debounce(searchTickets, 300);
 
+// Regular Tab Functions
 function showViewModal(data) {
     const content = document.getElementById('viewTicketContent');
     content.innerHTML = `
@@ -792,35 +1221,77 @@ function showViewModal(data) {
     document.body.classList.add('modal-open');
 }
 
-function openDeleteModal(t_ref) {
+function openDeleteModal(t_ref, table) {
     document.getElementById('deleteTicketRef').textContent = t_ref;
     document.getElementById('formRef').value = t_ref;
+    document.getElementById('formTable').value = table;
     document.getElementById('deleteModal').style.display = 'block';
     document.body.classList.add('modal-open');
 }
 
 function submitDeleteAction() {
     const t_ref = document.getElementById('deleteTicketRef').textContent;
+    const table = document.getElementById('formTable').value;
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Deleting...';
     
     document.getElementById('formAction').value = 'delete';
     document.getElementById('formRef').value = t_ref;
+    document.getElementById('formTable').value = table;
     document.getElementById('actionForm').submit();
 }
 
+// Support Tab Functions
+function showSupportViewModal(data) {
+    const content = document.getElementById('viewSupportTicketContent');
+    content.innerHTML = `
+        <p><strong>Ref#:</strong> ${data.ref}</p>
+        <p><strong>Customer Name:</strong> ${data.aname}</p>
+        <p><strong>Technician:</strong> ${data.technician}</p>
+        <p><strong>Subject:</strong> ${data.subject}</p>
+        <p><strong>Message:</strong> ${data.details}</p>
+        <p><strong>Status:</strong> <span class="status-closed">${data.status}</span></p>
+        <p><strong>Closed Date:</strong> ${data.closed_date}</p>
+    `;
+    document.getElementById('viewSupportTicketModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function openSupportDeleteModal(s_ref) {
+    document.getElementById('deleteSupportTicketRef').textContent = s_ref;
+    document.getElementById('supportFormRef').value = s_ref;
+    document.getElementById('deleteSupportModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function submitSupportDeleteAction() {
+    const s_ref = document.getElementById('deleteSupportTicketRef').textContent;
+    const confirmBtn = document.getElementById('confirmDeleteSupportBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting...';
+    
+    document.getElementById('supportFormAction').value = 'delete';
+    document.getElementById('supportFormRef').value = s_ref;
+    document.getElementById('supportActionForm').submit();
+}
+
+// Shared Modal Functions
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     modal.style.display = 'none';
     document.body.classList.remove('modal-open');
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-    if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm';
-    }
+    const confirmBtns = ['confirmDeleteBtn', 'confirmDeleteSupportBtn'];
+    confirmBtns.forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Confirm';
+        }
+    });
 }
 
+// Regular Filter Functions
 function showCustomerFilterModal() {
     const modal = document.getElementById('customerFilterModal');
     modal.style.display = 'block';
@@ -837,8 +1308,10 @@ function applyCustomerFilter() {
     const customerFilter = document.getElementById('customer_filter').value;
     const searchTerm = document.getElementById('searchInput').value;
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
+    const currentTab = '<?php echo $currentTab; ?>';
     const params = new URLSearchParams();
     params.append('page', 1);
+    params.append('tab', currentTab);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
     if (technicianFilter) params.append('technician', technicianFilter);
@@ -849,8 +1322,51 @@ function applyTechnicianFilter() {
     const technicianFilter = document.getElementById('technician_filter').value;
     const searchTerm = document.getElementById('searchInput').value;
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
+    const currentTab = '<?php echo $currentTab; ?>';
     const params = new URLSearchParams();
     params.append('page', 1);
+    params.append('tab', currentTab);
+    if (searchTerm) params.append('search', searchTerm);
+    if (customerFilter) params.append('customer', customerFilter);
+    if (technicianFilter) params.append('technician', technicianFilter);
+    window.location.href = `regular_close.php?${params.toString()}`;
+}
+
+// Support Filter Functions
+function showSupportCustomerFilterModal() {
+    const modal = document.getElementById('supportCustomerFilterModal');
+    modal.style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function showSupportTechnicianFilterModal() {
+    const modal = document.getElementById('supportTechnicianFilterModal');
+    modal.style.display = 'block';
+    document.body.classList.add('modal-open');
+}
+
+function applySupportCustomerFilter() {
+    const customerFilter = document.getElementById('support_customer_filter').value;
+    const searchTerm = document.getElementById('searchInput').value;
+    const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
+    const currentTab = 'support';
+    const params = new URLSearchParams();
+    params.append('page', 1);
+    params.append('tab', currentTab);
+    if (searchTerm) params.append('search', searchTerm);
+    if (customerFilter) params.append('customer', customerFilter);
+    if (technicianFilter) params.append('technician', technicianFilter);
+    window.location.href = `regular_close.php?${params.toString()}`;
+}
+
+function applySupportTechnicianFilter() {
+    const technicianFilter = document.getElementById('support_technician_filter').value;
+    const searchTerm = document.getElementById('searchInput').value;
+    const customerFilter = '<?php echo addslashes($customerFilter); ?>';
+    const currentTab = 'support';
+    const params = new URLSearchParams();
+    params.append('page', 1);
+    params.append('tab', currentTab);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
     if (technicianFilter) params.append('technician', technicianFilter);
@@ -859,11 +1375,13 @@ function applyTechnicianFilter() {
 
 function exportTable(format) {
     const searchTerm = document.getElementById('searchInput').value;
+    const currentTab = '<?php echo $currentTab; ?>';
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
 
     const params = new URLSearchParams();
     params.append('action', 'export_data');
+    params.append('tab', currentTab);
     if (searchTerm) params.append('search', searchTerm);
     if (customerFilter) params.append('customer', customerFilter);
     if (technicianFilter) params.append('technician', technicianFilter);
@@ -879,13 +1397,15 @@ function exportTable(format) {
                     if (format === 'excel') {
                         const ws = XLSX.utils.json_to_sheet(data);
                         const wb = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wb, ws, 'Closed Tickets');
-                        XLSX.writeFile(wb, 'closed_regular_tickets.xlsx');
+                        const sheetName = currentTab === 'regular' ? 'Closed Regular Tickets' : 'Closed Support Tickets';
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                        XLSX.writeFile(wb, `${currentTab}_closed_tickets.xlsx`);
                     } else if (format === 'csv') {
                         const ws = XLSX.utils.json_to_sheet(data);
                         const csv = XLSX.utils.sheet_to_csv(ws);
                         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                        saveAs(blob, 'closed_regular_tickets.csv');
+                        const fileName = currentTab === 'regular' ? 'closed_regular_tickets.csv' : 'closed_support_tickets.csv';
+                        saveAs(blob, fileName);
                     }
                 } catch (e) {
                     console.error('Error during export:', e);
@@ -903,5 +1423,3 @@ function exportTable(format) {
 </script>
 </body>
 </html>
-
-
