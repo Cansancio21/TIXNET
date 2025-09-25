@@ -871,118 +871,151 @@ if (isset($_POST['add_ticket'])) {
             exit();
         }
         $stmt->close();
-    } elseif (isset($_POST['close_ticket'])) {
-        $t_ref = trim($_POST['t_ref'] ?? '');
-        $sqlCheck = "SELECT t_status FROM tbl_ticket WHERE t_ref = ?";
-        $stmtCheck = $conn->prepare($sqlCheck);
-        if (!$stmtCheck) {
-            error_log("Prepare failed for ticket status check: " . $conn->error);
-            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare statement.']);
-                exit();
-            }
-            $_SESSION['error'] = "Database error: Unable to prepare statement.";
-            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+   } elseif (isset($_POST['close_ticket'])) {
+    $t_ref = trim($_POST['t_ref'] ?? '');
+    $sqlCheck = "SELECT t_status, technician_username FROM tbl_ticket WHERE t_ref = ?";
+    $stmtCheck = $conn->prepare($sqlCheck);
+    if (!$stmtCheck) {
+        error_log("Prepare failed for ticket status check: " . $conn->error);
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare statement.']);
             exit();
         }
-        $stmtCheck->bind_param("s", $t_ref);
-        $stmtCheck->execute();
-        $resultCheck = $stmtCheck->get_result();
-        if ($resultCheck->num_rows == 0) {
-            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Ticket not found.']);
-                exit();
-            }
-            $_SESSION['error'] = "Ticket not found.";
-            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        $_SESSION['error'] = "Database error: Unable to prepare statement.";
+        header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
+    }
+    $stmtCheck->bind_param("s", $t_ref);
+    $stmtCheck->execute();
+    $resultCheck = $stmtCheck->get_result();
+    if ($resultCheck->num_rows == 0) {
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Ticket not found.']);
             exit();
         }
-        $row = $resultCheck->fetch_assoc();
-        if ($row['t_status'] === 'Closed') {
-            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Ticket is already closed.']);
-                exit();
-            }
-            $_SESSION['error'] = "Ticket is already closed.";
-            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        $_SESSION['error'] = "Ticket not found.";
+        header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
+    }
+    $row = $resultCheck->fetch_assoc();
+    if ($row['t_status'] === 'Closed') {
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Ticket is already closed.']);
             exit();
         }
-        $stmtCheck->close();
+        $_SESSION['error'] = "Ticket is already closed.";
+        header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
+    }
+    $stmtCheck->close();
 
-        $sql = "UPDATE tbl_ticket SET t_status = 'Closed' WHERE t_ref = ?";
+    // Check if ticket is assigned to a technician
+    $technician_username = $row['technician_username'];
+    
+    $conn->begin_transaction();
+    try {
+        // If ticket is assigned to a technician, move to closed table and unassign
+        if (!empty($technician_username)) {
+            // Fetch ticket data for closing
+            $sqlFetch = "SELECT t_aname, t_subject, t_details FROM tbl_ticket WHERE t_ref = ?";
+            $stmtFetch = $conn->prepare($sqlFetch);
+            if (!$stmtFetch) {
+                throw new Exception("Prepare failed for fetch query: " . $conn->error);
+            }
+            $stmtFetch->bind_param("s", $t_ref);
+            $stmtFetch->execute();
+            $resultFetch = $stmtFetch->get_result();
+            if ($resultFetch->num_rows === 0) {
+                throw new Exception("Ticket not found for fetching: t_ref=$t_ref");
+            }
+            $ticketData = $resultFetch->fetch_assoc();
+            $stmtFetch->close();
+
+            // Insert into closed tickets table
+            $closeDate = date('Y-m-d H:i:s');
+            $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, t_subject, t_details, t_status, te_technician, te_date) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmtInsert = $conn->prepare($sqlInsert);
+            if (!$stmtInsert) {
+                throw new Exception("Prepare failed for insert query: " . $conn->error);
+            }
+            $status = 'closed';
+            $stmtInsert->bind_param("sssssss", $t_ref, $ticketData['t_aname'], $ticketData['t_subject'], $ticketData['t_details'], $status, $technician_username, $closeDate);
+            if (!$stmtInsert->execute()) {
+                throw new Exception("Insert failed for tbl_close_regular: " . $stmtInsert->error);
+            }
+            $stmtInsert->close();
+
+            // Update main ticket table - set status to Closed AND unassign technician
+            $sql = "UPDATE tbl_ticket SET t_status = 'Closed', technician_username = NULL WHERE t_ref = ?";
+        } else {
+            // Ticket not assigned to technician, just close it
+            $sql = "UPDATE tbl_ticket SET t_status = 'Closed' WHERE t_ref = ?";
+        }
+
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
-            error_log("Prepare failed for ticket close: " . $conn->error);
-            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare statement.']);
-                exit();
-            }
-            $_SESSION['error'] = "Database error: Unable to prepare statement.";
-            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
-            exit();
+            throw new Exception("Prepare failed for ticket close: " . $conn->error);
         }
         $stmt->bind_param("s", $t_ref);
-        if ($stmt->execute()) {
-            if ($stmt->affected_rows > 0) {
-                $logDescription = "Staff $firstName $lastName closed ticket $t_ref";
-                $logType = "Staff $firstName $lastName";
-                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-                $stmtLog = $conn->prepare($sqlLog);
-                if ($stmtLog) {
-                    $stmtLog->bind_param("ss", $logDescription, $logType);
-                    $stmtLog->execute();
-                    $stmtLog->close();
-                }
+        if (!$stmt->execute()) {
+            throw new Exception("Execution failed for ticket close: " . $stmt->error);
+        }
 
-                // Fetch updated counts
-                $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%'";
-                $totalActiveResult = $conn->query($totalActiveQuery);
-                $totalActive = $totalActiveResult ? $totalActiveResult->fetch_assoc()['total'] : 0;
+        $conn->commit();
+        
+        // Log the action
+        $logDescription = "Staff $firstName $lastName closed ticket $t_ref" . 
+                         (!empty($technician_username) ? " (was assigned to $technician_username)" : "");
+        $logType = "Staff $firstName $lastName";
+        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+        $stmtLog = $conn->prepare($sqlLog);
+        if ($stmtLog) {
+            $stmtLog->bind_param("ss", $logDescription, $logType);
+            $stmtLog->execute();
+            $stmtLog->close();
+        }
 
-                $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%'";
-                $totalArchivedResult = $conn->query($totalArchivedQuery);
-                $totalArchived = $totalArchivedResult ? $totalArchivedResult->fetch_assoc()['total'] : 0;
+        // Fetch updated counts
+        $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details NOT LIKE 'ARCHIVED:%'";
+        $totalActiveResult = $conn->query($totalActiveQuery);
+        $totalActive = $totalActiveResult ? $totalActiveResult->fetch_assoc()['total'] : 0;
 
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Ticket closed successfully!',
-                        'totalActive' => $totalActive,
-                        'totalArchived' => $totalArchived
-                    ]);
-                    exit();
-                }
-                $_SESSION['message'] = "Ticket closed successfully!";
-                header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
-                exit();
-            } else {
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => false, 'error' => 'No changes made to the ticket.']);
-                    exit();
-                }
-                $_SESSION['error'] = "No changes made to the ticket.";
-                header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
-                exit();
-            }
-        } else {
-            error_log("Execution failed for ticket close: " . $stmt->error);
-            if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => false, 'error' => 'Database error: ' . $stmt->error]);
-                exit();
-            }
-            $_SESSION['error'] = "Database error: " . $stmt->error;
-            header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE t_details LIKE 'ARCHIVED:%'";
+        $totalArchivedResult = $conn->query($totalArchivedQuery);
+        $totalArchived = $totalArchivedResult ? $totalArchivedResult->fetch_assoc()['total'] : 0;
+
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Ticket closed successfully!' . 
+                           (!empty($technician_username) ? ' Ticket unassigned from technician.' : ''),
+                'totalActive' => $totalActive,
+                'totalArchived' => $totalArchived
+            ]);
             exit();
         }
-        $stmt->close();
+        $_SESSION['message'] = "Ticket closed successfully!" . 
+                             (!empty($technician_username) ? ' Ticket unassigned from technician.' : '');
+        header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        error_log("Close ticket failed: " . $e->getMessage());
+        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Failed to close ticket: ' . $e->getMessage()]);
+            exit();
+        }
+        $_SESSION['error'] = "Database error: " . $e->getMessage();
+        header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
+        exit();
     }
+}
 
     if (!(isset($_POST['ajax']) && $_POST['ajax'] == 'true')) {
         header("Location: staffD.php?tab=$tab&page_active=$pageActive&page_archived=$pageArchived");
@@ -1943,6 +1976,8 @@ document.getElementById('editTicketForm').addEventListener('submit', function (e
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
+                    // Fetch updated counts after edit
+                    fetchCounts();
                     handleFormSubmissionSuccess(response, 'editTicketModal');
                 } else {
                     Object.keys(response.errors).forEach(field => {
@@ -1959,7 +1994,6 @@ document.getElementById('editTicketForm').addEventListener('submit', function (e
     };
     xhr.send(formData);
 });
-
 document.getElementById('archiveForm').addEventListener('submit', function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -2116,7 +2150,6 @@ document.getElementById('typeFilterForm').addEventListener('submit', function (e
     e.preventDefault();
     applyTypeFilter();
 });
-
 function fetchCounts() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', 'staffD.php?action=get_counts', true);
@@ -2124,6 +2157,7 @@ function fetchCounts() {
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
+                console.log('Counts response:', response); // Add this for debugging
                 if (response.success) {
                     updateTabCounts(response.active, response.archived);
                 }
@@ -2142,4 +2176,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
-

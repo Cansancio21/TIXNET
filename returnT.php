@@ -47,7 +47,8 @@ $deployedTechnicianNames = [];
 $totalReturnedAssets = 0;
 $totalDeployedAssets = 0;
 
-// Handle AJAX export data request
+
+// In the export_data action
 if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
     $status = $currentTab === 'returned' ? 'Returned' : 'Deployed';
     $searchLike = $searchTerm ? "%$searchTerm%" : null;
@@ -77,16 +78,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
 
     $whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
-    // Fetch all records for export (no limit/offset)
     $orderBy = $currentTab === 'returned' ? 'a_return_date' : 'a_date';
     $sqlExport = "SELECT a_id, a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_return_date 
                   FROM tbl_asset_status $whereClause 
                   ORDER BY $orderBy DESC";
     $stmtExport = $conn->prepare($sqlExport);
+    if (!$stmtExport) {
+        header('HTTP/1.1 500 Internal Server Error');
+        echo json_encode(['error' => 'Database query preparation failed']);
+        exit;
+    }
     if ($types !== '') {
         $stmtExport->bind_param($types, ...$params);
     }
-    $stmtExport->execute();
+    if (!$stmtExport->execute()) {
+        header('HTTP/1.1 500 Internal Server Error');
+        echo json_encode(['error' => 'Database query execution failed']);
+        exit;
+    }
     $resultExport = $stmtExport->get_result();
 
     $records = [];
@@ -1013,33 +1022,35 @@ function exportTable(format) {
 
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            try {
-                const response = JSON.parse(xhr.responseText);
-                const data = response.data;
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    const data = response.data;
 
-                if (format === 'excel') {
-                    // Create Excel file
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    const wb = XLSX.utils.book_new();
-                    const sheetName = currentTab === 'returned' ? 'Returned Assets' : 'Deployed Assets';
-                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-                    XLSX.writeFile(wb, `${currentTab}_assets.xlsx`);
-                } else if (format === 'csv') {
-                    // Create CSV file
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    const csv = XLSX.utils.sheet_to_csv(ws);
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const fileName = currentTab === 'returned' ? 'returned_assets.csv' : 'deployed_assets.csv';
-                    saveAs(blob, fileName);
+                    if (format === 'excel') {
+                        // Create Excel file
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const wb = XLSX.utils.book_new();
+                        const sheetName = currentTab === 'returned' ? 'Returned Assets' : 'Deployed Assets';
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                        XLSX.writeFile(wb, `${currentTab}_assets.xlsx`);
+                    } else if (format === 'csv') {
+                        // Create CSV file
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const csv = XLSX.utils.sheet_to_csv(ws);
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const fileName = currentTab === 'returned' ? 'returned_assets.csv' : 'deployed_assets.csv';
+                        saveAs(blob, fileName);
+                    }
+                } catch (e) {
+                    console.error('Error parsing response:', e, xhr.responseText);
+                    alert('Error processing export data. Please check your connection and try again.');
                 }
-            } catch (e) {
-                console.error('Error during export:', e);
-                alert('Error exporting data: ' + e.message);
+            } else {
+                console.error('Export request failed:', xhr.status, xhr.statusText, xhr.responseText);
+                alert('Error exporting data: Server returned status ' + xhr.status + '. Please try again.');
             }
-        } else if (xhr.status !== 200) {
-            console.error('Export request failed:', xhr.status, xhr.statusText);
-            alert('Error exporting data. Please try again.');
         }
     };
     xhr.open('GET', url, true);

@@ -126,26 +126,41 @@ function logAction($conn, $logType, $logDescription) {
 }
 
 // Handle AJAX search request
+// Handle AJAX search request
 if (isset($_GET['action']) && $_GET['action'] === 'search') {
     while (ob_get_level()) {
         ob_end_clean();
     }
     $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $typeFilter = isset($_GET['type_filter']) ? trim($_GET['type_filter']) : '';
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'active';
     $searchPage = isset($_GET['search_page']) ? max(1, (int)$_GET['search_page']) : 1;
     $offset = ($searchPage - 1) * $ticketsPerPage;
     $searchLike = $searchTerm ? "%$searchTerm%" : null;
 
-    // Count total tickets for pagination
+    // Validate type filter - only allow Open/Closed for active tab
+    if ($typeFilter && !in_array($typeFilter, ['Open', 'Closed'])) {
+        $typeFilter = '';
+    }
+
+    // Count total tickets for pagination - FIXED LOGIC
     $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
+    
     if ($tab === 'active') {
         $sqlCount .= "s_status IN ('Open', 'Closed')";
+        if ($typeFilter) {
+            $sqlCount .= " AND s_status = ?";
+        }
     } else {
         $sqlCount .= "s_status = 'Archived'";
+        // Don't apply type filter for archived tab - archived tickets should all show as "Open" in the display
+        $typeFilter = ''; // Reset type filter for archived tab
     }
+    
     if ($searchTerm) {
         $sqlCount .= " AND (s_ref LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR CONCAT(c_fname, ' ', c_lname) LIKE ?)";
     }
+    
     $stmtCount = $conn->prepare($sqlCount);
     if (!$stmtCount) {
         error_log("Count query prepare failed: " . $conn->error);
@@ -153,11 +168,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         echo json_encode(['error' => 'Database error']);
         exit();
     }
-    if ($searchTerm) {
-        $stmtCount->bind_param("issss", $filterCid, $searchLike, $searchLike, $searchLike, $searchLike);
-    } else {
-        $stmtCount->bind_param("i", $filterCid);
+    
+    // Bind parameters based on conditions - FIXED BINDING LOGIC
+    $paramTypes = "i";
+    $paramValues = [$filterCid];
+    
+    if ($tab === 'active' && $typeFilter) {
+        $paramTypes .= "s";
+        $paramValues[] = $typeFilter;
     }
+    
+    if ($searchTerm) {
+        $paramTypes .= str_repeat("s", 4); // 4 parameters for search
+        $paramValues = array_merge($paramValues, [$searchLike, $searchLike, $searchLike, $searchLike]);
+    }
+    
+    $stmtCount->bind_param($paramTypes, ...$paramValues);
+    
     if (!$stmtCount->execute()) {
         error_log("Count query execute failed: " . $stmtCount->error);
         header('Content-Type: application/json');
@@ -169,19 +196,28 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $stmtCount->close();
     $totalPages = max(1, ceil($totalTickets / $ticketsPerPage));
 
-    // Fetch tickets
+    // Fetch tickets - FIXED QUERY LOGIC
     $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
             FROM tbl_supp_tickets 
             WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
+    
     if ($tab === 'active') {
         $sql .= "s_status IN ('Open', 'Closed')";
+        if ($typeFilter) {
+            $sql .= " AND s_status = ?";
+        }
     } else {
         $sql .= "s_status = 'Archived'";
+        // Don't apply type filter for archived tab
+        $typeFilter = '';
     }
+    
     if ($searchTerm) {
         $sql .= " AND (s_ref LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR CONCAT(c_fname, ' ', c_lname) LIKE ?)";
     }
+    
     $sql .= " ORDER BY id ASC LIMIT ? OFFSET ?";
+    
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Search query prepare failed: " . $conn->error);
@@ -189,11 +225,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         echo json_encode(['error' => 'Database error']);
         exit();
     }
-    if ($searchTerm) {
-        $stmt->bind_param("issssii", $filterCid, $searchLike, $searchLike, $searchLike, $searchLike, $ticketsPerPage, $offset);
-    } else {
-        $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $offset);
+    
+    // Bind parameters for main query - FIXED BINDING LOGIC
+    $paramTypes = "i";
+    $paramValues = [$filterCid];
+    
+    if ($tab === 'active' && $typeFilter) {
+        $paramTypes .= "s";
+        $paramValues[] = $typeFilter;
     }
+    
+    if ($searchTerm) {
+        $paramTypes .= str_repeat("s", 4); // 4 parameters for search
+        $paramValues = array_merge($paramValues, [$searchLike, $searchLike, $searchLike, $searchLike]);
+    }
+    
+    $paramTypes .= "ii";
+    $paramValues = array_merge($paramValues, [$ticketsPerPage, $offset]);
+    
+    $stmt->bind_param($paramTypes, ...$paramValues);
+    
     if (!$stmt->execute()) {
         error_log("Search query execute failed: " . $stmt->error);
         header('Content-Type: application/json');
@@ -207,11 +258,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     }
     $stmt->close();
 
-    // Generate table content
+    // Generate table content - FIXED DISPLAY LOGIC
     ob_start();
     if ($tickets) {
         foreach ($tickets as $row) {
-            $displayStatus = ($tab === 'archived' && $row['status'] === 'Archived') ? 'Open' : ($row['status'] ?: 'Open');
+            // For archived tab, always display as "Open" regardless of actual status
+            $displayStatus = ($tab === 'archived') ? 'Open' : ($row['status'] ?: 'Open');
+            $statusClass = ($tab === 'archived') ? 'open' : strtolower($row['status'] ?: 'open');
             ?>
             <tr>
                 <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
@@ -219,7 +272,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
                 <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
                 <td><?php echo htmlspecialchars($row['s_message'] ?: '-'); ?></td>
-                <td class="status-<?php echo strtolower($displayStatus); ?>" 
+                <td class="status-<?php echo $statusClass; ?>" 
                     onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
                     <?php echo htmlspecialchars($displayStatus); ?>
                 </td>
@@ -250,13 +303,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     ?>
     <div class="pagination" id="<?php echo $tab === 'active' ? 'activePagination' : 'archivedPagination'; ?>">
         <?php if ($searchPage > 1): ?>
-            <a href="javascript:searchTickets('<?php echo addslashes($searchTerm); ?>', <?php echo $searchPage - 1; ?>)" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+            <a href="javascript:searchTickets('<?php echo addslashes($searchTerm); ?>', <?php echo $searchPage - 1; ?>, '<?php echo addslashes($typeFilter); ?>')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
         <?php else: ?>
             <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
         <?php endif; ?>
         <span class="current-page">Page <?php echo $searchPage; ?> of <?php echo $totalPages; ?></span>
         <?php if ($searchPage < $totalPages): ?>
-            <a href="javascript:searchTickets('<?php echo addslashes($searchTerm); ?>', <?php echo $searchPage + 1; ?>)" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+            <a href="javascript:searchTickets('<?php echo addslashes($searchTerm); ?>', <?php echo $searchPage + 1; ?>, '<?php echo addslashes($typeFilter); ?>')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
         <?php else: ?>
             <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
         <?php endif; ?>
@@ -271,21 +324,51 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         'pagination' => $paginationContent,
         'currentPage' => $searchPage,
         'totalPages' => $totalPages,
-        'searchTerm' => $searchTerm
+        'searchTerm' => $searchTerm,
+        'typeFilter' => $typeFilter
     ]);
     $conn->close();
     exit();
 }
-
 // Handle create ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     $c_id = $isCustomer ? $userId : $filterCid;
     $c_fname = $firstName;
     $c_lname = $lastName;
-    $s_ref = 'ref#-' . date('d-m-Y') . '-' . rand(100000, 999999);
     $s_subject = trim($_POST['subject'] ?? '');
     $s_message = trim($_POST['message'] ?? '');
     $s_status = 'Pending';
+    $s_ref = trim($_POST['s_ref'] ?? ''); // Use s_ref from form
+
+    // Validate s_ref format
+    if (empty($s_ref) || !preg_match('/^ref#-\d{2}-\d{2}-\d{4}-\d{6}$/', $s_ref)) {
+        error_log("Invalid s_ref received: $s_ref");
+        $_SESSION['error'] = "Invalid ticket reference.";
+        header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
+        exit();
+    }
+
+    // Check for duplicate s_ref
+    $sqlCheckRef = "SELECT s_ref FROM tbl_customer_ticket WHERE s_ref = ? UNION SELECT s_ref FROM tbl_supp_tickets WHERE s_ref = ?";
+    $stmtCheckRef = $conn->prepare($sqlCheckRef);
+    if (!$stmtCheckRef) {
+        error_log("Prepare failed for reference check: " . $conn->error);
+        $_SESSION['error'] = "Error checking reference number.";
+        header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
+        exit();
+    }
+    $stmtCheckRef->bind_param("ss", $s_ref, $s_ref);
+    $stmtCheckRef->execute();
+    $resultCheckRef = $stmtCheckRef->get_result();
+    if ($resultCheckRef->num_rows > 0) {
+        error_log("Duplicate s_ref detected: $s_ref");
+        $_SESSION['error'] = "Ticket reference already exists.";
+        header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
+        exit();
+    }
+    $stmtCheckRef->close();
+
+    error_log("Received s_ref for insertion: $s_ref for customer ID: $c_id"); // Log for debugging
 
     // Check for existing pending tickets
     $sqlCheckPending = "SELECT COUNT(*) as count FROM tbl_customer_ticket WHERE c_id = ? AND s_status = 'Pending'";
@@ -297,7 +380,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
         $pendingCount = $resultCheckPending->fetch_assoc()['count'] ?? 0;
         $stmtCheckPending->close();
         if ($pendingCount > 0) {
-            $_SESSION['error'] = "Cannot Create Ticket because there is a pending ticket in the tbl_customer_ticket.";
+            error_log("Pending ticket exists for c_id: $c_id");
+            $_SESSION['error'] = "Cannot create ticket because there is a pending ticket in the tbl_customer_ticket.";
             header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
             exit();
         }
@@ -309,6 +393,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     }
 
     if (empty($s_subject) || empty($s_message)) {
+        error_log("Missing subject or message for s_ref: $s_ref");
         $_SESSION['error'] = "Subject and message are required.";
     } else {
         $sql = "INSERT INTO tbl_customer_ticket (c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status) 
@@ -336,7 +421,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
     exit();
 }
-
 // Handle edit ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
@@ -631,28 +715,29 @@ if ($filterCid != 0) {
             $stmt->close();
         }
     } else {
-        // Active tickets
-        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
-                FROM tbl_supp_tickets 
-                WHERE s_status IN ('Open', 'Closed') AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
-                ORDER BY id ASC LIMIT ? OFFSET ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            error_log("Prepare failed for active tickets: " . $conn->error);
-            $_SESSION['error'] = "Error preparing query for active tickets.";
-        } else {
-            $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $activeOffset);
-            if ($stmt->execute()) {
-                $result = $stmt->get_result();
-                while ($row = $result->fetch_assoc()) {
-                    $activeTickets[] = $row;
-                }
-            } else {
-                error_log("Execute failed for active tickets: " . $stmt->error);
-                $_SESSION['error'] = "Error executing query for active tickets.";
-            }
-            $stmt->close();
+      // Active tickets
+$sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
+        FROM tbl_supp_tickets 
+        WHERE s_status IN ('Open', 'Closed') AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
+        ORDER BY id ASC LIMIT ? OFFSET ?";
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    error_log("Prepare failed for active tickets: " . $conn->error);
+    $_SESSION['error'] = "Error preparing query for active tickets.";
+} else {
+    $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $activeOffset);
+    if ($stmt->execute()) {
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            error_log("Fetched active ticket: ID={$row['id']}, s_ref={$row['s_ref']}, c_id={$row['c_id']}"); // Added log for debugging
+            $activeTickets[] = $row;
         }
+    } else {
+        error_log("Execute failed for active tickets: " . $stmt->error);
+        $_SESSION['error'] = "Error executing query for active tickets.";
+    }
+    $stmt->close();
+}
 
         // Archived tickets
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
@@ -689,9 +774,10 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support Ticket Details - Customer ID <?php echo htmlspecialchars($filterCid); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+        <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppT.css">
+    <link rel="stylesheet" href="suppTs.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -749,17 +835,17 @@ $conn->close();
                 </div>
                 <?php if (isset($_GET['id']) && $ticket): ?>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Ticket No</th>
-                                <th>Customer ID</th>
-                                <th>Customer Name</th>
-                                <th>Subject</th>
-                                <th>Message</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                     <thead>
+    <tr>
+        <th>Ticket No</th>
+        <th>Customer ID</th>
+        <th>Customer Name</th>
+        <th>Subject</th>
+        <th>Message</th>
+        <th>Status <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+        <th>Actions</th>
+    </tr>
+</thead>
                         <tbody>
                             <tr>
                                 <td><?php echo htmlspecialchars($ticket['s_ref'] ?: '-'); ?></td>
@@ -804,17 +890,17 @@ $conn->close();
                     </table>
                 <?php else: ?>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Ticket No</th>
-                                <th>Customer ID</th>
-                                <th>Customer Name</th>
-                                <th>Subject</th>
-                                <th>Message</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                 <thead>
+    <tr>
+        <th>Ticket No</th>
+        <th>Customer ID</th>
+        <th>Customer Name</th>
+        <th>Subject</th>
+        <th>Message</th>
+        <th>Status <button class="filter-btn" onclick="showTypeFilterModal('archived')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+        <th>Actions</th>
+    </tr>
+</thead>
                         <tbody id="activeTableBody">
                             <?php if ($activeTickets): ?>
                                 <?php foreach ($activeTickets as $row): ?>
@@ -935,11 +1021,16 @@ $conn->close();
         <div class="modal-header">
             <h2>Add New Ticket</h2>
         </div>
-        <form method="POST" id="addTicketForm" class="modal-form" action="suppT.php">
+        <form method="POST" id="addTicketForm" class="modal-form" action="suppT.php<?php echo $filterCid ? '?c_id=' . $filterCid : ''; ?>">
             <input type="hidden" name="create_ticket" value="1">
             <input type="hidden" name="c_id" value="<?php echo htmlspecialchars($filterCid); ?>">
             <label for="ticket_ref">Reference No</label>
-            <input type="text" name="ref" id="ticket_ref" value="ref#-<?php echo date('d-m-Y') . '-' . rand(100000, 999999); ?>" readonly>
+            <?php
+            // Generate s_ref server-side for modal
+            $modal_s_ref = 'ref#-' . date('d-m-Y') . '-' . rand(100000, 999999);
+            error_log("Modal generated s_ref: $modal_s_ref"); // Log for debugging
+            ?>
+            <input type="text" name="s_ref" id="ticket_ref" value="<?php echo htmlspecialchars($modal_s_ref, ENT_QUOTES, 'UTF-8'); ?>" readonly>
             <span class="error" id="ticket_ref_error"></span>
             <label for="account_name">Customer Name</label>
             <input type="text" name="account_name" id="account_name" value="<?php echo htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8'); ?>" readonly>
@@ -989,6 +1080,28 @@ $conn->close();
             <div class="modal-footer">
                 <button type="button" class="modal-btn cancel" onclick="closeModal('editTicketModal')">Cancel</button>
                 <button type="submit" class="modal-btn confirm">Update Ticket</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Type Filter Modal -->
+<div id="typeFilterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Filter by Type</h2>
+        </div>
+        <form id="typeFilterForm" class="modal-form">
+            <label for="type_filter">Select Type</label>
+            <select name="type_filter" id="type_filter">
+                <option value="">All Types</option>
+                <option value="Open">Open</option>
+                <option value="Closed">Closed</option>
+            </select>
+            <input type="hidden" name="tab" id="typeFilterTab">
+            <div class="modal-footer">
+                <button type="button" class="modal-btn cancel" onclick="closeModal('typeFilterModal')">Cancel</button>
+                <button type="submit" class="modal-btn confirm">Apply Filter</button>
             </div>
         </form>
     </div>
@@ -1107,6 +1220,8 @@ let currentTab = '<?php echo $tab; ?>';
 let currentActivePage = <?php echo $activePage; ?>;
 let currentArchivedPage = <?php echo $archivedPage; ?>;
 let currentSearchTerm = '';
+let currentTypeFilter = ''; // Track the current type filter
+
 function showTab(tab) {
     // Prevent tab switching if pending tickets are present
     <?php if (!empty($pendingTickets)): ?>
@@ -1140,7 +1255,7 @@ function showTab(tab) {
     currentTab = tab;
     currentActivePage = tab === 'active' ? <?php echo $activePage; ?> : currentActivePage;
     currentArchivedPage = tab === 'archived' ? <?php echo $archivedPage; ?> : currentArchivedPage;
-    searchTickets(currentSearchTerm, tab === 'active' ? currentActivePage : currentArchivedPage);
+    searchTickets(currentSearchTerm, tab === 'active' ? currentActivePage : currentArchivedPage, currentTypeFilter);
 }
 
 function openModal() {
@@ -1161,6 +1276,40 @@ function clearErrors() {
     document.querySelectorAll('.error').forEach(span => span.textContent = '');
 }
 
+function showTypeFilterModal(tab) {
+    document.getElementById('typeFilterTab').value = tab;
+    document.getElementById('type_filter').value = currentTypeFilter; // Reflect current filter
+    document.getElementById('typeFilterModal').style.display = 'block';
+}
+function filterTicketsByType(type, tab) {
+    currentTypeFilter = type;
+    currentTab = tab;
+    
+    // Reset to page 1 when applying a new filter
+    if (tab === 'active') {
+        currentActivePage = 1;
+        searchTickets(currentSearchTerm, 1, currentTypeFilter);
+    } else {
+        currentArchivedPage = 1;
+        // Don't apply type filter for archived tab
+        searchTickets(currentSearchTerm, 1, '');
+    }
+}
+
+document.getElementById('typeFilterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const typeFilter = document.getElementById('type_filter').value;
+    const tab = document.getElementById('typeFilterTab').value;
+    
+    if (tab === 'archived') {
+        // Don't apply type filter for archived tab
+        filterTicketsByType('', tab);
+    } else {
+        filterTicketsByType(typeFilter, tab);
+    }
+    
+    closeModal('typeFilterModal');
+});
 function openEditModal(ticket) {
     document.getElementById('edit_ticket_id').value = ticket.id;
     document.getElementById('edit_customer_id').value = ticket.c_id;
@@ -1238,10 +1387,11 @@ function htmlspecialchars(str) {
         .replace(/'/g, '&apos;');
 }
 
-function searchTickets(searchTerm, page) {
+function searchTickets(searchTerm, page, typeFilter = '') {
     currentSearchTerm = searchTerm;
+    currentTypeFilter = typeFilter;
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `suppT.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&c_id=<?php echo $filterCid; ?>`, true);
+    xhr.open('GET', `suppT.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&search_page=${page}&c_id=<?php echo $filterCid; ?>&type_filter=${encodeURIComponent(typeFilter)}`, true);
     xhr.onload = function() {
         if (xhr.status === 200) {
             try {
@@ -1279,7 +1429,7 @@ function debouncedSearchTickets() {
     clearTimeout(window.searchTimeout);
     window.searchTimeout = setTimeout(() => {
         const searchTerm = document.getElementById('searchInput').value;
-        searchTickets(searchTerm, currentTab === 'active' ? currentActivePage : currentArchivedPage);
+        searchTickets(searchTerm, currentTab === 'active' ? currentActivePage : currentArchivedPage, currentTypeFilter);
     }, 300);
 }
 

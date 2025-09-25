@@ -99,7 +99,7 @@ if ($conn) {
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
        <ul>
         <li><a href="adminD.php" class="active"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>

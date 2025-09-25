@@ -391,6 +391,7 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
+    font-size: 0.9rem;
 }
 
 tr:last-child td {
@@ -632,6 +633,21 @@ tr:hover td {
     max-width: 500px;
 }
 
+#borrowAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
+#deployAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
+#returnAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
 #editAssetModal .modal-content {
     margin: 8% auto;
     max-width: 500px;
@@ -652,6 +668,12 @@ tr:hover td {
     max-width: 500px;
 }
 
+#borrowedDeleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: 20px;
+}
+
 #restoreModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
@@ -663,6 +685,16 @@ tr:hover td {
 }
 
 #assetStatusFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#borrowedAssetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#borrowedTechNameFilterModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
 }
@@ -700,8 +732,7 @@ tr:hover td {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: 15px;
-    left: 15px;
+    top: 10px;
     width: 100%;
     z-index: 1000;
 }

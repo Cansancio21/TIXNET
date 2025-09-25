@@ -341,7 +341,6 @@ footer {
     flex: 1;
     overflow: auto;
     max-height: 500px;
-  
 }
 
 /* Table */
@@ -350,7 +349,6 @@ table {
     border-collapse: separate;
     border-spacing: 0;
     table-layout: auto;
-  
 }
 
 thead {
@@ -395,6 +393,26 @@ tr:last-child td {
 
 tr:hover td {
     background: rgba(108, 92, 231, 0.05);
+}
+.filter-btn {
+    background: transparent !important;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--light, #f5f8fc);
+    margin-left: 5px;
+    vertical-align: middle;
+    padding: 0;
+    outline: none;
+}
+
+.filter-btn:hover {
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+    background: transparent !important;
+}
+
+th .filter-btn {
+    background: transparent !important;
 }
 
 .pagination {
@@ -844,14 +862,13 @@ tr:hover td {
 
 /* Status Filter Dropdown */
 .status-filter {
-    background: white;
     border: 1px solid #ddd;
     border-radius: 5px;
     padding: 6px;
     font-size: 14px;
     color: var(--dark);
     cursor: pointer;
-    margin-left: 10px;
+    margin-left: 5px;
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
