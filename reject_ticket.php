@@ -51,7 +51,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $offset = ($page - 1) * $limit;
     $output = '';
 
-    $whereClauses = ["c_id = ?"];
+    $whereClauses = ["c_id = ?", "s_status = 'Declined'"];
     $params = [$userId];
     $paramTypes = 'i';
 
@@ -64,7 +64,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
 
     $whereClause = implode(' AND ', $whereClauses);
 
-    $countSql = "SELECT COUNT(*) as total FROM tbl_reject_ticket WHERE $whereClause";
+    $countSql = "SELECT COUNT(*) as total FROM tbl_customer_ticket WHERE $whereClause";
     $countStmt = $conn->prepare($countSql);
     $countStmt->bind_param($paramTypes, ...$params);
     $countStmt->execute();
@@ -74,7 +74,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $totalPages = ceil($totalRecords / $limit);
 
     $sql = "SELECT s_ref, s_subject, s_message, s_status, c_id, s_remarks 
-            FROM tbl_reject_ticket 
+            FROM tbl_customer_ticket 
             WHERE $whereClause 
             ORDER BY s_ref ASC 
             LIMIT ?, ?";
@@ -101,7 +101,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 </td></tr>";
         }
     } else {
-        $output = "<tr><td colspan='8' class='empty-state'>No rejected tickets found.</td></tr>";
+        $output = "<tr><td colspan='8' class='empty-state'>No Declined tickets found.</td></tr>";
     }
     $stmt->close();
 
@@ -119,7 +119,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
-$totalQuery = "SELECT COUNT(*) AS total FROM tbl_reject_ticket WHERE c_id = ?";
+$totalQuery = "SELECT COUNT(*) AS total FROM tbl_customer_ticket WHERE c_id = ? AND s_status = 'Declined'";
 $totalStmt = $conn->prepare($totalQuery);
 $totalStmt->bind_param("i", $userId);
 $totalStmt->execute();
@@ -131,8 +131,8 @@ $totalStmt->close();
 
 // Fetch rejected tickets
 $sqlTickets = "SELECT s_ref, s_subject, s_message, s_status, c_id, s_remarks 
-               FROM tbl_reject_ticket 
-               WHERE c_id = ? 
+               FROM tbl_customer_ticket 
+               WHERE c_id = ? AND s_status = 'Declined'
                ORDER BY s_ref ASC 
                LIMIT ?, ?";
 $stmtTickets = $conn->prepare($sqlTickets);
@@ -153,7 +153,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="reject_ticket.css">
+    <link rel="stylesheet" href="reject_ticketss.css">
 
      <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -194,7 +194,7 @@ $conn->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
         <li><a href="portal.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -208,10 +208,6 @@ $conn->close();
     <div class="container">
         <div class="upper glass-container">
             <h1>Declined Tickets</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <?php
@@ -232,62 +228,68 @@ $conn->close();
 
         <div class="alert-container" id="alertContainer"></div>
 
-        <div class="table-box">
-            <div class="rejected-tickets">
-                <table id="rejected-tickets-table">
-                    <thead>
-                        <tr>
-                            <th>Ticket No</th>
-                            <th>Customer ID</th>
-                            <th>Account Name</th>
-                            <th>Subject</th>
-                            <th>Message</th>
-                            <th>Remarks</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rejected-table-body">
-                        <?php
-                        if ($resultTickets->num_rows > 0) {
-                            while ($row = $resultTickets->fetch_assoc()) {
-                                $statusClass = 'status-' . strtolower($row['s_status']);
-                                $accountName = $firstName . ' ' . $lastName;
-                                $remarks = htmlspecialchars($row['s_remarks'] ?: '', ENT_QUOTES, 'UTF-8');
-                                echo "<tr> 
-                                    <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                    <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                    <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                    <td>" . $remarks . "</td>
-                                    <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
-                                    <td class='action-buttons'>
-                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "', '" . $remarks . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                    </td>
-                                </tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='8' class='empty-state'>No rejected tickets found.</td></tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
-                <div class="pagination" id="pagination">
-                    <?php if ($page > 1): ?>
-                        <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                    <?php endif; ?>
-                    <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-                    <?php if ($page < $totalPages): ?>
-                        <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                    <?php endif; ?>
-                </div>
+     <div class="table-box">
+    <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
+    <div class="rejected-tickets">
+        <div class="table-wrapper">
+            <table id="rejected-tickets-table">
+                <thead>
+                    <tr>
+                        <th>Ticket No</th>
+                        <th>Customer ID</th>
+                        <th>Account Name</th>
+                        <th>Subject</th>
+                        <th>Message</th>
+                        <th>Remarks</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="rejected-table-body">
+                    <?php
+                    if ($resultTickets->num_rows > 0) {
+                        while ($row = $resultTickets->fetch_assoc()) {
+                            $statusClass = 'status-' . strtolower($row['s_status']);
+                            $accountName = $firstName . ' ' . $lastName;
+                            $remarks = htmlspecialchars($row['s_remarks'] ?: '', ENT_QUOTES, 'UTF-8');
+                            echo "<tr> 
+                                <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                                <td>" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "</td>
+                                <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                <td>" . $remarks . "</td>
+                                <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
+                                <td class='action-buttons'>
+                                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "', '" . $remarks . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                </td>
+                            </tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='8' class='empty-state'>No rejected tickets found.</td></tr>";
+                    }
+                    ?>
+                </tbody>
+            </table>
         </div>
+        <div class="pagination" id="pagination">
+            <?php if ($page > 1): ?>
+                <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+            <?php else: ?>
+                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+            <?php endif; ?>
+            <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
+            <?php if ($page < $totalPages): ?>
+                <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+            <?php else: ?>
+                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
     </div>
 </div>
 

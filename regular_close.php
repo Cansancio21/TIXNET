@@ -572,7 +572,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Closed Tickets</title>
-    <link rel="stylesheet" href="regular_closes.css">
+    <link rel="stylesheet" href="regular_closed.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -681,7 +681,7 @@ try {
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
          <ul>
           <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -698,10 +698,6 @@ try {
     <div class="container">
         <div class="upper">
             <h1>Closed Tickets</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -823,6 +819,11 @@ try {
                     <button class="tab-btn <?php echo $currentTab === 'support' ? 'active' : ''; ?>" onclick="showTab('support')">
                         Support (<?php echo $totalSupportTickets; ?>)
                     </button>
+                </div>
+
+                <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -1021,6 +1022,11 @@ try {
                             <button onclick="exportTable('csv')">CSV</button>
                         </div>
                     </div>
+                </div>
+
+                <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <table class="tickets-table">

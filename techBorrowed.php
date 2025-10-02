@@ -207,7 +207,7 @@ $resultBorrowed = $stmt->get_result();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Borrowed Assets</title>
-    <link rel="stylesheet" href="techborrowedTB.css">
+    <link rel="stylesheet" href="techborrowed.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@ $resultBorrowed = $stmt->get_result();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
         <li><a href="technicianD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -256,10 +256,6 @@ $resultBorrowed = $stmt->get_result();
     <div class="container">
         <div class="upper">
             <h1>Borrowed Assets</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search borrowed assets..." onkeyup="debouncedSearchBorrowed()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -295,6 +291,10 @@ $resultBorrowed = $stmt->get_result();
 
         <div class="table-box glass-container">
             <h2>Borrowed List</h2>
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search borrowed assets..." onkeyup="debouncedSearchBorrowed()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             <?php if ($userType === 'admin'): ?>
                 <div class="username">
                     Welcome, <?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>!

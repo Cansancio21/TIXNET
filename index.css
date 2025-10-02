@@ -75,6 +75,17 @@ form {
     align-self: flex-end;
     text-align: right;
     width: 80%;
+    
+}
+
+/* Adjust margin-top for the h1 in .form-box.register */
+.form-box.register h1 {
+    margin-top: 20px; /* Adjust this value as needed */
+}
+
+/* Adjust margin-top for the Register button in .form-box.register */
+.form-box.register .btn {
+    margin-top: -10px; /* Adjust this value as needed */
 }
 
 .input-box {
@@ -145,7 +156,7 @@ form {
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    margin: 20px 0;
+    margin: 30px 0;
     margin-left: 50%;
 }
 

@@ -258,7 +258,7 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Registration & Login</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="indexs.css">
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
     <div class="container <?php echo ($hasError) ? 'active' : ''; ?>">

@@ -544,17 +544,17 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Dashboard</title>
-    <link rel="stylesheet" href="technicians.css">
+    <link rel="stylesheet" href="technicianD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
-            <li><a href="technicianD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
+            <li><a href="technicianD.php" class="active"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
             <li><a href="techBorrowed.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
             <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         </ul>
@@ -566,10 +566,6 @@ $conn->close();
     <div class="container">
         <div class="upper">
             <h1>Technician Dashboard</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -641,6 +637,11 @@ $conn->close();
                     <div class="main-tab-buttons">
                         <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openTab('regularTickets', 'regular')">Regular Tickets</button>
                         <button class="tab-button <?php echo $tab === 'support' ? 'active' : ''; ?>" onclick="openTab('supportTickets', 'support')">Support Tickets</button>
+                    </div>
+
+                    <div class="search-container">
+                    <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
                     </div>
 
                     <div id="regularTickets" class="tab-content <?php echo $tab === 'regular' ? 'active' : ''; ?>">

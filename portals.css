@@ -176,60 +176,30 @@ footer {
     margin-bottom: 5px;
 }
 
-/* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-    padding-top: 100px;
 }
+
+
 /* Header */
 .upper {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
+    padding: 5px;
     background: linear-gradient(135deg, #3d28e2, #594fdd);
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
-    margin-top: -70px;
-    height: 65px; /* Fixed height */
 }
 
 .upper h1 {
     margin: 0;
     font-size: 24px;
     font-weight: 600;
-}
-
-.search-container {
-    position: relative;
-    width: 300px;
-    margin-left: 20px;
-}
-
-.search-bar {
-    width: 100%;
-    padding: 10px 40px 10px 15px;
-    border: 1px solid #ccc;
-    border-radius: 20px;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.3s;
-}
-
-.search-bar:focus {
-    border-color: #007bff;
-}
-
-.search-icon {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #666;
 }
 
 .user-profile {
@@ -273,101 +243,108 @@ footer {
     margin-left: -300px;
 }
 
-
-
-
-.input-box {
-    position: relative;
-    margin-bottom: 25px;
-    width: 85%;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.input-box input {
-    width: 100%;
-    padding: 12px 40px;
-    background: var(--light);
-    border: 2px solid #e0e0e0;
-    border-radius: 10px;
-    outline: none;
-    font-size: 15px;
-    color: var(--dark);
-    transition: border-color 0.3s ease;
-}
-
-.input-box input:focus {
-    border-color: var(--secondary);
-}
-
-.input-box i {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 20px;
-    color: #888;
-}
-
-.input-box i:first-child {
-    left: 15px;
-}
-
-.input-box i:last-child {
-    right: 15px;
-    cursor: pointer;
-}
-
-.btn {
-    width: 85%;
-    padding: 14px;
-    background: var(--primary);
-    border: none;
-    border-radius: 10px;
-    color: white;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    margin: 20px auto;
-    display: block;
-}
-
-.btn:hover {
-    background: var(--secondary);
-    transform: translateY(-2px);
-}
-
 /* Table Box */
 .table-box {
     width: 100%;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
+    padding: 30px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     min-height: 600px;
     display: flex;
     flex-direction: column;
     margin-top: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.username {
-    position: absolute;
-    left: 25px;
-    top: 25px;
-    font-weight: 500;
+.table-box h2 {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 2rem;
+    font-weight: 600;
     color: var(--primary);
+    letter-spacing: 0.5px;
 }
 
-.admin-icon {
-    color: var(--warning);
-    margin-left: 5px;
+.title-line {
+    border: none;
+    height: 2px;
+    background-color: var(--primary);
+    margin: 20px 0;
+    width: 100%;
+}
+
+/* Customer Details Styles */
+.customer-details-container {
+    padding: 20px;
+    background: var(--light);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    max-width: 1500px; /* Limit width for centering */
+    margin: 0 auto; /* Center horizontally */
+}
+
+.customer-details-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 100px; /* Increased from 20px for more column spacing */
+}
+
+.customer-details-column {
+    flex: 1;
+    padding: 20px;
+}
+
+.customer-details-column h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.customer-details-column h3 i {
+    font-size: 1.6rem;
+}
+
+.account-no-header, .balance-header {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 15px;
+}
+
+.account-no-value, .balance-value {
+    color: var(--primary);
+    font-size: 1.3rem;
+}
+
+.account-details-content p, .subscription-details-content p, .service-details-content p {
+    margin: 12px 0;
+    font-size: 1.1rem;
+    color: var(--dark);
+}
+
+.account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
+    font-weight: 500;
+    color: var(--dark);
+    font-size: 1.1rem;
+}
+
+thead {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .settings-link {
     position: absolute;
-    right: 40px;
-    top: 10;
+    right: 35px;
+    top: 40px;
     display: flex;
     align-items: center;
     text-decoration: none;
@@ -380,7 +357,6 @@ footer {
 .settings-link i {
     font-size: 24px;
     margin-right: 5px;
-    transition: 0.3s ease-in-out;
     color: #dad9d9;
 }
 
@@ -402,3 +378,42 @@ footer {
     margin-top: 10px;
 }
 
+/* Responsive Design */
+@media (max-width: 768px) {
+    .customer-details-inner {
+        flex-direction: column;
+        gap: 20px; /* Reduced gap for mobile when columns stack */
+    }
+
+    .customer-details-column {
+        width: 100%;
+    }
+
+    .customer-details-container {
+        max-width: 100%;
+    }
+
+    .customer-details-column h3 {
+        font-size: 1.3rem;
+    }
+
+    .customer-details-column h3 i {
+        font-size: 1.4rem;
+    }
+
+    .account-no-header, .balance-header {
+        font-size: 1.2rem;
+    }
+
+    .account-no-value, .balance-value {
+        font-size: 1.2rem;
+    }
+
+    .account-details-content p, .subscription-details-content p, .service-details-content p {
+        font-size: 1rem;
+    }
+
+    .account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
+        font-size: 1rem;
+    }
+}

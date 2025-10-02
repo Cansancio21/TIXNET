@@ -132,6 +132,31 @@ input[type="password"]:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Enhanced focus for accessibility */
 }
 
+.input-box select {
+    width: 100%;
+    padding: 10px 40px 10px 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    appearance: none;
+    background-color: #fff;
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.input-box select:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.input-box i {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+}
+
 button {
     width: 100%;
     padding: 16px; /* Increased padding for better touch targets */

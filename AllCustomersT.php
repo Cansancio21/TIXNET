@@ -172,101 +172,101 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pageCustomer = isset($_GET['page_customer']) ? max(1, (int)$_GET['page_customer']) : 1;
-if (isset($_POST['approve_ticket'])) {
-    $ticket_ref = $_POST['ticket_ref'];
-    error_log("Approving ticket s_ref: $ticket_ref by staff: $firstName $lastName");
+    if (isset($_POST['approve_ticket'])) {
+        $ticket_ref = $_POST['ticket_ref'];
+        error_log("Approving ticket s_ref: $ticket_ref by staff: $firstName $lastName");
 
-    // Start a transaction
-    $conn->begin_transaction();
+        // Start a transaction
+        $conn->begin_transaction();
 
-    try {
-        // Fetch the pending ticket
-        $sql = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message FROM tbl_customer_ticket WHERE s_ref = ? AND s_status = 'Pending'";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            throw new Exception("Prepare failed for ticket fetch: " . $conn->error);
-        }
-        $stmt->bind_param("s", $ticket_ref);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows === 0) {
-            throw new Exception("Ticket not found or not pending.");
-        }
-        $ticket = $result->fetch_assoc();
-        error_log("Fetched ticket for approval: s_ref={$ticket['s_ref']}, c_id={$ticket['c_id']}"); // Added log for debugging
-        $stmt->close();
+        try {
+            // Fetch the pending ticket
+            $sql = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message FROM tbl_customer_ticket WHERE s_ref = ? AND s_status = 'Pending'";
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Prepare failed for ticket fetch: " . $conn->error);
+            }
+            $stmt->bind_param("s", $ticket_ref);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows === 0) {
+                throw new Exception("Ticket not found or not pending.");
+            }
+            $ticket = $result->fetch_assoc();
+            error_log("Fetched ticket for approval: s_ref={$ticket['s_ref']}, c_id={$ticket['c_id']}");
+            $stmt->close();
 
-        // Check for duplicate s_ref in tbl_supp_tickets
-        $sqlCheck = "SELECT s_ref FROM tbl_supp_tickets WHERE s_ref = ?";
-        $stmtCheck = $conn->prepare($sqlCheck);
-        if (!$stmtCheck) {
-            throw new Exception("Prepare failed for duplicate check in tbl_supp_tickets: " . $conn->error);
-        }
-        $stmtCheck->bind_param("s", $ticket_ref);
-        $stmtCheck->execute();
-        $resultCheck = $stmtCheck->get_result();
-        if ($resultCheck->num_rows > 0) {
-            throw new Exception("Ticket reference already exists in support tickets.");
-        }
-        $stmtCheck->close();
+            // Check for duplicate s_ref in tbl_supp_tickets
+            $sqlCheck = "SELECT s_ref FROM tbl_supp_tickets WHERE s_ref = ?";
+            $stmtCheck = $conn->prepare($sqlCheck);
+            if (!$stmtCheck) {
+                throw new Exception("Prepare failed for duplicate check in tbl_supp_tickets: " . $conn->error);
+            }
+            $stmtCheck->bind_param("s", $ticket_ref);
+            $stmtCheck->execute();
+            $resultCheck = $stmtCheck->get_result();
+            if ($resultCheck->num_rows > 0) {
+                throw new Exception("Ticket reference already exists in support tickets.");
+            }
+            $stmtCheck->close();
 
-        // Insert into tbl_supp_tickets
-        $new_status = 'Open';
-        $sqlInsert = "INSERT INTO tbl_supp_tickets (c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status) 
-                      VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $stmtInsert = $conn->prepare($sqlInsert);
-        if (!$stmtInsert) {
-            throw new Exception("Prepare failed for inserting into tbl_supp_tickets: " . $conn->error);
-        }
-        $stmtInsert->bind_param("issssss", $ticket['c_id'], $ticket['c_fname'], $ticket['c_lname'], 
-                                $ticket['s_ref'], $ticket['s_subject'], $ticket['s_message'], $new_status);
-        if (!$stmtInsert->execute()) {
-            throw new Exception("Error inserting into tbl_supp_tickets: " . $stmtInsert->error);
-        }
-        error_log("Ticket inserted into tbl_supp_tickets with s_ref: {$ticket['s_ref']}"); // Added log for debugging
-        $stmtInsert->close();
+            // Insert into tbl_supp_tickets
+            $new_status = 'Open';
+            $sqlInsert = "INSERT INTO tbl_supp_tickets (c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmtInsert = $conn->prepare($sqlInsert);
+            if (!$stmtInsert) {
+                throw new Exception("Prepare failed for inserting into tbl_supp_tickets: " . $conn->error);
+            }
+            $stmtInsert->bind_param("issssss", $ticket['c_id'], $ticket['c_fname'], $ticket['c_lname'], 
+                                    $ticket['s_ref'], $ticket['s_subject'], $ticket['s_message'], $new_status);
+            if (!$stmtInsert->execute()) {
+                throw new Exception("Error inserting into tbl_supp_tickets: " . $stmtInsert->error);
+            }
+            error_log("Ticket inserted into tbl_supp_tickets with s_ref: {$ticket['s_ref']}");
+            $stmtInsert->close();
 
-        // Update tbl_customer_ticket
-        $sqlUpdate = "UPDATE tbl_customer_ticket SET s_status = 'Approved' WHERE s_ref = ?";
-        $stmtUpdate = $conn->prepare($sqlUpdate);
-        if (!$stmtUpdate) {
-            throw new Exception("Prepare failed for updating tbl_customer_ticket: " . $conn->error);
-        }
-        $stmtUpdate->bind_param("s", $ticket_ref);
-        if (!$stmtUpdate->execute()) {
-            throw new Exception("Error updating customer ticket status: " . $stmtUpdate->error);
-        }
-        if ($stmtUpdate->affected_rows === 0) {
-            throw new Exception("No ticket updated. Ticket may not exist or status already changed.");
-        }
-        $stmtUpdate->close();
+            // Update tbl_customer_ticket
+            $sqlUpdate = "UPDATE tbl_customer_ticket SET s_status = 'Approved' WHERE s_ref = ?";
+            $stmtUpdate = $conn->prepare($sqlUpdate);
+            if (!$stmtUpdate) {
+                throw new Exception("Prepare failed for updating tbl_customer_ticket: " . $conn->error);
+            }
+            $stmtUpdate->bind_param("s", $ticket_ref);
+            if (!$stmtUpdate->execute()) {
+                throw new Exception("Error updating customer ticket status: " . $stmtUpdate->error);
+            }
+            if ($stmtUpdate->affected_rows === 0) {
+                throw new Exception("No ticket updated. Ticket may not exist or status already changed.");
+            }
+            $stmtUpdate->close();
 
-        // Log the action
-        $logDescription = "Staff $firstName $lastName approved customer ticket {$ticket['s_ref']} for customer {$ticket['c_fname']} {$ticket['c_lname']}";
-        $logType = "Staff $firstName $lastName";
-        $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-        $stmtLog = $conn->prepare($sqlLog);
-        if (!$stmtLog) {
-            throw new Exception("Prepare failed for logging: " . $conn->error);
-        }
-        $stmtLog->bind_param("ss", $logDescription, $logType);
-        if (!$stmtLog->execute()) {
-            throw new Exception("Error logging action: " . $stmtLog->error);
-        }
-        $stmtLog->close();
+            // Log the action
+            $logDescription = "Staff $firstName $lastName approved customer ticket {$ticket['s_ref']} for customer {$ticket['c_fname']} {$ticket['c_lname']}";
+            $logType = "Staff $firstName $lastName";
+            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+            $stmtLog = $conn->prepare($sqlLog);
+            if (!$stmtLog) {
+                throw new Exception("Prepare failed for logging: " . $conn->error);
+            }
+            $stmtLog->bind_param("ss", $logDescription, $logType);
+            if (!$stmtLog->execute()) {
+                throw new Exception("Error logging action: " . $stmtLog->error);
+            }
+            $stmtLog->close();
 
-        // Commit the transaction
-        $conn->commit();
-        $_SESSION['message'] = "Ticket approved successfully!";
-    } catch (Exception $e) {
-        // Rollback the transaction on error
-        $conn->rollback();
-        $_SESSION['error'] = $e->getMessage();
-        error_log("Approval failed for s_ref $ticket_ref: " . $e->getMessage());
-    }
-    header("Location: AllCustomersT.php?page_customer=$pageCustomer");
-    exit();
-} elseif (isset($_POST['reject_ticket'])) {
+            // Commit the transaction
+            $conn->commit();
+            $_SESSION['message'] = "Ticket approved successfully!";
+        } catch (Exception $e) {
+            // Rollback the transaction on error
+            $conn->rollback();
+            $_SESSION['error'] = $e->getMessage();
+            error_log("Approval failed for s_ref $ticket_ref: " . $e->getMessage());
+        }
+        header("Location: AllCustomersT.php?page_customer=$pageCustomer");
+        exit();
+    } elseif (isset($_POST['reject_ticket'])) {
         $ticket_ref = $_POST['ticket_ref'];
         $remarks = trim($_POST['s_remarks'] ?? '');
         error_log("Rejecting ticket s_ref: $ticket_ref with remarks: $remarks");
@@ -275,7 +275,7 @@ if (isset($_POST['approve_ticket'])) {
         $conn->begin_transaction();
 
         try {
-            // Fetch ticket details for insertion and logging
+            // Fetch ticket details for logging
             $sqlFetch = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message 
                          FROM tbl_customer_ticket 
                          WHERE s_ref = ? AND s_status = 'Pending'";
@@ -292,49 +292,21 @@ if (isset($_POST['approve_ticket'])) {
             $ticket = $resultFetch->fetch_assoc();
             $stmtFetch->close();
 
-            // Check for duplicate s_ref in tbl_reject_ticket
-            $sqlCheck = "SELECT s_ref FROM tbl_reject_ticket WHERE s_ref = ?";
-            $stmtCheck = $conn->prepare($sqlCheck);
-            if (!$stmtCheck) {
-                throw new Exception("Prepare failed for duplicate check in tbl_reject_ticket: " . $conn->error);
-            }
-            $stmtCheck->bind_param("s", $ticket_ref);
-            $stmtCheck->execute();
-            $resultCheck = $stmtCheck->get_result();
-            if ($resultCheck->num_rows > 0) {
-                throw new Exception("Ticket reference already exists in rejected tickets.");
-            }
-            $stmtCheck->close();
-
-            // Insert into tbl_reject_ticket
-            $rejectedStatus = 'Rejected';
-            $sqlInsert = "INSERT INTO tbl_reject_ticket (s_ref, c_id, c_fname, c_lname, s_subject, s_message, s_status, s_remarks) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmtInsert = $conn->prepare($sqlInsert);
-            if (!$stmtInsert) {
-                throw new Exception("Prepare failed for inserting into tbl_reject_ticket: " . $conn->error);
-            }
-            $stmtInsert->bind_param("sissssss", $ticket['s_ref'], $ticket['c_id'], $ticket['c_fname'], $ticket['c_lname'], 
-                                    $ticket['s_subject'], $ticket['s_message'], $rejectedStatus, $remarks);
-            if (!$stmtInsert->execute()) {
-                throw new Exception("Error inserting into tbl_reject_ticket: " . $stmtInsert->error);
-            }
-            error_log("Ticket inserted into tbl_reject_ticket with s_ref: $ticket_ref");
-            $stmtInsert->close();
-
-            // Update tbl_customer_ticket
-            $sqlUpdate = "UPDATE tbl_customer_ticket SET s_status = 'Rejected' WHERE s_ref = ?";
+            // Update tbl_customer_ticket with Rejected status and remarks
+            $rejectedStatus = 'Declined';
+            $sqlUpdate = "UPDATE tbl_customer_ticket SET s_status = ?, s_remarks = ? WHERE s_ref = ?";
             $stmtUpdate = $conn->prepare($sqlUpdate);
             if (!$stmtUpdate) {
                 throw new Exception("Prepare failed for updating tbl_customer_ticket: " . $conn->error);
             }
-            $stmtUpdate->bind_param("s", $ticket_ref);
+            $stmtUpdate->bind_param("sss", $rejectedStatus, $remarks, $ticket_ref);
             if (!$stmtUpdate->execute()) {
                 throw new Exception("Error updating customer ticket status: " . $stmtUpdate->error);
             }
             if ($stmtUpdate->affected_rows === 0) {
                 throw new Exception("No ticket updated. Ticket may not exist or status already changed.");
             }
+            error_log("Ticket updated in tbl_customer_ticket with s_ref: $ticket_ref, status: $rejectedStatus");
             $stmtUpdate->close();
 
             // Log the action
@@ -353,7 +325,7 @@ if (isset($_POST['approve_ticket'])) {
 
             // Commit the transaction
             $conn->commit();
-            $_SESSION['message'] = "Ticket rejected successfully!";
+            $_SESSION['message'] = "Ticket Declined successfully!";
         } catch (Exception $e) {
             // Rollback the transaction on error
             $conn->rollback();
@@ -411,7 +383,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Customer Tickets</title>
-    <link rel="stylesheet" href="AllCustomerT.css">
+    <link rel="stylesheet" href="AllCustomers.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -493,16 +465,15 @@ $conn->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
          <ul>
           <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
           <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
           <li><a href="AllCustomersT.php" class="active"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
           <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-         
           <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
-          <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+          <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
          </ul>
     <footer>
         <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -512,10 +483,6 @@ $conn->close();
     <div class="container">
         <div class="upper">
             <h1>Customer Tickets</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -544,6 +511,10 @@ $conn->close();
 
         <div class="table-box glass-container">
             <h2>Ticket Approval</h2>
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             <div class="username"></div>
             <div class="customer-tickets active">
                 <table id="customer-tickets-table">
@@ -741,7 +712,7 @@ function fetchTickets(page, searchTerm = '', accountFilter = '') {
             if (response.error) {
                 showNotification(response.error, 'error');
             } else {
-                console.log("Fetched tickets with searchTerm:", searchTerm, "accountFilter:", accountFilter, "response.html:", response.html); // Added console log for debugging
+                console.log("Fetched tickets with searchTerm:", searchTerm, "accountFilter:", accountFilter, "response.html:", response.html);
                 document.getElementById('customer-table-body').innerHTML = response.html;
                 updatePagination(response.currentPage, response.totalPages, searchTerm, accountFilter);
             }

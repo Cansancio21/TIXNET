@@ -1082,7 +1082,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffs.css">
+    <link rel="stylesheet" href="staffD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1299,7 +1299,7 @@ color: var(--dark);
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
          <ul>
            <li><a href="staffD.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
@@ -1317,10 +1317,6 @@ color: var(--dark);
     <div class="container">
         <div class="upper">
             <h1>Ticket Reports</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -1370,9 +1366,14 @@ color: var(--dark);
                     </button>
                 </div>
                 <button class="add-user-btn" onclick="showAddTicketModal()">
-                    <i class="fas fa-ticket-alt"></i> Add New Ticket
+                    <i class="fas fa-ticket-alt"></i> Add Ticket
                 </button>
             </div>
+
+                <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+                </div>
 
     <div id="active-tickets" class="tab-content <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? '' : 'active'; ?>">
         <div class="table-container">

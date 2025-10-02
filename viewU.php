@@ -559,7 +559,7 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | User Management</title>
-    <link rel="stylesheet" href="viewsU.css"> 
+    <link rel="stylesheet" href="viewss.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -604,7 +604,7 @@ $stmt->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
            <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -622,10 +622,6 @@ $stmt->close();
     <div class="container">
         <div class="upper"> 
             <h1>Registered User</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -669,10 +665,15 @@ $stmt->close();
                     <?php endif; ?>
                 </button>
             </div>
+
+             <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             
             <div id="active-users-tab" class="active">
                 <div>
-                    <button class="add-user-btn" onclick="showAddUserModal()"><i class="fas fa-user-plus"></i> Add New User</button>
+                    <button class="add-user-btn" onclick="showAddUserModal()"><i class="fas fa-user-plus"></i> Add User</button>
                 </div>
                 <table id="active-users-table">
                     <thead>
@@ -739,7 +740,7 @@ $stmt->close();
     <table id="archived-users-table">
         <thead>
             <tr>
-                <th>ID</th>
+                <th>User ID</th>
                 <th>Firstname</th>
                 <th>Lastname</th>
                 <th>Email</th>

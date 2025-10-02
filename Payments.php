@@ -139,7 +139,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 <td>" . number_format($row['t_balance'], 2) . "</td> 
                 <td class='action-buttons'>
                     <a class='view-btn' href='#' onclick=\"showTransactionViewModal('" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_customer_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_credit_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_description'], ENT_QUOTES, 'UTF-8') . "', '" . number_format($row['t_amount'], 2) . "', '" . number_format($row['t_balance'], 2) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                    <a class='edit-btn' href='#' onclick=\"showEditTransactionModal('" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_customer_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_credit_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_description'], ENT_QUOTES, 'UTF-8') . "', '" . number_format($row['t_amount'], 2) . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                 </td></tr>";
         }
     } else {
@@ -235,7 +234,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Transactions</title>
-    <link rel="stylesheet" href="PaymentT.css">
+    <link rel="stylesheet" href="AdminPaymentts.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -246,16 +245,15 @@ $conn->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
         <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
         <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
         <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
         <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-        
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
-        <li><a href="Payments.php" class="active"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+        <li><a href="Payments.php" class="active"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
     </ul>
     <footer>
         <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -265,10 +263,6 @@ $conn->close();
     <div class="container">
         <div class="upper">
             <h1>Transactions History</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search transactions..." onkeyup="debouncedSearchTransactions()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -297,6 +291,10 @@ $conn->close();
 
         <div class="table-box glass-container">
             <h2>Customer Payment Transactions</h2>
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search transactions..." onkeyup="debouncedSearchTransactions()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             <div class="customer-transactions active">
                 <table id="transactions-table">
                     <thead>
@@ -323,7 +321,6 @@ $conn->close();
                                         <td>" . number_format($row['t_balance'], 2) . "</td> 
                                         <td class='action-buttons'>
                                             <a class='view-btn' href='#' onclick=\"showTransactionViewModal('" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_customer_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_credit_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_description'], ENT_QUOTES, 'UTF-8') . "', '" . number_format($row['t_amount'], 2) . "', '" . number_format($row['t_balance'], 2) . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                            <a class='edit-btn' href='#' onclick=\"showEditTransactionModal('" . htmlspecialchars($row['t_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_customer_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_credit_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_description'], ENT_QUOTES, 'UTF-8') . "', '" . number_format($row['t_amount'], 2) . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                         </td>
                                       </tr>";
                             }

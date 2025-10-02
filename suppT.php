@@ -126,7 +126,6 @@ function logAction($conn, $logType, $logDescription) {
 }
 
 // Handle AJAX search request
-// Handle AJAX search request
 if (isset($_GET['action']) && $_GET['action'] === 'search') {
     while (ob_get_level()) {
         ob_end_clean();
@@ -143,8 +142,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         $typeFilter = '';
     }
 
-    // Count total tickets for pagination - FIXED LOGIC
-    $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
+    // Count total tickets for pagination (REMOVED technician_username filter)
+    $sqlCount = "SELECT COUNT(*) as count 
+                 FROM tbl_supp_tickets 
+                 WHERE c_id = ? AND ";
     
     if ($tab === 'active') {
         $sqlCount .= "s_status IN ('Open', 'Closed')";
@@ -153,7 +154,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         }
     } else {
         $sqlCount .= "s_status = 'Archived'";
-        // Don't apply type filter for archived tab - archived tickets should all show as "Open" in the display
         $typeFilter = ''; // Reset type filter for archived tab
     }
     
@@ -169,7 +169,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         exit();
     }
     
-    // Bind parameters based on conditions - FIXED BINDING LOGIC
+    // Bind parameters based on conditions
     $paramTypes = "i";
     $paramValues = [$filterCid];
     
@@ -196,10 +196,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $stmtCount->close();
     $totalPages = max(1, ceil($totalTickets / $ticketsPerPage));
 
-    // Fetch tickets - FIXED QUERY LOGIC
+    // Fetch tickets (REMOVED technician_username filter)
     $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
             FROM tbl_supp_tickets 
-            WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') AND ";
+            WHERE c_id = ? AND ";
     
     if ($tab === 'active') {
         $sql .= "s_status IN ('Open', 'Closed')";
@@ -208,7 +208,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         }
     } else {
         $sql .= "s_status = 'Archived'";
-        // Don't apply type filter for archived tab
         $typeFilter = '';
     }
     
@@ -226,7 +225,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         exit();
     }
     
-    // Bind parameters for main query - FIXED BINDING LOGIC
+    // Bind parameters for main query
     $paramTypes = "i";
     $paramValues = [$filterCid];
     
@@ -258,7 +257,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     }
     $stmt->close();
 
-    // Generate table content - FIXED DISPLAY LOGIC
+    // Generate table content
     ob_start();
     if ($tickets) {
         foreach ($tickets as $row) {
@@ -439,7 +438,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
         exit();
     }
 
-    $sqlFetch = "SELECT s_status AS status, s_ref FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
+    $sqlFetch = "SELECT s_status AS status, s_ref 
+                 FROM tbl_supp_tickets 
+                 WHERE id = ? 
+                 AND c_id = ? 
+                 AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -495,7 +498,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     $archiveAction = $_POST['archive_action'] ?? '';
     $newStatus = $archiveAction === 'archive' ? 'Archived' : 'Open';
 
-    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
+    $sqlFetch = "SELECT s_ref, c_fname, c_lname 
+                 FROM tbl_supp_tickets 
+                 WHERE id = ? 
+                 AND c_id = ? 
+                 AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -519,7 +526,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     }
     $stmtFetch->close();
 
-    $sql = "UPDATE tbl_supp_tickets SET s_status = ? WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
+    $sql = "UPDATE tbl_supp_tickets 
+            SET s_status = ? 
+            WHERE id = ? 
+            AND c_id = ? 
+            AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed for archive/unarchive: " . $conn->error);
@@ -546,7 +557,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     $redirectTab = $tab;
     if ($tab === 'archived' && $newStatus === 'Open') {
         $redirectTab = 'active';
-        $sqlCount = "SELECT COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND s_status IN ('Open', 'Closed') AND (technician_username IS NULL OR technician_username = '')";
+        $sqlCount = "SELECT COUNT(*) as count 
+                     FROM tbl_supp_tickets 
+                     WHERE c_id = ? 
+                     AND s_status IN ('Open', 'Closed')";
         $stmtCount = $conn->prepare($sqlCount);
         $stmtCount->bind_param("i", $filterCid);
         $stmtCount->execute();
@@ -563,7 +577,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
 
-    $sqlFetch = "SELECT s_ref, c_fname, c_lname FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived' AND (technician_username IS NULL OR technician_username = '')";
+    $sqlFetch = "SELECT s_ref, c_fname, c_lname 
+                 FROM tbl_supp_tickets 
+                 WHERE id = ? 
+                 AND c_id = ? 
+                 AND s_status = 'Archived' 
+                 AND (technician_username IS NULL OR technician_username = '')";
     $stmtFetch = $conn->prepare($sqlFetch);
     if (!$stmtFetch) {
         error_log("Prepare failed: " . $conn->error);
@@ -581,13 +600,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
         $c_lname = $ticketData['c_lname'];
     } else {
         $_SESSION['error'] = "Ticket not found, not archived, or unauthorized.";
-        $stmtFetch->close();
+        $stmt->close();
         header("Location: suppT.php?tab=archived&active_page=$activePage&archived_page=$archivedPage" . ($filterCid ? "&c_id=$filterCid" : ""));
         exit();
     }
     $stmtFetch->close();
 
-    $sql = "DELETE FROM tbl_supp_tickets WHERE id = ? AND c_id = ? AND s_status = 'Archived' AND (technician_username IS NULL OR technician_username = '')";
+    $sql = "DELETE FROM tbl_supp_tickets 
+            WHERE id = ? 
+            AND c_id = ? 
+            AND s_status = 'Archived' 
+            AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -615,7 +638,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
     $inputCid = (int)$_POST['customer_id'];
-    $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')";
+    $sql = "UPDATE tbl_supp_tickets 
+            SET s_status = 'Closed' 
+            WHERE id = ? 
+            AND c_id = ? 
+            AND (technician_username IS NULL OR technician_username = '')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -659,11 +686,14 @@ if ($filterCid != 0) {
     }
 }
 
-// Fetch ticket counts
+// Fetch ticket counts (REMOVED technician_username filter)
 $totalActiveTickets = 0;
 $totalArchivedTickets = 0;
 if ($filterCid != 0) {
-    $sqlCount = "SELECT s_status, COUNT(*) as count FROM tbl_supp_tickets WHERE c_id = ? AND (technician_username IS NULL OR technician_username = '') GROUP BY s_status";
+    $sqlCount = "SELECT s_status, COUNT(*) as count 
+                 FROM tbl_supp_tickets 
+                 WHERE c_id = ? 
+                 GROUP BY s_status";
     $stmt = $conn->prepare($sqlCount);
     if (!$stmt) {
         error_log("Prepare failed: " . $conn->error);
@@ -697,7 +727,8 @@ if ($filterCid != 0) {
         $ticketId = (int)$_GET['id'];
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
-                WHERE id = ? AND c_id = ? AND (technician_username IS NULL OR technician_username = '')
+                WHERE id = ? 
+                AND c_id = ? 
                 ORDER BY id ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -715,10 +746,11 @@ if ($filterCid != 0) {
             $stmt->close();
         }
     } else {
-      // Active tickets
+      // Active tickets (REMOVED technician_username filter)
 $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
         FROM tbl_supp_tickets 
-        WHERE s_status IN ('Open', 'Closed') AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
+        WHERE s_status IN ('Open', 'Closed') 
+        AND c_id = ? 
         ORDER BY id ASC LIMIT ? OFFSET ?";
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -739,10 +771,11 @@ if (!$stmt) {
     $stmt->close();
 }
 
-        // Archived tickets
+        // Archived tickets (REMOVED technician_username filter)
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
-                WHERE s_status = 'Archived' AND c_id = ? AND (technician_username IS NULL OR technician_username = '') 
+                WHERE s_status = 'Archived' 
+                AND c_id = ? 
                 ORDER BY id ASC LIMIT ? OFFSET ?";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -777,7 +810,7 @@ $conn->close();
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppTs.css">
+    <link rel="stylesheet" href="suppT.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -785,7 +818,7 @@ $conn->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
         <li><a href="portal.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -799,10 +832,6 @@ $conn->close();
     <div class="container">
         <div class="upper glass-container">
             <h1>Support Tickets</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <?php
@@ -832,6 +861,10 @@ $conn->close();
                         Archived <?php if ($totalArchivedTickets > 0): ?><span class="tab-badge"><?php echo $totalArchivedTickets; ?></span><?php endif; ?>
                     </button>
                     <button type="button" class="create-ticket-btn" onclick="openModal()">Create Ticket</button>
+                </div>
+                 <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
                 <?php if (isset($_GET['id']) && $ticket): ?>
                     <table>
@@ -897,7 +930,7 @@ $conn->close();
         <th>Customer Name</th>
         <th>Subject</th>
         <th>Message</th>
-        <th>Status <button class="filter-btn" onclick="showTypeFilterModal('archived')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+        <th>Status <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
         <th>Actions</th>
     </tr>
 </thead>

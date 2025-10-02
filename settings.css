@@ -36,6 +36,7 @@ body {
 }
 
 /* Sidebar */
+/* Sidebar */
 .sidebar {
     width: 200px;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -60,24 +61,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 650;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
+    font-size: 1.6rem; /* Slightly larger for impact */
+    font-weight: 650; /* Bold weight for emphasis */
+    letter-spacing: 1px; /* Slight spacing for readability */
+    text-transform: uppercase; /* Makes it more striking */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px;
+    width: 45px; /* Adjust size as needed */
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px;
-    vertical-align: middle;
+    margin-right: -10px; /* Space between icon and text */
+    vertical-align: middle; /* Aligns icon with text */
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px); /* Slight lift effect */
 }
 
 .sidebar ul {
@@ -91,7 +92,7 @@ body {
 
 .sidebar ul li {
     width: 100%;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     text-align: left;
 }
 
@@ -110,11 +111,10 @@ body {
 .sidebar ul li a:hover,
 .sidebar ul li a.active {
     background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-3px);
 }
 
 .sidebar ul li a .icon {
-    font-size: 22px;
+    font-size: 21px;
     margin-right: 12px;
     color: var(--light);
     transition: transform 0.3s ease;
@@ -122,13 +122,29 @@ body {
 
 .sidebar ul li a:hover .icon,
 .sidebar ul li a.active .icon {
-    transform: scale(1.1);
+    transform: scale(1.0);
     color: #ffffff;
+}
+
+.sidebar ul li a i {
+    margin-right: 10px;
+    font-size: 22px;
 }
 
 .sidebar ul li a span {
     font-size: 14px;
     display: inline;
+}
+
+.sidebar ul li a img {
+    width: 35px;
+    height: 30px;
+    margin-right: 10px;
+}
+
+footer .back-home img {
+    width: 35px;
+    height: 35px;
 }
 
 footer {
@@ -159,8 +175,8 @@ footer {
 .back-home i {
     margin-right: 0;
     margin-bottom: 5px;
-    font-size: 22px;
 }
+
 
 /* Main Content */
 .container {
@@ -170,18 +186,18 @@ footer {
     margin-top: -15px;
     padding-top: 100px;
 }
-
 /* Header */
 .upper {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: linear-gradient(135deg, #3d28e2, #594fdd);
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
     margin-top: -70px;
+    height: 65px; /* Fixed height */
 }
 
 .upper h1 {
@@ -259,108 +275,101 @@ footer {
     margin-left: -300px;
 }
 
+
+
+
+.input-box {
+    position: relative;
+    margin-bottom: 25px;
+    width: 85%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.input-box input {
+    width: 100%;
+    padding: 12px 40px;
+    background: var(--light);
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    outline: none;
+    font-size: 15px;
+    color: var(--dark);
+    transition: border-color 0.3s ease;
+}
+
+.input-box input:focus {
+    border-color: var(--secondary);
+}
+
+.input-box i {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #888;
+}
+
+.input-box i:first-child {
+    left: 15px;
+}
+
+.input-box i:last-child {
+    right: 15px;
+    cursor: pointer;
+}
+
+.btn {
+    width: 85%;
+    padding: 14px;
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin: 20px auto;
+    display: block;
+}
+
+.btn:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+}
+
 /* Table Box */
 .table-box {
     width: 100%;
-    padding: 30px;
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
     min-height: 600px;
     display: flex;
     flex-direction: column;
     margin-top: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.table-box h2 {
-    text-align: center;
-    margin-top: 20px;
-    font-size: 2rem;
-    font-weight: 600;
-    color: var(--primary);
-    letter-spacing: 0.5px;
-}
-
-.title-line {
-    border: none;
-    height: 2px;
-    background-color: var(--primary);
-    margin: 20px 0;
-    width: 100%;
-}
-
-/* Customer Details Styles */
-.customer-details-container {
-    padding: 20px;
-    background: var(--light);
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    max-width: 1500px; /* Limit width for centering */
-    margin: 0 auto; /* Center horizontally */
-}
-
-.customer-details-inner {
-    display: flex;
-    justify-content: space-between;
-    gap: 100px; /* Increased from 20px for more column spacing */
-}
-
-.customer-details-column {
-    flex: 1;
-    padding: 20px;
-}
-
-.customer-details-column h3 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.customer-details-column h3 i {
-    font-size: 1.6rem;
-}
-
-.account-no-header, .balance-header {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 15px;
-}
-
-.account-no-value, .balance-value {
-    color: var(--primary);
-    font-size: 1.3rem;
-}
-
-.account-details-content p, .subscription-details-content p, .service-details-content p {
-    margin: 12px 0;
-    font-size: 1.1rem;
-    color: var(--dark);
-}
-
-.account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
+.username {
+    position: absolute;
+    left: 25px;
+    top: 25px;
     font-weight: 500;
-    color: var(--dark);
-    font-size: 1.1rem;
+    color: var(--primary);
 }
 
-thead {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    color: white;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+.admin-icon {
+    color: var(--warning);
+    margin-left: 5px;
 }
 
 .settings-link {
     position: absolute;
-    right: 35px;
-    top: 40px;
+    right: 40px;
+    top: 10;
     display: flex;
     align-items: center;
     text-decoration: none;
@@ -373,6 +382,7 @@ thead {
 .settings-link i {
     font-size: 24px;
     margin-right: 5px;
+    transition: 0.3s ease-in-out;
     color: #dad9d9;
 }
 
@@ -394,42 +404,3 @@ thead {
     margin-top: 10px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .customer-details-inner {
-        flex-direction: column;
-        gap: 20px; /* Reduced gap for mobile when columns stack */
-    }
-
-    .customer-details-column {
-        width: 100%;
-    }
-
-    .customer-details-container {
-        max-width: 100%;
-    }
-
-    .customer-details-column h3 {
-        font-size: 1.3rem;
-    }
-
-    .customer-details-column h3 i {
-        font-size: 1.4rem;
-    }
-
-    .account-no-header, .balance-header {
-        font-size: 1.2rem;
-    }
-
-    .account-no-value, .balance-value {
-        font-size: 1.2rem;
-    }
-
-    .account-details-content p, .subscription-details-content p, .service-details-content p {
-        font-size: 1rem;
-    }
-
-    .account-details-content p strong, .subscription-details-content p strong, .service-details-content p strong {
-        font-size: 1rem;
-    }
-}

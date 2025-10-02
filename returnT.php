@@ -344,7 +344,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Records</title>
-    <link rel="stylesheet" href="regular_closes.css"> 
+    <link rel="stylesheet" href="returnsT.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -461,7 +461,7 @@ if ($conn) {
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
          <ul>
           <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -479,10 +479,6 @@ if ($conn) {
     <div class="container">
         <div class="upper">
             <h1>Asset Records</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchAssets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <a href="image.php">
@@ -590,6 +586,11 @@ if ($conn) {
                     <button class="tab-btn <?php echo $currentTab === 'deployed' ? 'active' : ''; ?>" onclick="showTab('deployed')">
                         Deployed (<?php echo $totalDeployedAssets; ?>)
                     </button>
+                </div>
+
+                <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -748,6 +749,11 @@ if ($conn) {
                     <button class="tab-btn <?php echo $currentTab === 'deployed' ? 'active' : ''; ?>" onclick="showTab('deployed')">
                         Deployed (<?php echo $totalDeployedAssets; ?>)
                     </button>
+                </div>
+
+                <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchUsers()">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">

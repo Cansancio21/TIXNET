@@ -1308,7 +1308,7 @@ unset($_SESSION['open_modal']);
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Asset Management</title>
-        <link rel="stylesheet" href="asset.css"> 
+        <link rel="stylesheet" href="assetsTT.css"> 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1358,10 +1358,6 @@ unset($_SESSION['open_modal']);
         <div class="container">
             <div class="upper"> 
                 <h1>Asset Management</h1>
-                <div class="search-container">
-                    <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchAssets()">
-                    <span class="search-icon"><i class="fas fa-search"></i></span>
-                </div>
                 <div class="user-profile">
                     <div class="user-icon">
                         <a href="image.php">
@@ -1423,6 +1419,12 @@ unset($_SESSION['open_modal']);
                       <?php endif; ?>
                    </button>
                 </div>
+
+                <div class="search-container">
+                    <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchAssets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                </div>
+
                  <div class="button-group">
                    <div class="action-container">
                       <button class="action-btn"><i class="fas fa-plus"></i> Actions</button>

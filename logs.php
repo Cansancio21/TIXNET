@@ -165,7 +165,7 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Logs</title>
-    <link rel="stylesheet" href="logss.css">
+    <link rel="stylesheet" href="logs.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -176,7 +176,7 @@ $stmt->close();
 </head>
 <body>
 <div class="wrapper">
-    <div class="sidebar glass-container">
+    <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
         <ul>
             <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
@@ -194,10 +194,6 @@ $stmt->close();
     <div class="container">
         <div class="upper">
             <h1>System Logs</h1>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search logs..." onkeyup="debouncedSearchLogs()" value="<?php echo htmlspecialchars($search_term); ?>">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
             <div class="user-profile">
                 <div class="user-icon">
                     <?php 
@@ -221,6 +217,11 @@ $stmt->close();
         </div>
 
         <div class="table-box">
+            <h2>User Activities</h2>
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search logs..." onkeyup="debouncedSearchLogs()" value="<?php echo htmlspecialchars($search_term); ?>">
+                <span class="search-icon"><i class="fas fa-search"></i></span>
+            </div>
             <table id="logs-table">
                 <thead>
                     <tr>
