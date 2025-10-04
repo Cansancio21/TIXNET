@@ -332,7 +332,6 @@ footer {
     transform: translateY(-2px);
 }
 
-/* Table Box */
 .table-box {
     width: 100%;
     padding: 20px;
@@ -340,9 +339,8 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
-    display: flex;
+    display: none;
     flex-direction: column;
-    justify-content: space-between; /* Push pagination to bottom */
 }
 
 /* Table Wrapper */
@@ -406,15 +404,12 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-/* Pagination */
 .pagination {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto;
     padding-top: 20px;
-    padding-bottom: 10px; /* Optional: Add padding for spacing */
-    border-top: 1px solid #eee; /* Optional: Separator line */
 }
 
 .pagination-link {
@@ -886,4 +881,3 @@ tr:hover td {
     background: white;
     color: var(--dark);
 }
-

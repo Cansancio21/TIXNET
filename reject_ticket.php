@@ -153,7 +153,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="reject_ticketss.css">
+    <link rel="stylesheet" href="reject_ticket.css">
 
      <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -209,16 +209,18 @@ $conn->close();
         <div class="upper glass-container">
             <h1>Declined Tickets</h1>
             <div class="user-profile">
-                <div class="user-icon">
-                    <?php
-                    $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
-                    if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
-                        echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
-                    } else {
-                        echo "<i class='fas fa-user-circle'></i>";
-                    }
-                    ?>
-                </div>
+            <a href="images.php">
+    <div class="user-icon">
+        <?php
+        $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
+        if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
+            echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
+        } else {
+            echo "<i class='fas fa-user-circle'></i>";
+        }
+        ?>
+    </div>
+</a>
                 <div class="user-details">
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>

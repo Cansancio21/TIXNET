@@ -1,4 +1,4 @@
- <?php
+<?php
     session_start();
     include 'db.php';
 
@@ -118,17 +118,19 @@
         $statusCondition = ($ticket_type === 'regular') ? "t_status = 'Open' AND t_details NOT LIKE 'ARCHIVED:%'" : "s_status = 'Open'";
 
         $sqlCheck = "SELECT COUNT(*) FROM $table WHERE $refColumn = ? AND (technician_username IS NULL OR technician_username = '') AND $statusCondition";
-        $stmtCheck = $conn->prepare($sqlCheck);
-        if (!$stmtCheck) {
-            error_log("Prepare failed for ticket check query: " . $conn->error);
-            echo json_encode(['success' => false, 'error' => 'Database error: Unable to verify ticket.']);
-            exit();
-        }
-        $stmtCheck->bind_param("s", $t_ref);
-        $stmtCheck->execute();
-        $stmtCheck->bind_result($ticketExists);
-        $stmtCheck->fetch();
-        $stmtCheck->close();
+$stmtCheck = $conn->prepare($sqlCheck);
+if (!$stmtCheck) {
+    error_log("Prepare failed for ticket check query: " . $conn->error);
+    echo json_encode(['success' => false, 'error' => 'Database error: Unable to verify ticket.']);
+    exit();
+}
+$stmtCheck->bind_param("s", $t_ref);
+$stmtCheck->execute();
+$stmtCheck->bind_result($ticketExists);
+$stmtCheck->fetch();
+$stmtCheck->close();
+
+
 
         if ($ticketExists == 0) {
             error_log("Ticket does not exist or is already assigned/closed/archived: t_ref=$t_ref, table=$table");
@@ -137,8 +139,8 @@
         }
 
         $sqlAssign = ($ticket_type === 'regular') ?
-            "UPDATE tbl_ticket SET technician_username = ?, technician_archived = 'no' WHERE t_ref = ? AND t_status = 'Open' AND t_details NOT LIKE 'ARCHIVED:%'" :
-            "UPDATE tbl_supp_tickets SET technician_username = ?, technician_archived = 'no' WHERE s_ref = ? AND s_status = 'Open'";
+        "UPDATE tbl_ticket SET technician_username = ? WHERE t_ref = ? AND t_status = 'Open' AND t_details NOT LIKE 'ARCHIVED:%'" :
+        "UPDATE tbl_supp_tickets SET technician_username = ? WHERE s_ref = ? AND s_status = 'Open'";
         $stmtAssign = $conn->prepare($sqlAssign);
         if (!$stmtAssign) {
             error_log("Prepare failed for assign query: " . $conn->error);
@@ -926,5 +928,3 @@ if (!$stmtTechnicians) {
     </script>
     </body>
     </html>
-
-

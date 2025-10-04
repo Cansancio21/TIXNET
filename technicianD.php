@@ -61,9 +61,9 @@ if (file_exists($userAvatar)) {
 }
 $avatarPath = $_SESSION['avatarPath'];
 
-// Ensure table structure
-$sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL, ADD COLUMN IF NOT EXISTS archive_status VARCHAR(20) DEFAULT 'active'";
-$sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL, ADD COLUMN IF NOT EXISTS archive_status VARCHAR(20) DEFAULT 'active'";
+// Ensure table structure - REMOVED archive_status
+$sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
+$sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
 $sqlAlterCloseRegular = "ALTER TABLE tbl_close_regular ADD COLUMN IF NOT EXISTS t_status VARCHAR(20) DEFAULT 'closed', ADD COLUMN IF NOT EXISTS te_date DATETIME";
 $sqlAlterCloseSupp = "ALTER TABLE tbl_close_supp ADD COLUMN IF NOT EXISTS s_status VARCHAR(20) DEFAULT 'closed', ADD COLUMN IF NOT EXISTS s_date DATETIME";
 
@@ -94,8 +94,8 @@ if (!in_array($tab, $validTabs)) {
 
 function fetchDashboardCounts($conn, $username) {
     $counts = [];
-    // Regular open tickets
-    $sqlRegularOpen = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active'";
+    // Regular open tickets - REMOVED archive_status
+    $sqlRegularOpen = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
     $stmtRegularOpen = $conn->prepare($sqlRegularOpen);
     if ($stmtRegularOpen) {
         $stmtRegularOpen->bind_param("s", $username);
@@ -122,8 +122,8 @@ function fetchDashboardCounts($conn, $username) {
         $counts['closedTickets'] = 0;
     }
 
-    // Support open tickets
-    $sqlSupportOpen = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'open' AND archive_status = 'active'";
+    // Support open tickets - REMOVED archive_status
+    $sqlSupportOpen = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'open'";
     $stmtSupportOpen = $conn->prepare($sqlSupportOpen);
     if ($stmtSupportOpen) {
         $stmtSupportOpen->bind_param("s", $username);
@@ -386,8 +386,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     $paramTypes = "s";
 
     if ($tab === 'regular') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active'";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active'";
+        // REMOVED archive_status condition
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
+        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
         if ($searchTerm) {
             $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
             $sqlCount .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
@@ -399,10 +400,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         $params[] = $limit;
         $paramTypes .= "ii";
     } elseif ($tab === 'support') {
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open' AND st.archive_status = 'active'";
+        // REMOVED archive_status condition
+        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
         $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
                 FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
-                WHERE st.technician_username = ? AND st.s_status = 'open' AND st.archive_status = 'active'";
+                WHERE st.technician_username = ? AND st.s_status = 'open'";
         if ($searchTerm) {
             $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
             $sqlCount .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
@@ -498,15 +500,15 @@ $limit = 10;
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
-// Fetch tickets for initial display
+// Fetch tickets for initial display - REMOVED archive_status
 if ($tab === 'regular') {
-    $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active' LIMIT ?, ?";
-    $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' AND archive_status = 'active'";
+    $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' LIMIT ?, ?";
+    $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
 } else {
     $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
             FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
-            WHERE st.technician_username = ? AND st.s_status = 'open' AND st.archive_status = 'active' LIMIT ?, ?";
-    $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open' AND st.archive_status = 'active'";
+            WHERE st.technician_username = ? AND st.s_status = 'open' LIMIT ?, ?";
+    $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
 }
 
 $stmtCount = $conn->prepare($sqlCount);

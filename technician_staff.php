@@ -134,11 +134,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
             <form action="" method="POST">
                 <div class="form-group">
                     <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" placeholder="Enter Username" required>
+                    <div class="input-box">
+                        <input type="text" id="username" name="username" placeholder="Enter Username" required>
+                        <i class="bx bxs-user user-icon"></i>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" placeholder="Enter Password" required>
+                    <div class="input-box">
+                        <input type="password" id="password" name="password" placeholder="Enter Password" required>
+                        <i class="bx bxs-lock-alt password-icon" id="toggleLoginPassword" style="cursor: pointer;"></i>
+                    </div>
                 </div>
                 <button type="submit">Login</button>
                 <p class="additional-info">Welcome to TixNet Pro Technician & Staff Portal!</p>
@@ -146,5 +152,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.getElementById('toggleLoginPassword');
+    const passwordInput = document.getElementById('password');
+    
+    if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('bxs-lock-alt');
+            this.classList.toggle('bxs-lock-open-alt');
+        });
+    }
+});
+</script>
 </body>
 </html>

@@ -219,17 +219,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                         }
                     }
 
-                    // Redirect based on user type
+                    // Redirect based on user type - ONLY ADMIN
                     if ($row['u_type'] == 'admin') {
                         header("Location: adminD.php");
                         exit();
-                    } elseif ($row['u_type'] == 'staff') {
-                        header("Location: staffD.php");
-                        exit();
-                    } elseif ($row['u_type'] == 'technician') {
-                        header("Location: technicianD.php");
-                        exit();
                     }
+                    // Removed staff and technician redirects
                 } else {
                     $passwordError = "Incorrect password. Try again.";
                 }

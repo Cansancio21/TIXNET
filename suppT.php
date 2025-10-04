@@ -833,16 +833,18 @@ $conn->close();
         <div class="upper glass-container">
             <h1>Support Tickets</h1>
             <div class="user-profile">
-                <div class="user-icon">
-                    <?php
-                    $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
-                    if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
-                        echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
-                    } else {
-                        echo "<i class='fas fa-user-circle'></i>";
-                    }
-                    ?>
-                </div>
+            <a href="images.php">
+    <div class="user-icon">
+        <?php
+        $cleanAvatarPath = preg_replace('/\?\d+$/', '', $avatarPath);
+        if (!empty($avatarPath) && file_exists($cleanAvatarPath)) {
+            echo "<img src='" . htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8') . "' alt='User Avatar'>";
+        } else {
+            echo "<i class='fas fa-user-circle'></i>";
+        }
+        ?>
+    </div>
+</a>
                 <div class="user-details">
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>

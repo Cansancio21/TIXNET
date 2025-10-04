@@ -69,7 +69,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Login</title>
-    <link rel="stylesheet" href="customerP.css">
+    <link rel="stylesheet" href="customer.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
 <body>
 <div class="wrapper">
@@ -86,11 +87,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <form action="" method="POST">
                 <div class="form-group">
                     <label for="accountNo">Account No:</label>
-                    <input type="text" id="accountNo" name="accountNo" placeholder="Enter Account No." required>
+                    <div class="input-box">
+                        <input type="text" id="accountNo" name="accountNo" placeholder="Enter Account No." required>
+                        <i class="bx bxs-id-card account-icon"></i>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="lastName">Last Name:</label>
-                    <input type="text" id="lastName" name="lastName" placeholder="Enter last name" required>
+                    <div class="input-box">
+                        <input type="text" id="lastName" name="lastName" placeholder="Enter last name" required>
+                        <i class="bx bxs-user user-icon"></i>
+                    </div>
                 </div>
                 <button type="submit">Login</button>
                 <p class="additional-info">Welcome to Tixnet Pro Customer Portal!</p>
