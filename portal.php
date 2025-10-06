@@ -130,5 +130,60 @@ if (!empty($user['c_nextdue']) && !empty($user['c_nextbill'])) {
         </div>
     </div>
 </div>
+<script>
+// Mobile menu toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const upperHeader = document.querySelector('.upper');
+    const mobileMenuToggle = document.createElement('button');
+    mobileMenuToggle.className = 'mobile-menu-toggle';
+    mobileMenuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+    mobileMenuToggle.setAttribute('aria-label', 'Toggle menu');
+    
+    // Insert the toggle button at the beginning of the header
+    upperHeader.insertBefore(mobileMenuToggle, upperHeader.firstChild);
+    
+    const sidebar = document.querySelector('.sidebar');
+    
+    mobileMenuToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('active');
+        // Toggle menu icon
+        const icon = this.querySelector('i');
+        if (sidebar.classList.contains('active')) {
+            icon.className = 'fas fa-times';
+        } else {
+            icon.className = 'fas fa-bars';
+        }
+    });
+    
+    // Close sidebar when clicking on a link (on mobile)
+    const sidebarLinks = document.querySelectorAll('.sidebar a');
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        });
+    });
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(event) {
+        if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        }
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('active');
+            mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+        }
+    });
+});
+</script>
 </body>
 </html>

@@ -103,11 +103,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $offset = ($page - 1) * $limit;
     $output = '';
 
-    $params = [$technician_id];
-    $types = 's';
+    $params = [];
+    $types = '';
     $whereClauses = ['a_status = ?', 'tech_id = ?'];
     $params[] = 'Borrowed';
-    $types .= 's';
+    $params[] = $technician_id;
+    $types .= 'ss';
 
     if ($searchTerm !== '') {
         $whereClauses[] = "(a_ref_no LIKE ? OR a_name LIKE ? OR a_serial_no LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_date LIKE ?)";
@@ -139,6 +140,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     $sql = "SELECT a_id, a_ref_no, a_name, a_serial_no, tech_name, tech_id, a_date 
             FROM tbl_asset_status 
             WHERE $whereClause 
+            ORDER BY a_date DESC
             LIMIT ?, ?";
     $stmt = $conn->prepare($sql);
     $params[] = $offset;
@@ -168,7 +170,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
 
     // Add pagination data
     $output .= "<script>
-        updatePagination($page, $totalPages, '$searchTerm');
+        updatePagination($page, $totalPages, '$searchTerm', '$filterAssetName');
     </script>";
 
     echo $output;
@@ -194,6 +196,7 @@ $totalPages = ceil($totalRecords / $limit);
 $sqlBorrowed = "SELECT a_id, a_ref_no, a_name, a_serial_no, tech_name, tech_id, a_date 
                 FROM tbl_asset_status 
                 WHERE a_status = 'Borrowed' AND tech_id = ? 
+                ORDER BY a_date DESC
                 LIMIT ?, ?";
 $stmt = $conn->prepare($sqlBorrowed);
 $stmt->bind_param("sii", $technician_id, $offset, $limit);
@@ -394,7 +397,6 @@ $resultBorrowed = $stmt->get_result();
         </div>
     </div>
 </div>
-
 <script>
 let currentSearchPage = 1;
 let defaultPage = <?php echo json_encode($page); ?>;
@@ -415,7 +417,7 @@ function debounce(func, wait) {
 }
 
 function searchBorrowed(page = 1, filterAssetName = '') {
-    const searchTerm = document.getElementById('searchInput').value;
+    const searchTerm = document.getElementById('searchInput').value.trim();
     const tbody = document.getElementById('tableBody');
     const paginationContainer = document.getElementById('borrowed-pagination');
 
@@ -434,18 +436,19 @@ function searchBorrowed(page = 1, filterAssetName = '') {
             }
         }
     };
-    const url = `techBorrowed.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${searchTerm ? page : defaultPage}` +
+    
+    const url = `techBorrowed.php?action=search&search=${encodeURIComponent(searchTerm)}&search_page=${page}` +
                 `&filter_asset_name=${encodeURIComponent(filterAssetName)}`;
     xhr.open('GET', url, true);
     xhr.send();
 }
 
-function updatePagination(currentPage, totalPages, searchTerm) {
+function updatePagination(currentPage, totalPages, searchTerm, filterAssetName) {
     const paginationContainer = document.getElementById('borrowed-pagination');
     let paginationHtml = '';
 
     if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchBorrowed(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+        paginationHtml += `<a href="javascript:void(0)" onclick="searchBorrowed(${currentPage - 1}, '${filterAssetName}')" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     }
@@ -453,7 +456,7 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
     if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchBorrowed(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+        paginationHtml += `<a href="javascript:void(0)" onclick="searchBorrowed(${currentPage + 1}, '${filterAssetName}')" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     }
@@ -461,7 +464,9 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationContainer.innerHTML = paginationHtml;
 }
 
-const debouncedSearchBorrowed = debounce((page) => searchBorrowed(page), 300);
+const debouncedSearchBorrowed = debounce(() => {
+    searchBorrowed(1, window.currentFilters.assetName);
+}, 300);
 
 function showViewModal(id, refNo, assetName, technicianName, technicianId, serialNo, date) {
     const displaySerialNo = (serialNo === '0' || !serialNo) ? '' : serialNo;
@@ -491,21 +496,10 @@ function applyAssetNameFilter() {
 
 function updateTable() {
     const searchTerm = document.getElementById('searchInput').value;
-    if (searchTerm) {
+    if (searchTerm || window.currentFilters.assetName) {
         searchBorrowed(currentSearchPage, window.currentFilters.assetName);
     } else {
-        fetch(`techBorrowed.php?page=${defaultPage}`)
-            .then(response => response.text())
-            .then(data => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(data, 'text/html');
-                const newTableBody = doc.querySelector('#tableBody');
-                const currentTableBody = document.querySelector('#tableBody');
-                if (newTableBody) {
-                    currentTableBody.innerHTML = newTableBody.innerHTML;
-                }
-            })
-            .catch(error => console.error('Error updating table:', error));
+        window.location.href = `techBorrowed.php?page=${defaultPage}`;
     }
 }
 
@@ -530,9 +524,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     });
 
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput.value) {
-        searchBorrowed();
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search');
+    if (searchParam) {
+        document.getElementById('searchInput').value = searchParam;
+        searchBorrowed(1, '');
     }
 });
 

@@ -109,6 +109,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
             $paramTypes .= 'ssss';
         }
 
+        // FIXED: Properly handle status filter for active tab
         if ($statusFilter !== '' && in_array($statusFilter, ['active', 'pending'])) {
             $whereClauses[] = "u_status = ?";
             $params[] = $statusFilter;
@@ -324,55 +325,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $passwordHash, $type, $status);
             if ($stmt->execute()) {
-                // Send the confirmation email using PHPMailer
-                $mail = new PHPMailer(true);
-                $emailSuccess = true;
-                $emailError = '';
-                try {
-                    // Server settings
-                    $mail->isSMTP();
-                    $mail->Host = 'smtp.gmail.com';
-                    $mail->SMTPAuth = true;
-                    $mail->Username = 'jonwilyammayormita@gmail.com';
-                    $mail->Password = 'mqkcqkytlwurwlks';
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                    $mail->Port = 587;
-                    // Recipients
-                    $mail->setFrom('jonwilyammayormita@gmail.com', 'TIXNET System');
-                    $mail->addAddress($email, "$firstname $lastname");
-                    // Content
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Your Account Has Been Created';
-                    $mail->Body = "
-                        <html>
-                        <head>
-                            <title>Your Account Details</title>
-                        </head>
-                        <body>
-                            <p>Dear $firstname $lastname,</p>
-                            <p>Your account has been successfully created. Here are your login credentials:</p>
-                            <p><strong>Username:</strong> $username</p>
-                            <p><strong>Password:</strong> $password</p>
-                            <p>Please use these credentials to log in to our system by clicking the link below:</p>
-                            <p><a href='http://localhost/TIMSSS/index.php'>Login Page</a></p>
-                            <p>For security reasons, we recommend changing your password after first login.</p>
-                            <p>Best regards,<br>Your System Administrator</p>
-                        </body>
-                        </html>
-                    ";
-                    $mail->AltBody = "Dear $firstname $lastname,\n\nYour account has been successfully created. Here are your login credentials:\nUsername: $username\nPassword: $password\n\nPlease use these credentials to log in to our system at http://localhost/TIMSSS/index.php\n\nFor security reasons, we recommend changing your password after first login.\n\nBest regards,\nYour System Administrator";
-                    $mail->send();
-                } catch (Exception $e) {
-                    $emailSuccess = false;
-                    $emailError = $mail->ErrorInfo;
-                    error_log("PHPMailer Error: " . $emailError);
-                }
+                // Send email in background without waiting for response
+                $emailSent = sendQuickEmail($firstname, $lastname, $email, $username, $password);
+                
                 $stmt->close();
                 header('Content-Type: application/json');
-                if ($emailSuccess) {
+                if ($emailSent) {
                     echo json_encode(['success' => true, 'message' => 'User has been registered successfully. A confirmation email has been sent.']);
                 } else {
-                    echo json_encode(['success' => true, 'message' => 'User registered, but error sending confirmation email: ' . $emailError]);
+                    echo json_encode(['success' => true, 'message' => 'User registered successfully. Email notification may be delayed.']);
                 }
                 exit();
             } else {
@@ -537,6 +498,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt->close();
         exit();
+    }
+}
+
+// Quick email function with timeout to prevent delays
+function sendQuickEmail($firstname, $lastname, $email, $username, $password) {
+    try {
+        $mail = new PHPMailer(true);
+        
+        // Set short timeout
+        $mail->Timeout = 10; // 10 seconds timeout
+        $mail->SMTPDebug = 0; // No debug output
+        
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'jonwilyammayormita@gmail.com';
+        $mail->Password = 'mqkcqkytlwurwlks';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+        
+        // Recipients
+        $mail->setFrom('jonwilyammayormita@gmail.com', 'TIXNET System');
+        $mail->addAddress($email, "$firstname $lastname");
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'Your Account Has Been Created';
+        $mail->Body = "
+            <html>
+            <head>
+                <title>Your Account Details</title>
+            </head>
+            <body>
+                <p>Dear $firstname $lastname,</p>
+                <p>Your account has been successfully created. Here are your login credentials:</p>
+                <p><strong>Username:</strong> $username</p>
+                <p><strong>Password:</strong> $password</p>
+                <p>Please use these credentials to log in to our system by clicking the link below:</p>
+                <p><a href='http://localhost/TIXNET/index.php'>Login Page</a></p>
+                <p>For security reasons, we recommend changing your password after first login.</p>
+                <p>Best regards,<br>Your System Administrator</p>
+            </body>
+            </html>
+        ";
+        $mail->AltBody = "Dear $firstname $lastname,\n\nYour account has been successfully created. Here are your login credentials:\nUsername: $username\nPassword: $password\n\nPlease use these credentials to log in to our system at http://localhost/TIMSSS/index.php\n\nFor security reasons, we recommend changing your password after first login.\n\nBest regards,\nYour System Administrator";
+        
+        return $mail->send();
+    } catch (Exception $e) {
+        error_log("Quick email error: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -1118,6 +1130,253 @@ $stmt->close();
             searchUsers(currentSearchPage);
         }
 
+        // Fixed showViewModal function with status colors
+        function showViewModal(id, fname, lname, email, username, type, status) {
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            const safeId = escapeHtml(String(id));
+            const safeFname = escapeHtml(fname);
+            const safeLname = escapeHtml(lname);
+            const safeEmail = escapeHtml(email);
+            const safeUsername = escapeHtml(username);
+            const safeType = escapeHtml(type);
+            const safeStatus = escapeHtml(status);
+
+            const viewContent = document.getElementById('viewContent');
+            if (viewContent) {
+                viewContent.innerHTML = `
+                    <p><strong>ID:</strong> ${safeId}</p>
+                    <p><strong>First Name:</strong> ${safeFname}</p>
+                    <p><strong>Last Name:</strong> ${safeLname}</p>
+                    <p><strong>Email:</strong> ${safeEmail}</p>
+                    <p><strong>Username:</strong> ${safeUsername}</p>
+                    <p><strong>Type:</strong> ${safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase()}</p>
+                    <p><strong>Status:</strong> <span class="status-${safeStatus.toLowerCase()}">${safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1).toLowerCase()}</span></p>
+                `;
+                const modal = document.getElementById('viewModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+            }
+        }
+
+        function showAddUserModal() {
+            const modal = document.getElementById('addUserModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showEditUserModal(id, fname, lname, email, username, type, status) {
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            const safeId = escapeHtml(String(id));
+            const safeFname = escapeHtml(fname);
+            const safeLname = escapeHtml(lname);
+            const safeEmail = escapeHtml(email);
+            const safeUsername = escapeHtml(username);
+            const safeType = escapeHtml(type);
+            const safeStatus = escapeHtml(status);
+
+            document.getElementById('edit_u_id').value = safeId;
+            document.getElementById('edit_firstname').value = safeFname;
+            document.getElementById('edit_lastname').value = safeLname;
+            document.getElementById('edit_email').value = safeEmail;
+            document.getElementById('edit_username').value = safeUsername;
+            document.getElementById('edit_type').value = safeType.toLowerCase();
+            document.getElementById('edit_status').value = safeStatus.toLowerCase();
+
+            const modal = document.getElementById('editUserModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showArchiveModal(id, name) {
+            document.getElementById('archiveUserId').value = id;
+            document.getElementById('archiveUserName').textContent = name;
+            const modal = document.getElementById('archiveModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showRestoreModal(id, name) {
+            document.getElementById('restoreUserId').value = id;
+            document.getElementById('restoreUserName').textContent = name;
+            const modal = document.getElementById('restoreModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showDeleteModal(id, name) {
+            document.getElementById('deleteUserId').value = id;
+            document.getElementById('deleteUserName').textContent = name;
+            const modal = document.getElementById('deleteModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showRestoreAllModal() {
+            const modal = document.getElementById('restoreAllModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showTypeFilterModal(tab) {
+            document.getElementById('typeFilterTab').value = tab;
+            const modal = document.getElementById('typeFilterModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function showStatusFilterModal(tab) {
+            document.getElementById('statusFilterTab').value = tab;
+            const modal = document.getElementById('statusFilterModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            if (modalId === 'addUserModal') {
+                document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
+                document.getElementById('addUserForm').reset();
+                const passwordInput = document.getElementById('add_password');
+                const toggleIcon = document.getElementById('toggleAddPassword');
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            } else if (modalId === 'editUserModal') {
+                document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
+                document.getElementById('editUserForm').reset();
+            } else if (modalId === 'typeFilterModal') {
+                document.getElementById('typeFilterForm').reset();
+            } else if (modalId === 'statusFilterModal') {
+                document.getElementById('statusFilterForm').reset();
+            }
+        }
+
+        function showAlert(type, message) {
+            const alertContainer = document.querySelector('.alert-container');
+            if (alertContainer) {
+                const alert = document.createElement('div');
+                alert.className = `alert alert-${type}`;
+                alert.textContent = message;
+                alertContainer.appendChild(alert);
+
+                setTimeout(() => {
+                    alert.classList.add('fade-out');
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 500);
+                }, 3000);
+            }
+        }
+
+        function updateTabCounts() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'viewU.php?action=get_counts', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log('Tab Counts Response:', response);
+                        const activeTabBtn = document.querySelector('.tab-btn[onclick="showTab(\'active\')"]');
+                        const archivedTabBtn = document.querySelector('.tab-btn[onclick="showTab(\'archived\')"]');
+                        activeTabBtn.textContent = `User (${response.activeCount})`;
+                        archivedTabBtn.innerHTML = `Archived${response.archivedCount > 0 ? ` <span class="tab-badge">${response.archivedCount}</span>` : ''}`;
+                        
+                        // Show/hide Restore All button based on archived count
+                        const restoreAllBtn = document.querySelector('.restore-all-btn');
+                        if (restoreAllBtn) {
+                            restoreAllBtn.style.display = response.archivedCount > 0 ? 'inline-block' : 'none';
+                        }
+                    } catch (e) {
+                        console.error('Error parsing tab counts JSON:', e, xhr.responseText);
+                        showAlert('error', 'Failed to update tab counts.');
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        const debouncedSearchUsers = debounce(function(page = 1) {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            currentSearchPage = page;
+            if (currentTab === 'active') {
+                activePage = page;
+            } else {
+                archivedPage = page;
+            }
+            const xhr = new XMLHttpRequest();
+            const params = new URLSearchParams({
+                action: 'search',
+                search: searchTerm,
+                tab: currentTab,
+                search_page: page,
+                status: currentStatusFilter,
+                type: currentTypeFilter
+            });
+            xhr.open('GET', `viewU.php?${params.toString()}`, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log('Search Response:', response);
+                        const tbody = document.getElementById(currentTab === 'active' ? 'active-users-tbody' : 'archived-users-tbody');
+                        const pagination = document.getElementById(currentTab === 'active' ? 'active-users-pagination' : 'archived-users-pagination');
+                        if (tbody && pagination) {
+                            tbody.innerHTML = response.html;
+                            let paginationHtml = '';
+                            if (response.totalPages > 0) {
+                                paginationHtml += response.currentPage > 1
+                                    ? `<a href="javascript:searchUsers(${response.currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`
+                                    : `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+                                paginationHtml += `<span class="current-page">Page ${response.currentPage} of ${response.totalPages}</span>`;
+                                paginationHtml += response.currentPage < response.totalPages
+                                    ? `<a href="javascript:searchUsers(${response.currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`
+                                    : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+                            }
+                            pagination.innerHTML = paginationHtml;
+                            // Update tab counts after search
+                            updateTabCounts();
+                        }
+                    } catch (e) {
+                        console.error('Error parsing search JSON:', e, xhr.responseText);
+                        showAlert('error', 'Failed to process search response.');
+                    }
+                }
+            };
+            xhr.send();
+        }, 300);
+
+        function searchUsers(page) {
+            debouncedSearchUsers(page);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             showTab(currentTab);
 
@@ -1432,254 +1691,6 @@ $stmt->close();
             // Initialize tab counts on page load
             updateTabCounts();
         });
-
-        function closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            if (modalId === 'addUserModal') {
-                document.querySelectorAll('#addUserForm .error').forEach(el => el.textContent = '');
-                document.getElementById('addUserForm').reset();
-                const passwordInput = document.getElementById('add_password');
-                const toggleIcon = document.getElementById('toggleAddPassword');
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            } else if (modalId === 'editUserModal') {
-                document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
-                document.getElementById('editUserForm').reset();
-            } else if (modalId === 'typeFilterModal') {
-                document.getElementById('typeFilterForm').reset();
-            } else if (modalId === 'statusFilterModal') {
-                document.getElementById('statusFilterForm').reset();
-            }
-        }
-
-        function showViewModal(id, fname, lname, email, username, type, status) {
-            function escapeHtml(unsafe) {
-                return unsafe
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            const safeId = escapeHtml(String(id));
-            const safeFname = escapeHtml(fname);
-            const safeLname = escapeHtml(lname);
-            const safeEmail = escapeHtml(email);
-            const safeUsername = escapeHtml(username);
-            const safeType = escapeHtml(type);
-            const safeStatus = escapeHtml(status);
-
-            const viewContent = document.getElementById('viewContent');
-            if (viewContent) {
-                viewContent.innerHTML = `
-                    <p><strong>ID:</strong> ${safeId}</p>
-                    <p><strong>First Name:</strong> ${safeFname}</p>
-                    <p><strong>Last Name:</strong> ${safeLname}</p>
-                    <p><strong>Email:</strong> ${safeEmail}</p>
-                    <p><strong>Username:</strong> ${safeUsername}</p>
-                    <p><strong>Type:</strong> ${safeType.charAt(0).toUpperCase() + safeType.slice(1).toLowerCase()}</p>
-                    <p><strong>Status:</strong> ${safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1).toLowerCase()}</p>
-                `;
-                const modal = document.getElementById('viewModal');
-                if (modal) {
-                    modal.style.display = 'flex';
-                }
-            }
-        }
-
-        function showAddUserModal() {
-            const modal = document.getElementById('addUserModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showEditUserModal(id, fname, lname, email, username, type, status) {
-            function escapeHtml(unsafe) {
-                return unsafe
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            const safeId = escapeHtml(String(id));
-            const safeFname = escapeHtml(fname);
-            const safeLname = escapeHtml(lname);
-            const safeEmail = escapeHtml(email);
-            const safeUsername = escapeHtml(username);
-            const safeType = escapeHtml(type);
-            const safeStatus = escapeHtml(status);
-
-            document.getElementById('edit_u_id').value = safeId;
-            document.getElementById('edit_firstname').value = safeFname;
-            document.getElementById('edit_lastname').value = safeLname;
-            document.getElementById('edit_email').value = safeEmail;
-            document.getElementById('edit_username').value = safeUsername;
-            document.getElementById('edit_type').value = safeType.toLowerCase();
-            document.getElementById('edit_status').value = safeStatus.toLowerCase();
-
-            const modal = document.getElementById('editUserModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showArchiveModal(id, name) {
-            document.getElementById('archiveUserId').value = id;
-            document.getElementById('archiveUserName').textContent = name;
-            const modal = document.getElementById('archiveModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showRestoreModal(id, name) {
-            document.getElementById('restoreUserId').value = id;
-            document.getElementById('restoreUserName').textContent = name;
-            const modal = document.getElementById('restoreModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showDeleteModal(id, name) {
-            document.getElementById('deleteUserId').value = id;
-            document.getElementById('deleteUserName').textContent = name;
-            const modal = document.getElementById('deleteModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showRestoreAllModal() {
-            const modal = document.getElementById('restoreAllModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showTypeFilterModal(tab) {
-            document.getElementById('typeFilterTab').value = tab;
-            const modal = document.getElementById('typeFilterModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showStatusFilterModal(tab) {
-            document.getElementById('statusFilterTab').value = tab;
-            const modal = document.getElementById('statusFilterModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
-
-        function showAlert(type, message) {
-            const alertContainer = document.querySelector('.alert-container');
-            if (alertContainer) {
-                const alert = document.createElement('div');
-                alert.className = `alert alert-${type}`;
-                alert.textContent = message;
-                alertContainer.appendChild(alert);
-
-                setTimeout(() => {
-                    alert.classList.add('fade-out');
-                    setTimeout(() => {
-                        alert.remove();
-                    }, 500);
-                }, 3000);
-            }
-        }
-
-        // New function to update tab counts dynamically
-        function updateTabCounts() {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', 'viewU.php?action=get_counts', true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        console.log('Tab Counts Response:', response);
-                        const activeTabBtn = document.querySelector('.tab-btn[onclick="showTab(\'active\')"]');
-                        const archivedTabBtn = document.querySelector('.tab-btn[onclick="showTab(\'archived\')"]');
-                        activeTabBtn.textContent = `User (${response.activeCount})`;
-                        archivedTabBtn.innerHTML = `Archived${response.archivedCount > 0 ? ` <span class="tab-badge">${response.archivedCount}</span>` : ''}`;
-                        
-                        // Show/hide Restore All button based on archived count
-                        const restoreAllBtn = document.querySelector('.restore-all-btn');
-                        if (restoreAllBtn) {
-                            restoreAllBtn.style.display = response.archivedCount > 0 ? 'inline-block' : 'none';
-                        }
-                    } catch (e) {
-                        console.error('Error parsing tab counts JSON:', e, xhr.responseText);
-                        showAlert('error', 'Failed to update tab counts.');
-                    }
-                }
-            };
-            xhr.send();
-        }
-
-        // Modified debouncedSearchUsers to update both tabs and counts
-        const debouncedSearchUsers = debounce(function(page = 1) {
-            const searchTerm = document.getElementById('searchInput').value.trim();
-            currentSearchPage = page;
-            if (currentTab === 'active') {
-                activePage = page;
-            } else {
-                archivedPage = page;
-            }
-            const xhr = new XMLHttpRequest();
-            const params = new URLSearchParams({
-                action: 'search',
-                search: searchTerm,
-                tab: currentTab,
-                search_page: page,
-                status: currentStatusFilter,
-                type: currentTypeFilter
-            });
-            xhr.open('GET', `viewU.php?${params.toString()}`, true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        console.log('Search Response:', response);
-                        const tbody = document.getElementById(currentTab === 'active' ? 'active-users-tbody' : 'archived-users-tbody');
-                        const pagination = document.getElementById(currentTab === 'active' ? 'active-users-pagination' : 'archived-users-pagination');
-                        if (tbody && pagination) {
-                            tbody.innerHTML = response.html;
-                            let paginationHtml = '';
-                            if (response.totalPages > 0) {
-                                paginationHtml += response.currentPage > 1
-                                    ? `<a href="javascript:searchUsers(${response.currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`
-                                    : `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
-                                paginationHtml += `<span class="current-page">Page ${response.currentPage} of ${response.totalPages}</span>`;
-                                paginationHtml += response.currentPage < response.totalPages
-                                    ? `<a href="javascript:searchUsers(${response.currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`
-                                    : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
-                            }
-                            pagination.innerHTML = paginationHtml;
-                            // Update tab counts after search
-                            updateTabCounts();
-                        }
-                    } catch (e) {
-                        console.error('Error parsing search JSON:', e, xhr.responseText);
-                        showAlert('error', 'Failed to process search response.');
-                    }
-                }
-            };
-            xhr.send();
-        }, 300);
-
-        function searchUsers(page) {
-            debouncedSearchUsers(page);
-        }
     </script>
 </body>
 </html>

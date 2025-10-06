@@ -62,24 +62,24 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
 
 .sidebar ul {
@@ -214,10 +214,9 @@ footer {
 .search-container {
     position: relative;
     width: 300px;
-    margin-left: 1005px;
+    margin-left: 1310px;
     margin-top: -60px;
     margin-bottom: 10px;
-    
 }
 
 .search-bar {
@@ -303,7 +302,7 @@ footer {
 .export-btn {
     position: absolute;
     top: -68px;
-    right: -1430px;
+    right: -1115px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;
@@ -332,7 +331,7 @@ footer {
     position: absolute;
     top: 100%;
     right: 0;
-    left: 1265px;
+    left: 940px;
     background: white;
     min-width: 120px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -369,7 +368,7 @@ footer {
 .add-user-btn {
     position: absolute;
     top: 54px;
-    right: 20px;
+    right: 340px;
     display: inline-flex;
     align-items: center;
     background-color: #cf752b;
@@ -464,16 +463,17 @@ footer {
     margin-top: 5px;
 }
 
-/* Optimized Table Structure */
+/* FIXED TABLE STRUCTURE - BOTH TABLES HAVE SAME COLUMN WIDTHS */
 table {
     width: 100%;
     border-collapse: collapse;
     margin-top: -15px;
     table-layout: fixed;
-    display: table; /* Default display for tables */
 }
 
-thead {
+/* Ensure both tables have identical header structure */
+#active-customers-table thead,
+#archived-customers-table thead {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
     position: sticky;
@@ -481,11 +481,82 @@ thead {
     z-index: 10;
 }
 
-th {
+/* Fixed column widths for both tables */
+#active-customers-table th,
+#archived-customers-table th {
     padding: 15px;
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
+    font-size: 14px;
+}
+
+/* Specific column width distribution for 9 columns */
+#active-customers-table th:nth-child(1),
+#archived-customers-table th:nth-child(1) {
+    width: 10%; /* Account No. */
+}
+
+#active-customers-table th:nth-child(2),
+#archived-customers-table th:nth-child(2) {
+    width: 10%; /* First Name */
+}
+
+#active-customers-table th:nth-child(3),
+#archived-customers-table th:nth-child(3) {
+    width: 10%; /* Last Name */
+}
+
+#active-customers-table th:nth-child(4),
+#archived-customers-table th:nth-child(4) {
+    width: 8%; /* Purok */
+}
+
+#active-customers-table th:nth-child(5),
+#archived-customers-table th:nth-child(5) {
+    width: 10%; /* Barangay */
+}
+
+#active-customers-table th:nth-child(6),
+#archived-customers-table th:nth-child(6) {
+    width: 10%; /* Contact */
+}
+
+#active-customers-table th:nth-child(7),
+#archived-customers-table th:nth-child(7) {
+    width: 12%; /* Coordinates */
+}
+
+#active-customers-table th:nth-child(8),
+#archived-customers-table th:nth-child(8) {
+    width: 17%; /* Email */
+}
+
+#active-customers-table th:nth-child(9),
+#archived-customers-table th:nth-child(9) {
+    width: 10%; /* Actions */
+}
+
+/* Table body cells */
+#active-customers-table td,
+#archived-customers-table td {
+    padding: 8px 5px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    font-size: 14px;
+    word-break: break-word;
+    line-height: 1.3;
+    vertical-align: middle;
+}
+
+/* Ensure empty state maintains proper structure */
+#active-customers-table tbody tr td[colspan="9"],
+#archived-customers-table tbody tr td[colspan="9"] {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-style: italic;
+    background-color: #f9f9f9;
 }
 
 th:first-child {
@@ -494,15 +565,6 @@ th:first-child {
 
 th:last-child {
     border-top-right-radius: 10px;
-}
-
-td {
-    padding: 8px 5px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
-    font-size: 0.9rem;
-    word-break: break-word;
-    line-height: 1.3;
 }
 
 tr:last-child td {
@@ -718,38 +780,38 @@ tr:hover td {
 }
 .customer-details-container {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns for the initial layout */
-    gap: 10px; /* Reduced gap between columns */
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     padding: 20px;
     border-radius: 8px;
 }
 
 .customer-details-inner {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns for Account and Subscription */
-    gap: 10px; /* Same gap as container */
-    background-color: #f9f9f9; /* Shared inner background for Account and Subscription */
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    background-color: #f9f9f9;
     padding: 15px;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    margin-top: 10px; /* Consistent spacing */
+    margin-top: 10px;
 }
 
 .service-details-inner {
     display: grid;
-    grid-template-columns: 1fr; /* Single column for Service Details */
+    grid-template-columns: 1fr;
     gap: 10px;
-    background-color: #e6f3ff; /* Original light blue background */
+    background-color: #e6f3ff;
     padding: 15px;
-    border: 1px solid #b3d4fc; /* Original border color */
+    border: 1px solid #b3d4fc;
     border-radius: 8px;
-    margin-top: 10px; /* Consistent spacing */
+    margin-top: 10px;
 }
 
 .customer-details-column {
     display: flex;
     flex-direction: column;
-    padding: 0; /* Remove padding to avoid overlap */
+    padding: 0;
 }
 
 .customer-details-column h3 {
@@ -759,11 +821,11 @@ tr:hover td {
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px; /* Space between icon and text */
+    gap: 8px;
 }
 
 .customer-details-column h3 i {
-    font-size: 1.1em; /* Slightly smaller than the text for balance */
+    font-size: 1.1em;
     color: var(--dark);
 }
 
@@ -771,17 +833,17 @@ tr:hover td {
     margin: 8px 0;
     font-size: 0.95em;
     color: var(--dark);
-    border-bottom: 1px solid #ddd; /* Single line below info text */
+    border-bottom: 1px solid #ddd;
 }
 
 .customer-details-column p:last-child {
-    border-bottom: none; /* Remove line from the last item */
+    border-bottom: none;
 }
 
 .subscription-details-column {
     display: flex;
     flex-direction: column;
-    padding: 0; /* Remove padding to avoid overlap */
+    padding: 0;
 }
 
 .subscription-details-column h3 {
@@ -791,11 +853,11 @@ tr:hover td {
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px; /* Space between icon and text */
+    gap: 8px;
 }
 
 .subscription-details-column h3 i {
-    font-size: 1.1em; /* Slightly smaller than the text for balance */
+    font-size: 1.1em;
     color: var(--dark);
 }
 
@@ -803,26 +865,26 @@ tr:hover td {
     margin: 8px 0;
     font-size: 0.95em;
     color: var(--dark);
-    border-bottom: 1px solid #ddd; /* Single line below info text */
+    border-bottom: 1px solid #ddd;
 }
 
 .subscription-details-column p:last-child {
-    border-bottom: none; /* Remove line from the last item */
+    border-bottom: none;
 }
 
 .account-no-header {
     margin: 8px 0;
-    font-size: 1em; /* Base size for the "Account No." text */
+    font-size: 1em;
     color: var(--primary);
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 8px;
-    border-bottom: none; /* No line under Account No. */
+    border-bottom: none;
 }
 
 .account-no-header .account-no-value {
-    font-size: 1.5em; /* 3x larger than the "Account No." text */
+    font-size: 1.5em;
     font-weight: 600;
 }
 
@@ -835,30 +897,29 @@ tr:hover td {
 
 .balance-header {
     margin: 8px 0;
-    font-size: 1em; /* Base size for the "Balance" text */
+    font-size: 1em;
     color: var(--primary);
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 8px;
-    border-bottom: none; /* No line under Balance */
+    border-bottom: none;
 }
 
 .balance-header .balance-value {
-    font-size: 1.5em; /* 3x larger than the "Balance" text */
+    font-size: 1.5em;
     font-weight: 600;
 }
 
-/* Service Details retains original background color and border */
 .service-details-inner {
     display: grid;
-    grid-template-columns: 1fr; /* Single column for Service Details */
+    grid-template-columns: 1fr;
     gap: 10px;
-    background-color: #e6f3ff; /* Original light blue background */
+    background-color: #e6f3ff;
     padding: 15px;
-    border: 1px solid #b3d4fc; /* Original border color */
+    border: 1px solid #b3d4fc;
     border-radius: 8px;
-    margin-top: 10px; /* Consistent spacing */
+    margin-top: 10px;
 }
 
 .details-btn.cancel {
@@ -870,7 +931,7 @@ tr:hover td {
     background: var(--primary);
     color: white;
     transition: all 0.3s;
-    margin-top: 10px; /* Consistent spacing */
+    margin-top: 10px;
 }
 
 .details-btn.cancel:hover {
@@ -880,10 +941,17 @@ tr:hover td {
 }
 
 .advance-text {
-    color: var(--success); 
+    color: var(--success);
     font-weight: 500;
     font-size: 0.9em;
-    margin-left: 5px; 
+    margin-left: 5px;
+}
+
+.activate-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none; /* Prevents clicking */
+    color: #ffffff;
 }
 
 /* Modal Form Adjustments */
@@ -984,9 +1052,9 @@ tr:hover td {
 
 /* Highlighted Field Styling */
 .highlight-field {
-    background-color: #f0f4f8; /* Light blue-gray background */
-    text-align: center; /* Center the text */
-    border: 1px solid #b3d4fc; /* Matching border color */
+    background-color: #f0f4f8;
+    text-align: center;
+    border: 1px solid #b3d4fc;
     border-radius: 5px;
     padding: 8px;
     margin: 5px 0 15px;
@@ -1016,7 +1084,7 @@ tr:hover td {
 }
 
 .balance-type {
-    color: #28a745; /* Green color */
+    color: #28a745;
     font-size: 0.8em;
     margin-left: 8px;
     font-weight: 500;
@@ -1045,8 +1113,8 @@ tr:hover td {
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    gap: 10px; /* Space between buttons */
-    margin-top: 10px; /* Space above the button container */
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
@@ -1104,7 +1172,7 @@ tr:hover td {
 }
 
 .activate-btn {
-    background-color: #e67e22; /* Orange color for activation */
+    background-color: #e67e22;
     color: #fff;
     border-radius: 5px;
     text-decoration: none;
@@ -1114,21 +1182,21 @@ tr:hover td {
     background-color: #d35400;
 }
 .activate-btn i {
-    font-size: 16px; /* Match icon size with other buttons */
+    font-size: 16px;
 }
 
 .payment-btn {
-    background-color: #2ecc71; /* Green color for payment, matching edit-btn for consistency */
+    background-color: #2ecc71;
     color: #fff;
     border-radius: 5px;
     text-decoration: none;
     transition: background-color 0.3s ease;
 }
 .payment-btn:hover {
-    background-color: #27ae60; /* Darker green for hover state */
+    background-color: #27ae60;
 }
 .payment-btn i {
-    font-size: 16px; /* Match icon size with other buttons */
+    font-size: 16px;
 }
 
 /* Responsive adjustments */
@@ -1194,7 +1262,7 @@ tr:hover td {
     }
 
     .action-buttons-container {
-        gap: 8px; /* Slightly reduced gap for smaller screens */
+        gap: 8px;
     }
 
     .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
@@ -1246,6 +1314,8 @@ tr:hover td {
     }
 
     .action-buttons-container {
-        gap: 6px; /* Further reduced gap for very small screens */
+        gap: 6px;
     }
 }
+
+

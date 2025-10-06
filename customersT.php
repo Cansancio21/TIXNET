@@ -384,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $transaction_date = $_POST['t_date'];
     $credit_date = $_POST['t_credit_date'];
     $transaction_description = $_POST['t_description'] === 'Custom description' ? $_POST['custom_description'] : $_POST['t_description'];
-    $transaction_amount = floatval($_POST['t_amount']);
+    $transaction_amount = $_POST['t_amount'];
 
     // Set Philippines time zone
     date_default_timezone_set('Asia/Manila');
@@ -392,6 +392,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate inputs
     if (empty($credit_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $credit_date)) {
         $_SESSION['error'] = "Invalid credit date format. Please use YYYY-MM-DD.";
+    } elseif (!is_numeric($transaction_amount) || !preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $transaction_amount)) {
+        $_SESSION['error'] = "Transaction amount should be numbers only.";
     } elseif ($transaction_amount <= 0) {
         $_SESSION['error'] = "Transaction amount must be a positive number.";
     } else {
@@ -522,7 +524,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customerssT.css">
+    <link rel="stylesheet" href="customersT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -1056,14 +1058,18 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
     const exportContainer = document.querySelector('.export-container');
     const addCustomerButton = document.querySelector('.add-user-btn');
     const tableBoxTitle = document.querySelector('.table-box h2');
+    const searchContainer = document.querySelector('.search-container');
 
-    // Hide the table, pagination, tab buttons, export button, add customer button, and title
+    // Hide the table, pagination, tab buttons, export button, add customer button, title, and search bar
     table.style.display = 'none';
     pagination.style.display = 'none';
     tabButtons.style.display = 'none';
     exportContainer.style.display = 'none';
     addCustomerButton.style.display = 'none';
     tableBoxTitle.style.display = 'none';
+    if (searchContainer) {
+        searchContainer.style.display = 'none';
+    }
 
     // Format dates consistently
     const formatDate = (dateStr) => {
@@ -1078,6 +1084,14 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
 
     const formattedStartDate = formatDate(startdate);
     const formattedLastDue = formatDate(lastdue);
+
+    // Determine if the customer is activated (has nextdue or nextbill)
+    const isActivated = nextdue !== '' || nextbill !== '' || billstatus === 'Active';
+
+    // Conditionally render the Activate button
+    const activateButtonHtml = isActivated
+        ? '<span class="activate-btn disabled" title="Billing Already Activated"><i class="fas fa-play"></i></span>'
+        : `<a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>`;
 
     // Populate and show the details section
     contentDiv.innerHTML = `
@@ -1116,11 +1130,12 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
                 <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
                 <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
                 <div class="action-buttons-container">
-                    <a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>
+                    ${activateButtonHtml}
                     <a class='payment-btn' onclick="showPaymentTransactionModal('${account_no}', '${fname} ${lname}', '${balance ? parseFloat(balance).toFixed(2) : '0.00'}', '${plan || ''}')" title='Record Payment'><i class='fas fa-money-bill-wave'></i></a>
                 </div>
+            </div>
+            <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
         </div>
-        <button class="details-btn cancel" onclick="hideViewDetails('customerDetails${tab === 'active' ? 'Active' : 'Archived'}')">Cancel</button>
     </div>
     `;
     detailsSection.style.display = 'block';
@@ -1134,8 +1149,9 @@ function hideViewDetails(sectionId) {
     const exportContainer = document.querySelector('.export-container');
     const addCustomerButton = document.querySelector('.add-user-btn');
     const tableBoxTitle = document.querySelector('.table-box h2');
+    const searchContainer = document.querySelector('.search-container');
 
-    // Hide the details section and show the table, pagination, tab buttons, export button, add customer button, and title
+    // Hide the details section and show the table, pagination, tab buttons, export button, add customer button, title, and search bar
     document.getElementById(sectionId).style.display = 'none';
     table.style.display = 'table';
     pagination.style.display = 'flex';
@@ -1143,16 +1159,8 @@ function hideViewDetails(sectionId) {
     exportContainer.style.display = 'inline-block';
     addCustomerButton.style.display = 'inline-flex';
     tableBoxTitle.style.display = 'block';
-}
-
-function toggleCustomDescription() {
-    const descriptionSelect = document.getElementById('t_description');
-    const customDescContainer = document.getElementById('customDescriptionContainer');
-    
-    if (descriptionSelect.value === 'Custom description') {
-        customDescContainer.style.display = 'block';
-    } else {
-        customDescContainer.style.display = 'none';
+    if (searchContainer) {
+        searchContainer.style.display = 'block';
     }
 }
 
@@ -1265,3 +1273,5 @@ function updateTable() {
 </script>
 </body>
 </html>
+
+

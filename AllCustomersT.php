@@ -340,26 +340,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
+// Initialize search and filter variables
+$searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
+$accountFilter = isset($_GET['account_filter']) ? trim($_GET['account_filter']) : '';
+
 // Pagination setup
 $limit = 10;
 $pageCustomer = isset($_GET['page_customer']) ? max(1, (int)$_GET['page_customer']) : 1;
 $offsetCustomer = ($pageCustomer - 1) * $limit;
-$totalCustomerQuery = "SELECT COUNT(*) AS total FROM tbl_customer_ticket WHERE s_status = 'Pending'";
-$totalCustomerResult = $conn->query($totalCustomerQuery);
-if (!$totalCustomerResult) {
-    error_log("Error in total customer query: " . $conn->error);
+
+// Build query for customer tickets with search and filter
+$whereClauses = ["s_status = 'Pending'"];
+$params = [];
+$paramTypes = '';
+
+if ($searchTerm !== '') {
+    $whereClauses[] = "(s_ref LIKE ? OR s_subject LIKE ? OR s_message LIKE ? OR CONCAT(c_fname, ' ', c_lname) LIKE ?)";
+    $searchWildcard = "%$searchTerm%";
+    $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
+    $paramTypes .= 'ssss';
+}
+
+if ($accountFilter !== '') {
+    $whereClauses[] = "CONCAT(c_fname, ' ', c_lname) = ?";
+    $params[] = $accountFilter;
+    $paramTypes .= 's';
+}
+
+$whereClause = implode(' AND ', $whereClauses);
+
+// Count total records
+$totalCustomerQuery = "SELECT COUNT(*) AS total FROM tbl_customer_ticket WHERE $whereClause";
+$countStmt = $conn->prepare($totalCustomerQuery);
+if (!$countStmt) {
+    error_log("Prepare failed for total customer query: " . $conn->error);
     $_SESSION['error'] = "Database error occurred.";
     header("Location: AllCustomersT.php?page_customer=$pageCustomer");
     exit();
 }
+if ($paramTypes) {
+    $countStmt->bind_param($paramTypes, ...$params);
+}
+$countStmt->execute();
+$totalCustomerResult = $countStmt->get_result();
 $totalCustomerRow = $totalCustomerResult->fetch_assoc();
 $totalCustomer = $totalCustomerRow['total'];
 $totalCustomerPages = ceil($totalCustomer / $limit);
+$countStmt->close();
 
-// Fetch customer tickets
+// Fetch customer tickets with search and filter
 $sqlCustomer = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message, s_status 
                 FROM tbl_customer_ticket 
-                WHERE s_status = 'Pending'
+                WHERE $whereClause
                 ORDER BY s_ref ASC 
                 LIMIT ?, ?";
 $stmtCustomer = $conn->prepare($sqlCustomer);
@@ -369,7 +401,12 @@ if (!$stmtCustomer) {
     header("Location: AllCustomersT.php?page_customer=$pageCustomer");
     exit();
 }
-$stmtCustomer->bind_param("ii", $offsetCustomer, $limit);
+
+if ($paramTypes) {
+    $stmtCustomer->bind_param($paramTypes . 'ii', ...array_merge($params, [$offsetCustomer, $limit]));
+} else {
+    $stmtCustomer->bind_param("ii", $offsetCustomer, $limit);
+}
 $stmtCustomer->execute();
 $resultCustomer = $stmtCustomer->get_result();
 $stmtCustomer->close();
@@ -512,7 +549,9 @@ $conn->close();
         <div class="table-box glass-container">
             <h2>Ticket Approval</h2>
             <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." 
+                       value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>"
+                       onkeyup="debouncedSearchTickets()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
             <div class="username"></div>
@@ -556,13 +595,13 @@ $conn->close();
                 </table>
                 <div class="pagination" id="customer-pagination">
                     <?php if ($pageCustomer > 1): ?>
-                        <a href="?page_customer=<?php echo $pageCustomer - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+                        <a href="?page_customer=<?php echo $pageCustomer - 1; ?>&search=<?php echo urlencode($searchTerm); ?>&account_filter=<?php echo urlencode($accountFilter); ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                     <?php else: ?>
                         <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
                     <?php endif; ?>
                     <span class="current-page">Page <?php echo $pageCustomer; ?> of <?php echo $totalCustomerPages; ?></span>
                     <?php if ($pageCustomer < $totalCustomerPages): ?>
-                        <a href="?page_customer=<?php echo $pageCustomer + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+                        <a href="?page_customer=<?php echo $pageCustomer + 1; ?>&search=<?php echo urlencode($searchTerm); ?>&account_filter=<?php echo urlencode($accountFilter); ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
                     <?php else: ?>
                         <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                     <?php endif; ?>
@@ -616,7 +655,8 @@ $conn->close();
             <select name="account_filter" id="account_filter">
                 <option value="">All Customers</option>
                 <?php foreach ($customers as $customer): ?>
-                    <option value="<?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <option value="<?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>" 
+                        <?php echo ($accountFilter === $customer['full_name']) ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($customer['full_name'], ENT_QUOTES, 'UTF-8'); ?>
                     </option>
                 <?php endforeach; ?>
@@ -676,9 +716,11 @@ function showRejectModal(s_ref) {
 }
 
 function approveTicket(s_ref) {
+    const searchTerm = document.getElementById('searchInput').value;
+    const accountFilter = document.getElementById('account_filter') ? document.getElementById('account_filter').value : '';
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = 'AllCustomersT.php?page_customer=<?php echo $pageCustomer; ?>';
+    form.action = `AllCustomersT.php?page_customer=<?php echo $pageCustomer; ?>&search=${encodeURIComponent(searchTerm)}&account_filter=${encodeURIComponent(accountFilter)}`;
     const ticketInput = document.createElement('input');
     ticketInput.type = 'hidden';
     ticketInput.name = 'ticket_ref';
@@ -715,6 +757,10 @@ function fetchTickets(page, searchTerm = '', accountFilter = '') {
                 console.log("Fetched tickets with searchTerm:", searchTerm, "accountFilter:", accountFilter, "response.html:", response.html);
                 document.getElementById('customer-table-body').innerHTML = response.html;
                 updatePagination(response.currentPage, response.totalPages, searchTerm, accountFilter);
+                
+                // Update URL without reloading page
+                const newUrl = `AllCustomersT.php?page_customer=${response.currentPage}&search=${encodeURIComponent(searchTerm)}&account_filter=${encodeURIComponent(accountFilter)}`;
+                window.history.replaceState({}, '', newUrl);
             }
         }
     };
@@ -726,11 +772,11 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
     pagination.innerHTML = '';
     
     const prevLink = currentPage > 1 
-        ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage - 1}, '${searchTerm}', '${accountFilter}')"><i class="fas fa-chevron-left"></i></a>`
+        ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage - 1}, '${searchTerm}', '${accountFilter}'); return false;"><i class="fas fa-chevron-left"></i></a>`
         : `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     
     const nextLink = currentPage < totalPages 
-        ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage + 1}, '${searchTerm}', '${accountFilter}')"><i class="fas fa-chevron-right"></i></a>`
+        ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage + 1}, '${searchTerm}', '${accountFilter}'); return false;"><i class="fas fa-chevron-right"></i></a>`
         : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     
     pagination.innerHTML = `
@@ -743,8 +789,20 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
 document.getElementById('accountFilterForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     const accountFilter = document.getElementById('account_filter').value;
-    fetchTickets(1, document.getElementById('searchInput').value, accountFilter);
+    const searchTerm = document.getElementById('searchInput').value;
+    fetchTickets(1, searchTerm, accountFilter);
     closeModal('accountFilterModal');
+});
+
+// Initialize search functionality on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const accountFilter = document.getElementById('account_filter') ? document.getElementById('account_filter').value : '';
+    
+    // If there's a search term or filter, ensure the table reflects it
+    if (searchInput.value || accountFilter) {
+        fetchTickets(<?php echo $pageCustomer; ?>, searchInput.value, accountFilter);
+    }
 });
 
 // Handle session messages

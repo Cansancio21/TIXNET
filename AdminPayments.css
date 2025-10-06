@@ -214,7 +214,7 @@ footer {
 .search-container {
     position: relative;
     width: 300px;
-    margin-left: 1155px;
+    margin-left: 1310px;
     margin-top: -35px;
     margin-bottom: 10px;
     
@@ -415,6 +415,7 @@ th {
     font-weight: 500;
     vertical-align: middle;
     border: none;
+    
 }
 
 th:first-child {
@@ -432,6 +433,7 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
+    font-size: 14px;
 }
 
 tr:last-child td {

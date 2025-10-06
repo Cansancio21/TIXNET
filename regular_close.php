@@ -159,6 +159,8 @@ try {
             $stmtTotal->close();
 
             $totalPages = max(1, ceil($totalTickets / $limit));
+            $page = min($page, $totalPages);
+            $offset = ($page - 1) * $limit;
 
             // Fetch regular tickets
             $sqlTickets = "SELECT t_ref, t_aname, te_technician, t_subject, t_status, t_details, te_date 
@@ -204,7 +206,7 @@ try {
                 echo "<tr><td colspan='8'>No closed regular tickets found.</td></tr>";
             }
         } else {
-            // Build WHERE clause for support tickets - FIXED: Added table aliases
+            // Build WHERE clause for support tickets
             if ($searchTerm) {
                 $whereClauses[] = "(CONCAT(c.c_fname, ' ', c.c_lname) LIKE ? OR s.s_subject LIKE ? OR s.s_message LIKE ? OR s.te_technician LIKE ? OR s.s_ref LIKE ?)";
                 $params = array_fill(0, 5, $searchLike);
@@ -221,7 +223,7 @@ try {
                 $types .= 's';
             }
 
-            // Count total support tickets - FIXED: Added table aliases
+            // Count total support tickets
             $sqlTotal = "SELECT COUNT(*) AS total FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
             if ($whereClauses) {
                 $sqlTotal .= " WHERE " . implode(' AND ', $whereClauses);
@@ -236,8 +238,10 @@ try {
             $stmtTotal->close();
 
             $totalPages = max(1, ceil($totalTickets / $limit));
+            $page = min($page, $totalPages);
+            $offset = ($page - 1) * $limit;
 
-            // Fetch support tickets - ALREADY HAD PROPER ALIASES
+            // Fetch support tickets
             $sqlTickets = "SELECT s.s_ref, CONCAT(c.c_fname, ' ', c.c_lname) as customer_name, s.te_technician, s.s_subject, s.s_status, s.s_message, s.s_date 
                            FROM tbl_close_supp s JOIN tbl_customer c ON s.c_id = c.c_id";
             if ($whereClauses) {
@@ -297,7 +301,7 @@ try {
         exit;
     }
 
-    // Handle AJAX export data request - FIXED: Added table aliases for support
+    // Handle AJAX export data request
     if (isset($_GET['action']) && $_GET['action'] === 'export_data') {
         $searchLike = $searchTerm ? "%$searchTerm%" : null;
         $params = [];
@@ -447,7 +451,7 @@ try {
         $stmtDelete->close();
     }
 
-    // Initial page load: Fetch tickets based on current tab - FIXED: Added table aliases for support
+    // Initial page load: Fetch tickets based on current tab
     if ($currentTab === 'regular') {
         $searchLike = $searchTerm ? "%$searchTerm%" : null;
         $params = [];
@@ -577,7 +581,6 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -674,7 +677,9 @@ try {
             font-size: 14px;
         }
         #customerFilterModal .modal-content,
-        #technicianFilterModal .modal-content {
+        #technicianFilterModal .modal-content,
+        #supportCustomerFilterModal .modal-content,
+        #supportTechnicianFilterModal .modal-content {
             margin-top: 165px;
         }
     </style>
@@ -683,17 +688,17 @@ try {
 <div class="wrapper">
     <div class="sidebar">
         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
-         <ul>
-          <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
-          <li><a href="viewU.php"><i class="fas fa-users icon"></i> <span>View Users</span></a></li>
-          <li><a href="regular_close.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Ticket Record</span></a></li>
-          <li><a href="logs.php"><i class="fas fa-file-alt icon"></i> <span>Logs</span></a></li>
-          <li><a href="returnT.php"><i class="fas fa-box icon"></i> <span>Asset Record</span></a></li>
-          <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
-         </ul>
-      <footer>
-       <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
-      </footer>
+        <ul>
+            <li><a href="adminD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
+            <li><a href="viewU.php"><i class="fas fa-users icon"></i> <span>View Users</span></a></li>
+            <li><a href="regular_close.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Ticket Record</span></a></li>
+            <li><a href="logs.php"><i class="fas fa-file-alt icon"></i> <span>Logs</span></a></li>
+            <li><a href="returnT.php"><i class="fas fa-box icon"></i> <span>Asset Record</span></a></li>
+            <li><a href="AdminPayments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
+        </ul>
+        <footer>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </footer>
     </div>
     <div class="container">
         <div class="upper">
@@ -806,12 +811,12 @@ try {
                 <input type="hidden" name="ref" id="formRef">
                 <input type="hidden" name="table" id="formTable">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                <input type="hidden" name="search" id="formSearch" value="<?php echo htmlspecialchars($searchTerm); ?>">
             </form>
 
             <div class="table-box">
                 <h2>List of Closed Regular Tickets</h2>
                 
-                <!-- Tab Buttons - MOVED INSIDE table-box and below h2 -->
                 <div class="tab-buttons">
                     <button class="tab-btn <?php echo $currentTab === 'regular' ? 'active' : ''; ?>" onclick="showTab('regular')">
                         Regular (<?php echo $totalRegularTickets; ?>)
@@ -822,8 +827,8 @@ try {
                 </div>
 
                 <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" class="search-bar" id="regularSearchInput" placeholder="Search regular tickets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchRegularTickets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -999,12 +1004,12 @@ try {
                 <input type="hidden" name="ref" id="supportFormRef">
                 <input type="hidden" name="table" id="supportFormTable" value="support">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                <input type="hidden" name="search" id="supportFormSearch" value="<?php echo htmlspecialchars($searchTerm); ?>">
             </form>
 
             <div class="table-box">
                 <h2>List of Closed Support Tickets</h2>
                 
-                <!-- Tab Buttons - MOVED INSIDE table-box and below h2 -->
                 <div class="tab-buttons">
                     <button class="tab-btn <?php echo $currentTab === 'regular' ? 'active' : ''; ?>" onclick="showTab('regular')">
                         Regular (<?php echo $totalRegularTickets; ?>)
@@ -1012,6 +1017,11 @@ try {
                     <button class="tab-btn <?php echo $currentTab === 'support' ? 'active' : ''; ?>" onclick="showTab('support')">
                         Support (<?php echo $totalSupportTickets; ?>)
                     </button>
+                </div>
+
+                <div class="search-container">
+                    <input type="text" class="search-bar" id="supportSearchInput" placeholder="Search support tickets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchSupportTickets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -1022,11 +1032,6 @@ try {
                             <button onclick="exportTable('csv')">CSV</button>
                         </div>
                     </div>
-                </div>
-
-                <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search users..." onkeyup="debouncedSearchUsers()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <table class="tickets-table">
@@ -1124,20 +1129,68 @@ function debounce(func, wait) {
 }
 
 function showTab(tab) {
-    // Update URL
     const params = new URLSearchParams(window.location.search);
     params.set('tab', tab);
-    params.delete('page'); // Reset to first page
+    params.delete('page');
+    
+    // Get the appropriate search input value based on the tab
+    let searchTerm = '';
+    if (tab === 'regular') {
+        searchTerm = document.getElementById('regularSearchInput').value;
+    } else {
+        searchTerm = document.getElementById('supportSearchInput').value;
+    }
+    
+    if (searchTerm) params.set('search', searchTerm);
     window.location.href = `regular_close.php?${params.toString()}`;
 }
 
-function searchTickets(page = 1) {
-    const searchTerm = document.getElementById('searchInput').value;
-    const currentTab = '<?php echo $currentTab; ?>';
+function searchRegularTickets(page = 1) {
+    const searchTerm = document.getElementById('regularSearchInput').value.trim();
+    const currentTab = 'regular';
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
-    const tbody = document.getElementById(currentTab === 'regular' ? 'tickets-table-body' : 'support-tickets-table-body');
-    const paginationContainer = document.getElementById(currentTab === 'regular' ? 'tickets-pagination' : 'support-tickets-pagination');
+    const tbody = document.getElementById('tickets-table-body');
+    const paginationContainer = document.getElementById('tickets-pagination');
+
+    const params = new URLSearchParams();
+    params.append('action', 'search');
+    params.append('page', page);
+    params.append('tab', currentTab);
+    if (searchTerm) params.append('search', searchTerm);
+    if (customerFilter) params.append('customer', customerFilter);
+    if (technicianFilter) params.append('technician', technicianFilter);
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    tbody.innerHTML = response.html;
+                    updatePagination(response.currentPage, response.totalPages, response.searchTerm, response.customerFilter, response.technicianFilter, currentTab);
+                    updateURL(response.currentPage, response.searchTerm, response.customerFilter, response.technicianFilter, currentTab);
+                } catch (e) {
+                    console.error('Error parsing JSON:', e, xhr.responseText);
+                    alert('Error loading tickets. Please try again.');
+                }
+            } else {
+                console.error('Search request failed:', xhr.status, xhr.statusText);
+                alert('Error loading tickets. Please try again.');
+            }
+        }
+    };
+    xhr.open('GET', `regular_close.php?${params.toString()}`, true);
+    xhr.send();
+}
+
+function searchSupportTickets(page = 1) {
+    const searchTerm = document.getElementById('supportSearchInput').value.trim();
+    const currentTab = 'support';
+    const customerFilter = '<?php echo addslashes($customerFilter); ?>';
+    const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
+    const tbody = document.getElementById('support-tickets-table-body');
+    const paginationContainer = document.getElementById('support-tickets-pagination');
 
     const params = new URLSearchParams();
     params.append('action', 'search');
@@ -1209,7 +1262,13 @@ function updateURL(page, searchTerm, customerFilter, technicianFilter, tab) {
     window.history.pushState({}, '', newUrl);
 }
 
-const debouncedSearchTickets = debounce(searchTickets, 300);
+const debouncedSearchRegularTickets = debounce(function() {
+    searchRegularTickets(1);
+}, 300);
+
+const debouncedSearchSupportTickets = debounce(function() {
+    searchSupportTickets(1);
+}, 300);
 
 // Regular Tab Functions
 function showViewModal(data) {
@@ -1223,7 +1282,7 @@ function showViewModal(data) {
         <p><strong>Status:</strong> <span class="status-closed">${data.status}</span></p>
         <p><strong>Closed Date:</strong> ${data.closed_date}</p>
     `;
-    document.getElementById('viewTicketModal').style.display = 'block';
+    document.getElementById('viewTicketModal').style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
@@ -1231,7 +1290,7 @@ function openDeleteModal(t_ref, table) {
     document.getElementById('deleteTicketRef').textContent = t_ref;
     document.getElementById('formRef').value = t_ref;
     document.getElementById('formTable').value = table;
-    document.getElementById('deleteModal').style.display = 'block';
+    document.getElementById('deleteModal').style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
@@ -1245,6 +1304,7 @@ function submitDeleteAction() {
     document.getElementById('formAction').value = 'delete';
     document.getElementById('formRef').value = t_ref;
     document.getElementById('formTable').value = table;
+    document.getElementById('formSearch').value = document.getElementById('regularSearchInput').value;
     document.getElementById('actionForm').submit();
 }
 
@@ -1260,14 +1320,14 @@ function showSupportViewModal(data) {
         <p><strong>Status:</strong> <span class="status-closed">${data.status}</span></p>
         <p><strong>Closed Date:</strong> ${data.closed_date}</p>
     `;
-    document.getElementById('viewSupportTicketModal').style.display = 'block';
+    document.getElementById('viewSupportTicketModal').style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
 function openSupportDeleteModal(s_ref) {
     document.getElementById('deleteSupportTicketRef').textContent = s_ref;
     document.getElementById('supportFormRef').value = s_ref;
-    document.getElementById('deleteSupportModal').style.display = 'block';
+    document.getElementById('deleteSupportModal').style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
@@ -1279,6 +1339,7 @@ function submitSupportDeleteAction() {
     
     document.getElementById('supportFormAction').value = 'delete';
     document.getElementById('supportFormRef').value = s_ref;
+    document.getElementById('supportFormSearch').value = document.getElementById('supportSearchInput').value;
     document.getElementById('supportActionForm').submit();
 }
 
@@ -1300,21 +1361,21 @@ function closeModal(modalId) {
 // Regular Filter Functions
 function showCustomerFilterModal() {
     const modal = document.getElementById('customerFilterModal');
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
 function showTechnicianFilterModal() {
     const modal = document.getElementById('technicianFilterModal');
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
 function applyCustomerFilter() {
     const customerFilter = document.getElementById('customer_filter').value;
-    const searchTerm = document.getElementById('searchInput').value;
+    const searchTerm = document.getElementById('regularSearchInput').value;
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
-    const currentTab = '<?php echo $currentTab; ?>';
+    const currentTab = 'regular';
     const params = new URLSearchParams();
     params.append('page', 1);
     params.append('tab', currentTab);
@@ -1326,9 +1387,9 @@ function applyCustomerFilter() {
 
 function applyTechnicianFilter() {
     const technicianFilter = document.getElementById('technician_filter').value;
-    const searchTerm = document.getElementById('searchInput').value;
+    const searchTerm = document.getElementById('regularSearchInput').value;
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
-    const currentTab = '<?php echo $currentTab; ?>';
+    const currentTab = 'regular';
     const params = new URLSearchParams();
     params.append('page', 1);
     params.append('tab', currentTab);
@@ -1341,19 +1402,19 @@ function applyTechnicianFilter() {
 // Support Filter Functions
 function showSupportCustomerFilterModal() {
     const modal = document.getElementById('supportCustomerFilterModal');
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
 function showSupportTechnicianFilterModal() {
     const modal = document.getElementById('supportTechnicianFilterModal');
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 }
 
 function applySupportCustomerFilter() {
     const customerFilter = document.getElementById('support_customer_filter').value;
-    const searchTerm = document.getElementById('searchInput').value;
+    const searchTerm = document.getElementById('supportSearchInput').value;
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
     const currentTab = 'support';
     const params = new URLSearchParams();
@@ -1367,7 +1428,7 @@ function applySupportCustomerFilter() {
 
 function applySupportTechnicianFilter() {
     const technicianFilter = document.getElementById('support_technician_filter').value;
-    const searchTerm = document.getElementById('searchInput').value;
+    const searchTerm = document.getElementById('supportSearchInput').value;
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
     const currentTab = 'support';
     const params = new URLSearchParams();
@@ -1380,8 +1441,14 @@ function applySupportTechnicianFilter() {
 }
 
 function exportTable(format) {
-    const searchTerm = document.getElementById('searchInput').value;
     const currentTab = '<?php echo $currentTab; ?>';
+    let searchTerm = '';
+    if (currentTab === 'regular') {
+        searchTerm = document.getElementById('regularSearchInput').value;
+    } else {
+        searchTerm = document.getElementById('supportSearchInput').value;
+    }
+    
     const customerFilter = '<?php echo addslashes($customerFilter); ?>';
     const technicianFilter = '<?php echo addslashes($technicianFilter); ?>';
 

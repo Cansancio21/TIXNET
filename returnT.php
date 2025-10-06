@@ -457,6 +457,16 @@ if ($conn) {
         #deployedTechnicianFilterModal .modal-content {
             margin-top: 165px;
         }
+        /* Separate search inputs for each tab */
+        #returned-search-input, #deployed-search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+            background: var(--light);
+            color: var(--dark);
+        }
     </style>
 </head>
 <body>
@@ -589,8 +599,8 @@ if ($conn) {
                 </div>
 
                 <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchUsers()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" class="search-bar" id="returned-search-input" placeholder="Search returned assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchReturnedAssets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -752,8 +762,8 @@ if ($conn) {
                 </div>
 
                 <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search assets..." onkeyup="debouncedSearchUsers()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" class="search-bar" id="deployed-search-input" placeholder="Search deployed assets..." value="<?php echo htmlspecialchars($searchTerm); ?>" onkeyup="debouncedSearchDeployedAssets()">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
                 </div>
 
                 <div class="action-buttons">
@@ -869,10 +879,10 @@ function showTab(tab) {
     window.location.href = `returnT.php?${params.toString()}`;
 }
 
-function searchAssets(page = 1) {
-    const searchTerm = document.getElementById('searchInput').value;
-    const tbody = document.getElementById(currentTab === 'returned' ? 'returned-table-body' : 'deployed-table-body');
-    const paginationContainer = document.getElementById(currentTab === 'returned' ? 'returned-pagination' : 'deployed-pagination');
+function searchReturnedAssets(page = 1) {
+    const searchTerm = document.getElementById('returned-search-input').value;
+    const tbody = document.getElementById('returned-table-body');
+    const paginationContainer = document.getElementById('returned-pagination');
 
     currentSearchPage = page;
 
@@ -883,14 +893,14 @@ function searchAssets(page = 1) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 tbody.innerHTML = response.html;
-                updatePagination(response.currentPage, response.totalPages, response.searchTerm);
+                updateReturnedPagination(response.currentPage, response.totalPages, response.searchTerm);
             } catch (e) {
                 console.error('Error parsing JSON:', e, xhr.responseText);
                 alert('Error loading assets. Please try again.');
             }
         }
     };
-    let url = `returnT.php?action=search&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}&page=${page}`;
+    let url = `returnT.php?action=search&tab=returned&search=${encodeURIComponent(searchTerm)}&page=${page}`;
     if (currentAssetFilter) {
         url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
     }
@@ -901,12 +911,44 @@ function searchAssets(page = 1) {
     xhr.send();
 }
 
-function updatePagination(currentPage, totalPages, searchTerm) {
-    const paginationContainer = document.getElementById(currentTab === 'returned' ? 'returned-pagination' : 'deployed-pagination');
+function searchDeployedAssets(page = 1) {
+    const searchTerm = document.getElementById('deployed-search-input').value;
+    const tbody = document.getElementById('deployed-table-body');
+    const paginationContainer = document.getElementById('deployed-pagination');
+
+    currentSearchPage = page;
+
+    // Create XMLHttpRequest for AJAX
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                tbody.innerHTML = response.html;
+                updateDeployedPagination(response.currentPage, response.totalPages, response.searchTerm);
+            } catch (e) {
+                console.error('Error parsing JSON:', e, xhr.responseText);
+                alert('Error loading assets. Please try again.');
+            }
+        }
+    };
+    let url = `returnT.php?action=search&tab=deployed&search=${encodeURIComponent(searchTerm)}&page=${page}`;
+    if (currentAssetFilter) {
+        url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
+    }
+    if (currentTechnicianFilter) {
+        url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
+    }
+    xhr.open('GET', url, true);
+    xhr.send();
+}
+
+function updateReturnedPagination(currentPage, totalPages, searchTerm) {
+    const paginationContainer = document.getElementById('returned-pagination');
     let paginationHtml = '';
 
     if (currentPage > 1) {
-        paginationHtml += `<a href="javascript:searchAssets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+        paginationHtml += `<a href="javascript:searchReturnedAssets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
     }
@@ -914,7 +956,7 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
 
     if (currentPage < totalPages) {
-        paginationHtml += `<a href="javascript:searchAssets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+        paginationHtml += `<a href="javascript:searchReturnedAssets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
     } else {
         paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     }
@@ -922,8 +964,30 @@ function updatePagination(currentPage, totalPages, searchTerm) {
     paginationContainer.innerHTML = paginationHtml;
 }
 
-// Debounced search function
-const debouncedSearchAssets = debounce(searchAssets, 300);
+function updateDeployedPagination(currentPage, totalPages, searchTerm) {
+    const paginationContainer = document.getElementById('deployed-pagination');
+    let paginationHtml = '';
+
+    if (currentPage > 1) {
+        paginationHtml += `<a href="javascript:searchDeployedAssets(${currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+    }
+
+    paginationHtml += `<span class="current-page">Page ${currentPage} of ${totalPages}</span>`;
+
+    if (currentPage < totalPages) {
+        paginationHtml += `<a href="javascript:searchDeployedAssets(${currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`;
+    } else {
+        paginationHtml += `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+    }
+
+    paginationContainer.innerHTML = paginationHtml;
+}
+
+// Debounced search functions
+const debouncedSearchReturnedAssets = debounce(searchReturnedAssets, 300);
+const debouncedSearchDeployedAssets = debounce(searchDeployedAssets, 300);
 
 // Returned Tab Functions
 function showReturnedViewModal(data) {
@@ -958,13 +1022,13 @@ function showReturnedTechnicianFilterModal() {
 function applyReturnedAssetFilter() {
     currentAssetFilter = document.getElementById('returned_filter_asset_name').value;
     closeModal('returnedAssetFilterModal');
-    searchAssets(1); // Reset to page 1 when applying filters
+    searchReturnedAssets(1); // Reset to page 1 when applying filters
 }
 
 function applyReturnedTechnicianFilter() {
     currentTechnicianFilter = document.getElementById('returned_filter_technician_name').value;
     closeModal('returnedTechnicianFilterModal');
-    searchAssets(1); // Reset to page 1 when applying filters
+    searchReturnedAssets(1); // Reset to page 1 when applying filters
 }
 
 // Deployed Tab Functions
@@ -999,13 +1063,13 @@ function showDeployedTechnicianFilterModal() {
 function applyDeployedAssetFilter() {
     currentAssetFilter = document.getElementById('deployed_filter_asset_name').value;
     closeModal('deployedAssetFilterModal');
-    searchAssets(1); // Reset to page 1 when applying filters
+    searchDeployedAssets(1); // Reset to page 1 when applying filters
 }
 
 function applyDeployedTechnicianFilter() {
     currentTechnicianFilter = document.getElementById('deployed_filter_technician_name').value;
     closeModal('deployedTechnicianFilterModal');
-    searchAssets(1); // Reset to page 1 when applying filters
+    searchDeployedAssets(1); // Reset to page 1 when applying filters
 }
 
 // Shared Modal Functions
@@ -1016,7 +1080,13 @@ function closeModal(modalId) {
 }
 
 function exportTable(format) {
-    const searchTerm = document.getElementById('searchInput').value;
+    const currentTab = '<?php echo $currentTab; ?>';
+    let searchTerm = '';
+    if (currentTab === 'returned') {
+        searchTerm = document.getElementById('returned-search-input').value;
+    } else {
+        searchTerm = document.getElementById('deployed-search-input').value;
+    }
 
     let url = `returnT.php?action=export_data&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}`;
     if (currentAssetFilter) {
@@ -1073,9 +1143,18 @@ window.addEventListener('click', function(event) {
 // Initialize auto-update table every 30 seconds
 document.addEventListener('DOMContentLoaded', () => {
     updateInterval = setInterval(() => {
-        const searchTerm = document.getElementById('searchInput').value;
-        if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
-            searchAssets(currentSearchPage);
+        const currentTab = '<?php echo $currentTab; ?>';
+        let searchTerm = '';
+        if (currentTab === 'returned') {
+            searchTerm = document.getElementById('returned-search-input').value;
+            if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
+                searchReturnedAssets(currentSearchPage);
+            }
+        } else {
+            searchTerm = document.getElementById('deployed-search-input').value;
+            if (searchTerm || currentAssetFilter || currentTechnicianFilter) {
+                searchDeployedAssets(currentSearchPage);
+            }
         }
     }, 30000);
 
@@ -1088,9 +1167,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize search on page load if there's a search term or filter
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput.value || currentAssetFilter || currentTechnicianFilter) {
-        searchAssets();
+    const currentTab = '<?php echo $currentTab; ?>';
+    if (currentTab === 'returned') {
+        const searchInput = document.getElementById('returned-search-input');
+        if (searchInput.value || currentAssetFilter || currentTechnicianFilter) {
+            searchReturnedAssets();
+        }
+    } else {
+        const searchInput = document.getElementById('deployed-search-input');
+        if (searchInput.value || currentAssetFilter || currentTechnicianFilter) {
+            searchDeployedAssets();
+        }
     }
 });
 

@@ -86,6 +86,123 @@ if (!isset($_SESSION['csrf_token'])) {
 }
 $csrfToken = $_SESSION['csrf_token'];
 
+// Email configuration function
+function sendTicketClosedEmail($conn, $ticketRef, $ticketType, $technicianName) {
+    try {
+        $mail = new PHPMailer(true);
+        
+        // SMTP Configuration - Using your working credentials
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'jonwilyammayormita@gmail.com';
+        $mail->Password = 'mqkcqkytlwurwlks';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+        
+        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet Pro Support');
+        $mail->isHTML(true);
+        
+        // Get customer email based on ticket type
+        $customerEmail = '';
+        $customerName = '';
+        $ticketSubject = '';
+        
+        if ($ticketType === 'regular') {
+            $sql = "SELECT t_email, t_aname, t_subject FROM tbl_ticket WHERE t_ref = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("s", $ticketRef);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $customerEmail = $row['t_email'];
+                $customerName = $row['t_aname'];
+                $ticketSubject = $row['t_subject'];
+            }
+            $stmt->close();
+        } else { // support ticket
+            $sql = "SELECT c.c_email, CONCAT(c.c_fname, ' ', c.c_lname) AS customer_name, st.s_subject 
+                    FROM tbl_supp_tickets st 
+                    JOIN tbl_customer c ON st.c_id = c.c_id 
+                    WHERE st.s_ref = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("s", $ticketRef);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $customerEmail = $row['c_email'];
+                $customerName = $row['customer_name'];
+                $ticketSubject = $row['s_subject'];
+            }
+            $stmt->close();
+        }
+        
+        if (empty($customerEmail)) {
+            error_log("No customer email found for ticket: $ticketRef, type: $ticketType");
+            return false;
+        }
+        
+        $mail->addAddress($customerEmail, $customerName);
+        
+        $mail->Subject = "Ticket Resolved: $ticketRef - $ticketSubject";
+        
+        $emailBody = "
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+                    .content { padding: 20px; background: #f9f9f9; }
+                    .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+                    .ticket-info { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <h1>Ticket Resolved</h1>
+                    </div>
+                    <div class='content'>
+                        <p>Dear $customerName,</p>
+                        <p>We're pleased to inform you that your ticket has been resolved by our technical team.</p>
+                        
+                        <div class='ticket-info'>
+                            <h3>Ticket Details:</h3>
+                            <p><strong>Ticket Reference:</strong> $ticketRef</p>
+                            <p><strong>Subject:</strong> $ticketSubject</p>
+                            <p><strong>Resolved by:</strong> $technicianName</p>
+                            <p><strong>Resolution Date:</strong> " . date('F j, Y \a\t g:i A') . "</p>
+                        </div>
+                        
+                        <p>If you have any further questions or concerns, please don't hesitate to contact our support team.</p>
+                        
+                        <p>Thank you for choosing TixNet Pro!</p>
+                    </div>
+                    <div class='footer'>
+                        <p>This is an automated message. Please do not reply to this email.</p>
+                        <p>&copy; " . date('Y') . " TixNet Pro. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        ";
+        
+        $mail->Body = $emailBody;
+        
+        // Plain text version for non-HTML email clients
+        $mail->AltBody = "Dear $customerName,\n\nWe're pleased to inform you that your ticket has been resolved by our technical team.\n\nTicket Details:\n- Ticket Reference: $ticketRef\n- Subject: $ticketSubject\n- Resolved by: $technicianName\n- Resolution Date: " . date('F j, Y \a\t g:i A') . "\n\nIf you have any further questions or concerns, please don't hesitate to contact our support team.\n\nThank you for choosing TixNet Pro!";
+        
+        $mail->send();
+        error_log("Email sent successfully for ticket: $ticketRef to $customerEmail");
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Email sending failed for ticket $ticketRef: " . $mail->ErrorInfo);
+        return false;
+    }
+}
+
 $tab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
 $validTabs = ['regular', 'support'];
 if (!in_array($tab, $validTabs)) {
@@ -294,6 +411,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtUpdate->close();
             }
 
+            // Send email notification
+            $technicianFullName = $firstName . ' ' . $lastName;
+            $emailSent = sendTicketClosedEmail($conn, $t_ref, $ticket_type, $technicianFullName);
+            
+            if (!$emailSent) {
+                error_log("Failed to send email notification for ticket: $t_ref");
+                // Continue with the process even if email fails
+            }
+
             // Log the action
             $logDescription = "Ticket $t_ref closed by technician $firstName $lastName (Type: $ticket_type, Close Date: $closeDate)";
             $logType = "Technician $firstName $lastName";
@@ -312,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ob_end_clean();
             echo json_encode([
                 'success' => true,
-                'message' => 'Ticket closed successfully.',
+                'message' => 'Ticket closed successfully.' . ($emailSent ? ' Email notification sent.' : ' Email notification failed.'),
                 'counts' => $updatedCounts
             ]);
         } catch (Exception $e) {
