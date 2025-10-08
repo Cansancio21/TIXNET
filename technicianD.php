@@ -1,17 +1,11 @@
 <?php
 session_start();
 include 'db.php';
-require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
-require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
-require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 // Session and user validation
 if (!isset($_SESSION['username'])) {
-    error_log("No session username set, redirecting to index.php");
     $_SESSION['error'] = "Please log in to access the technician dashboard.";
     header("Location: index.php");
     exit();
@@ -20,7 +14,6 @@ if (!isset($_SESSION['username'])) {
 $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
 $stmt = $conn->prepare($sqlUser);
 if (!$stmt) {
-    error_log("Prepare failed for user query: " . $conn->error);
     $_SESSION['error'] = "Database error occurred. Please try again.";
     header("Location: index.php");
     exit();
@@ -29,7 +22,6 @@ $stmt->bind_param("s", $_SESSION['username']);
 $stmt->execute();
 $resultUser = $stmt->get_result();
 if ($resultUser->num_rows === 0) {
-    error_log("User not found for username: {$_SESSION['username']}");
     $_SESSION['error'] = "User account not found.";
     header("Location: index.php");
     exit();
@@ -41,13 +33,12 @@ $userType = trim(strtolower($row['u_type'])) ?: 'unknown';
 $stmt->close();
 
 if ($userType !== 'technician') {
-    error_log("User is not a technician: username={$_SESSION['username']}, u_type=$userType");
     $_SESSION['error'] = "Access denied. This page is for technicians only.";
     header("Location: index.php");
     exit();
 }
 
-// Unset any existing error session to prevent displaying old messages
+// Unset any existing error session
 unset($_SESSION['error']);
 
 // Avatar handling
@@ -61,147 +52,11 @@ if (file_exists($userAvatar)) {
 }
 $avatarPath = $_SESSION['avatarPath'];
 
-// Ensure table structure - REMOVED archive_status
-$sqlAlterRegular = "ALTER TABLE tbl_ticket ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
-$sqlAlterSupport = "ALTER TABLE tbl_supp_tickets ADD COLUMN IF NOT EXISTS technician_username VARCHAR(255) DEFAULT NULL";
-$sqlAlterCloseRegular = "ALTER TABLE tbl_close_regular ADD COLUMN IF NOT EXISTS t_status VARCHAR(20) DEFAULT 'closed', ADD COLUMN IF NOT EXISTS te_date DATETIME";
-$sqlAlterCloseSupp = "ALTER TABLE tbl_close_supp ADD COLUMN IF NOT EXISTS s_status VARCHAR(20) DEFAULT 'closed', ADD COLUMN IF NOT EXISTS s_date DATETIME";
-
-if (!$conn->query($sqlAlterRegular)) {
-    error_log("Failed to alter tbl_ticket: " . $conn->error);
-}
-if (!$conn->query($sqlAlterSupport)) {
-    error_log("Failed to alter tbl_supp_tickets: " . $conn->error);
-}
-if (!$conn->query($sqlAlterCloseRegular)) {
-    error_log("Failed to alter tbl_close_regular: " . $conn->error);
-}
-if (!$conn->query($sqlAlterCloseSupp)) {
-    error_log("Failed to alter tbl_close_supp: " . $conn->error);
-}
-
 // CSRF token
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrfToken = $_SESSION['csrf_token'];
-
-// Email configuration function
-function sendTicketClosedEmail($conn, $ticketRef, $ticketType, $technicianName) {
-    try {
-        $mail = new PHPMailer(true);
-        
-        // SMTP Configuration - Using your working credentials
-        $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->SMTPAuth = true;
-        $mail->Username = 'jonwilyammayormita@gmail.com';
-        $mail->Password = 'mqkcqkytlwurwlks';
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
-        
-        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet Pro Support');
-        $mail->isHTML(true);
-        
-        // Get customer email based on ticket type
-        $customerEmail = '';
-        $customerName = '';
-        $ticketSubject = '';
-        
-        if ($ticketType === 'regular') {
-            $sql = "SELECT t_email, t_aname, t_subject FROM tbl_ticket WHERE t_ref = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $ticketRef);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($row = $result->fetch_assoc()) {
-                $customerEmail = $row['t_email'];
-                $customerName = $row['t_aname'];
-                $ticketSubject = $row['t_subject'];
-            }
-            $stmt->close();
-        } else { // support ticket
-            $sql = "SELECT c.c_email, CONCAT(c.c_fname, ' ', c.c_lname) AS customer_name, st.s_subject 
-                    FROM tbl_supp_tickets st 
-                    JOIN tbl_customer c ON st.c_id = c.c_id 
-                    WHERE st.s_ref = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $ticketRef);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($row = $result->fetch_assoc()) {
-                $customerEmail = $row['c_email'];
-                $customerName = $row['customer_name'];
-                $ticketSubject = $row['s_subject'];
-            }
-            $stmt->close();
-        }
-        
-        if (empty($customerEmail)) {
-            error_log("No customer email found for ticket: $ticketRef, type: $ticketType");
-            return false;
-        }
-        
-        $mail->addAddress($customerEmail, $customerName);
-        
-        $mail->Subject = "Ticket Resolved: $ticketRef - $ticketSubject";
-        
-        $emailBody = "
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: #007bff; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; background: #f9f9f9; }
-                    .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-                    .ticket-info { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h1>Ticket Resolved</h1>
-                    </div>
-                    <div class='content'>
-                        <p>Dear $customerName,</p>
-                        <p>We're pleased to inform you that your ticket has been resolved by our technical team.</p>
-                        
-                        <div class='ticket-info'>
-                            <h3>Ticket Details:</h3>
-                            <p><strong>Ticket Reference:</strong> $ticketRef</p>
-                            <p><strong>Subject:</strong> $ticketSubject</p>
-                            <p><strong>Resolved by:</strong> $technicianName</p>
-                            <p><strong>Resolution Date:</strong> " . date('F j, Y \a\t g:i A') . "</p>
-                        </div>
-                        
-                        <p>If you have any further questions or concerns, please don't hesitate to contact our support team.</p>
-                        
-                        <p>Thank you for choosing TixNet Pro!</p>
-                    </div>
-                    <div class='footer'>
-                        <p>This is an automated message. Please do not reply to this email.</p>
-                        <p>&copy; " . date('Y') . " TixNet Pro. All rights reserved.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        ";
-        
-        $mail->Body = $emailBody;
-        
-        // Plain text version for non-HTML email clients
-        $mail->AltBody = "Dear $customerName,\n\nWe're pleased to inform you that your ticket has been resolved by our technical team.\n\nTicket Details:\n- Ticket Reference: $ticketRef\n- Subject: $ticketSubject\n- Resolved by: $technicianName\n- Resolution Date: " . date('F j, Y \a\t g:i A') . "\n\nIf you have any further questions or concerns, please don't hesitate to contact our support team.\n\nThank you for choosing TixNet Pro!";
-        
-        $mail->send();
-        error_log("Email sent successfully for ticket: $ticketRef to $customerEmail");
-        return true;
-        
-    } catch (Exception $e) {
-        error_log("Email sending failed for ticket $ticketRef: " . $mail->ErrorInfo);
-        return false;
-    }
-}
 
 $tab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
 $validTabs = ['regular', 'support'];
@@ -209,64 +64,55 @@ if (!in_array($tab, $validTabs)) {
     $tab = 'regular';
 }
 
+// SIMPLIFIED Dashboard counts function
 function fetchDashboardCounts($conn, $username) {
-    $counts = [];
-    // Regular open tickets - REMOVED archive_status
+    $counts = [
+        'openTickets' => 0,
+        'closedTickets' => 0,
+        'supportOpen' => 0,
+        'supportClosed' => 0,
+        'pendingTasks' => 0
+    ];
+    
+    // Regular open tickets
     $sqlRegularOpen = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
-    $stmtRegularOpen = $conn->prepare($sqlRegularOpen);
-    if ($stmtRegularOpen) {
-        $stmtRegularOpen->bind_param("s", $username);
-        $stmtRegularOpen->execute();
-        $stmtRegularOpen->bind_result($counts['openTickets']);
-        $stmtRegularOpen->fetch();
-        $stmtRegularOpen->close();
-    } else {
-        error_log("Prepare failed for regular open tickets count: " . $conn->error);
-        $counts['openTickets'] = 0;
+    if ($stmt = $conn->prepare($sqlRegularOpen)) {
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $stmt->bind_result($counts['openTickets']);
+        $stmt->fetch();
+        $stmt->close();
     }
-
+    
     // Regular closed tickets
-    $sqlRegularClosed = "SELECT COUNT(*) FROM tbl_close_regular WHERE te_technician = ?";
-    $stmtRegularClosed = $conn->prepare($sqlRegularClosed);
-    if ($stmtRegularClosed) {
-        $stmtRegularClosed->bind_param("s", $username);
-        $stmtRegularClosed->execute();
-        $stmtRegularClosed->bind_result($counts['closedTickets']);
-        $stmtRegularClosed->fetch();
-        $stmtRegularClosed->close();
-    } else {
-        error_log("Prepare failed for regular closed tickets count: " . $conn->error);
-        $counts['closedTickets'] = 0;
+    $sqlRegularClosed = "SELECT COUNT(*) FROM tbl_ticket WHERE technician_username = ? AND t_status = 'Closed'";
+    if ($stmt = $conn->prepare($sqlRegularClosed)) {
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $stmt->bind_result($counts['closedTickets']);
+        $stmt->fetch();
+        $stmt->close();
     }
-
-    // Support open tickets - REMOVED archive_status
+    
+    // Support open tickets
     $sqlSupportOpen = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'open'";
-    $stmtSupportOpen = $conn->prepare($sqlSupportOpen);
-    if ($stmtSupportOpen) {
-        $stmtSupportOpen->bind_param("s", $username);
-        $stmtSupportOpen->execute();
-        $stmtSupportOpen->bind_result($counts['supportOpen']);
-        $stmtSupportOpen->fetch();
-        $stmtSupportOpen->close();
-    } else {
-        error_log("Prepare failed for support open tickets count: " . $conn->error);
-        $counts['supportOpen'] = 0;
+    if ($stmt = $conn->prepare($sqlSupportOpen)) {
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $stmt->bind_result($counts['supportOpen']);
+        $stmt->fetch();
+        $stmt->close();
     }
-
+    
     // Support closed tickets
-    $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_close_supp WHERE te_technician = ?";
-    $stmtSupportClosed = $conn->prepare($sqlSupportClosed);
-    if ($stmtSupportClosed) {
-        $stmtSupportClosed->bind_param("s", $username);
-        $stmtSupportClosed->execute();
-        $stmtSupportClosed->bind_result($counts['supportClosed']);
-        $stmtSupportClosed->fetch();
-        $stmtSupportClosed->close();
-    } else {
-        error_log("Prepare failed for support closed tickets count: " . $conn->error);
-        $counts['supportClosed'] = 0;
+    $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username IS NULL AND s_status = 'Closed'";
+    if ($stmt = $conn->prepare($sqlSupportClosed)) {
+        $stmt->execute();
+        $stmt->bind_result($counts['supportClosed']);
+        $stmt->fetch();
+        $stmt->close();
     }
-
+    
     $counts['pendingTasks'] = $counts['openTickets'] + $counts['supportOpen'];
     return $counts;
 }
@@ -278,345 +124,319 @@ $supportOpen = $counts['supportOpen'];
 $supportClosed = $counts['supportClosed'];
 $pendingTasks = $counts['pendingTasks'];
 
-// Handle ticket actions
+// Handle ticket actions - SIMPLIFIED VERSION
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
-    ob_start();
+    
     $action = $_POST['action'];
     $t_ref = trim($_POST['id'] ?? '');
     $ticket_type = trim($_POST['type'] ?? '');
     $submitted_csrf = $_POST['csrf_token'] ?? '';
     
+    // CSRF validation
     if ($submitted_csrf !== $csrfToken) {
-        error_log("CSRF token mismatch: action=$action, t_ref=$t_ref, ticket_type=$ticket_type");
-        ob_end_clean();
         echo json_encode(['success' => false, 'error' => 'Invalid CSRF token.']);
         exit();
     }
 
     if (empty($t_ref) || empty($ticket_type)) {
-        error_log("Missing action data: action=$action, t_ref=$t_ref, ticket_type=$ticket_type");
-        ob_end_clean();
         echo json_encode(['success' => false, 'error' => 'Missing required fields.']);
         exit();
     }
 
     if ($action === 'close') {
-        $conn->begin_transaction();
         try {
-            // Explicitly get current timestamp
-            $closeDate = date('Y-m-d H:i:s');
-            error_log("Attempting to close ticket: t_ref=$t_ref, ticket_type=$ticket_type, close_date=$closeDate");
-
+            // Start transaction
+            $conn->begin_transaction();
+            
             if ($ticket_type === 'regular') {
-                // Fetch ticket data
-                $sqlFetch = "SELECT t_aname, t_subject, t_details FROM tbl_ticket WHERE t_ref = ? AND technician_username = ?";
-                $stmtFetch = $conn->prepare($sqlFetch);
-                if (!$stmtFetch) {
-                    throw new Exception("Prepare failed for fetch query (regular ticket): " . $conn->error);
-                }
-                $stmtFetch->bind_param("ss", $t_ref, $_SESSION['username']);
-                $stmtFetch->execute();
-                $result = $stmtFetch->get_result();
-                if ($result->num_rows === 0) {
-                    throw new Exception("Ticket not found: t_ref=$t_ref");
-                }
-                $ticket = $result->fetch_assoc();
-                $stmtFetch->close();
-
-                // Insert into tbl_close_regular with status and close date
-                $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, t_subject, t_details, t_status, te_technician, te_date) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                $stmtInsert = $conn->prepare($sqlInsert);
-                if (!$stmtInsert) {
-                    throw new Exception("Prepare failed for insert query (tbl_close_regular): " . $conn->error);
-                }
-                $status = 'closed';
-                $stmtInsert->bind_param("sssssss", $t_ref, $ticket['t_aname'], $ticket['t_subject'], $ticket['t_details'], $status, $_SESSION['username'], $closeDate);
-                if (!$stmtInsert->execute()) {
-                    throw new Exception("Insert failed for tbl_close_regular: " . $stmtInsert->error);
-                }
-                $stmtInsert->close();
-
-                // Update the status to 'Closed' in the main table
-                $sqlUpdate = "UPDATE tbl_ticket SET t_status = 'Closed' WHERE t_ref = ? AND technician_username = ?";
-                $stmtUpdate = $conn->prepare($sqlUpdate);
-                if (!$stmtUpdate) {
-                    throw new Exception("Prepare failed for update query (tbl_ticket): " . $conn->error);
-                }
-                $stmtUpdate->bind_param("ss", $t_ref, $_SESSION['username']);
-                if (!$stmtUpdate->execute()) {
-                    throw new Exception("Update failed in tbl_ticket: " . $stmtUpdate->error);
-                }
-                $stmtUpdate->close();
+                // First get the ticket details before closing
+                $sqlSelect = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE t_ref = ? AND technician_username = ? AND t_status = 'open'";
+                $stmtSelect = $conn->prepare($sqlSelect);
+                $stmtSelect->bind_param("ss", $t_ref, $_SESSION['username']);
+                $stmtSelect->execute();
+                $resultSelect = $stmtSelect->get_result();
                 
-            } else { // Support ticket
-                // Fetch support ticket data
-                $sqlFetch = "SELECT st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS c_name, st.s_subject, st.s_message 
+                if ($resultSelect->num_rows === 0) {
+                    throw new Exception("No open regular ticket found to close");
+                }
+                
+                $ticketData = $resultSelect->fetch_assoc();
+                $stmtSelect->close();
+                
+                // Insert into closed tickets table
+                $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_details, t_status, te_date) 
+                             VALUES (?, ?, ?, ?, ?, 'Closed', NOW())";
+                $stmtInsert = $conn->prepare($sqlInsert);
+                $technicianName = $firstName . ' ' . $lastName;
+                $stmtInsert->bind_param("sssss", 
+                    $ticketData['t_ref'],
+                    $ticketData['t_aname'],
+                    $technicianName,
+                    $ticketData['t_subject'],
+                    $ticketData['t_details']
+                );
+                $stmtInsert->execute();
+                $stmtInsert->close();
+                
+                // Now close the original ticket
+                $sql = "UPDATE tbl_ticket SET t_status = 'Closed' WHERE t_ref = ? AND technician_username = ? AND t_status = 'open'";
+            } else {
+                // First get the support ticket details before closing
+                $sqlSelect = "SELECT st.s_ref, st.c_id, st.s_subject, st.s_message, st.s_status, c.c_fname, c.c_lname 
                              FROM tbl_supp_tickets st 
                              JOIN tbl_customer c ON st.c_id = c.c_id 
-                             WHERE st.s_ref = ? AND st.technician_username = ?";
-                $stmtFetch = $conn->prepare($sqlFetch);
-                if (!$stmtFetch) {
-                    throw new Exception("Prepare failed for fetch query (support ticket): " . $conn->error);
+                             WHERE st.s_ref = ? AND st.technician_username = ? AND st.s_status = 'open'";
+                $stmtSelect = $conn->prepare($sqlSelect);
+                $stmtSelect->bind_param("ss", $t_ref, $_SESSION['username']);
+                $stmtSelect->execute();
+                $resultSelect = $stmtSelect->get_result();
+                
+                if ($resultSelect->num_rows === 0) {
+                    throw new Exception("No open support ticket found to close");
                 }
-                $stmtFetch->bind_param("ss", $t_ref, $_SESSION['username']);
-                $stmtFetch->execute();
-                $result = $stmtFetch->get_result();
-                if ($result->num_rows === 0) {
-                    throw new Exception("Support ticket not found: s_ref=$t_ref");
-                }
-                $ticket = $result->fetch_assoc();
-                $stmtFetch->close();
-
-                // Insert into tbl_close_supp with status and close date
-                $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, c_fname, c_lname, s_subject, s_message, s_status, te_technician, s_date) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $ticketData = $resultSelect->fetch_assoc();
+                $stmtSelect->close();
+                
+                // Insert into closed support tickets table
+                $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, te_technician, s_subject, s_message, s_status, s_date) 
+                             VALUES (?, ?, ?, ?, ?, 'Closed', NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
-                if (!$stmtInsert) {
-                    throw new Exception("Prepare failed for insert query (tbl_close_supp): " . $conn->error);
-                }
-                $status = 'closed';
-                // Split c_name into c_fname and c_lname
-                $nameParts = explode(' ', trim($ticket['c_name']), 2);
-                $c_fname = $nameParts[0] ?? '';
-                $c_lname = $nameParts[1] ?? '';
-                $stmtInsert->bind_param("sisssssss", 
-                    $t_ref, 
-                    $ticket['c_id'], 
-                    $c_fname, 
-                    $c_lname, 
-                    $ticket['s_subject'], 
-                    $ticket['s_message'], 
-                    $status, 
-                    $_SESSION['username'], 
-                    $closeDate
+                $technicianName = $firstName . ' ' . $lastName;
+                $stmtInsert->bind_param("sssss", 
+                    $ticketData['s_ref'],
+                    $ticketData['c_id'],
+                    $technicianName,
+                    $ticketData['s_subject'],
+                    $ticketData['s_message']
                 );
-                if (!$stmtInsert->execute()) {
-                    throw new Exception("Insert failed for tbl_close_supp: " . $stmtInsert->error);
-                }
+                $stmtInsert->execute();
                 $stmtInsert->close();
-
-                // Update the status to 'Closed' in tbl_supp_tickets AND unset technician_username
-                $sqlUpdate = "UPDATE tbl_supp_tickets SET s_status = 'Closed', technician_username = NULL WHERE s_ref = ? AND technician_username = ?";
-                $stmtUpdate = $conn->prepare($sqlUpdate);
-                if (!$stmtUpdate) {
-                    throw new Exception("Prepare failed for update query (tbl_supp_tickets): " . $conn->error);
-                }
-                $stmtUpdate->bind_param("ss", $t_ref, $_SESSION['username']);
-                if (!$stmtUpdate->execute()) {
-                    throw new Exception("Update failed in tbl_supp_tickets: " . $stmtUpdate->error);
-                } else {
-                    error_log("Support ticket unassigned successfully for s_ref=$t_ref"); // Extra log for debugging
-                }
-                $stmtUpdate->close();
+                
+                // Now close the original support ticket
+                $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed', technician_username = NULL WHERE s_ref = ? AND technician_username = ? AND s_status = 'open'";
             }
-
-            // Send email notification
-            $technicianFullName = $firstName . ' ' . $lastName;
-            $emailSent = sendTicketClosedEmail($conn, $t_ref, $ticket_type, $technicianFullName);
             
-            if (!$emailSent) {
-                error_log("Failed to send email notification for ticket: $t_ref");
-                // Continue with the process even if email fails
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Database prepare error");
             }
-
-            // Log the action
-            $logDescription = "Ticket $t_ref closed by technician $firstName $lastName (Type: $ticket_type, Close Date: $closeDate)";
-            $logType = "Technician $firstName $lastName";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            if ($stmtLog) {
-                $stmtLog->bind_param("ss", $logDescription, $logType);
-                $stmtLog->execute();
-                $stmtLog->close();
+            
+            $stmt->bind_param("ss", $t_ref, $_SESSION['username']);
+            $result = $stmt->execute();
+            
+            if ($result && $stmt->affected_rows > 0) {
+                // Commit transaction
+                $conn->commit();
+                
+                // Log the action
+                $logDescription = "Ticket $t_ref closed by technician $firstName $lastName (Type: $ticket_type)";
+                $logType = "Technician $firstName $lastName";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+                $logStmt = $conn->prepare($sqlLog);
+                if ($logStmt) {
+                    $logStmt->bind_param("ss", $logDescription, $logType);
+                    $logStmt->execute();
+                    $logStmt->close();
+                }
+                
+                $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Ticket closed successfully.',
+                    'counts' => $updatedCounts
+                ]);
             } else {
-                error_log("Failed to prepare log query: " . $conn->error);
+                $conn->rollback();
+                throw new Exception("No tickets found to close or already closed");
             }
-
-            $conn->commit();
-            $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
-            ob_end_clean();
-            echo json_encode([
-                'success' => true,
-                'message' => 'Ticket closed successfully.' . ($emailSent ? ' Email notification sent.' : ' Email notification failed.'),
-                'counts' => $updatedCounts
-            ]);
+            
+            $stmt->close();
+            
         } catch (Exception $e) {
             $conn->rollback();
-            error_log("Close ticket failed: " . $e->getMessage());
-            ob_end_clean();
             echo json_encode(['success' => false, 'error' => 'Failed to close ticket: ' . $e->getMessage()]);
-            http_response_code(500);
         }
         exit();
     
     } elseif ($action === 'delete') {
-        $table = ($ticket_type === 'regular') ? 'tbl_ticket' : 'tbl_supp_tickets';
-        $refColumn = ($ticket_type === 'regular') ? 't_ref' : 's_ref';
-        
-        $sqlDelete = "DELETE FROM $table WHERE $refColumn = ? AND technician_username = ?";
-        $stmtDelete = $conn->prepare($sqlDelete);
-        if (!$stmtDelete) {
-            error_log("Prepare failed for delete query: " . $conn->error);
-            ob_end_clean();
-            echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare delete query.']);
-            http_response_code(500);
-            exit();
-        }
-        $stmtDelete->bind_param("ss", $t_ref, $_SESSION['username']);
-        if ($stmtDelete->execute() && $stmtDelete->affected_rows > 0) {
-            $logDescription = "Ticket $t_ref deleted by technician $firstName $lastName (Type: $ticket_type)";
-            $logType = "Technician $firstName $lastName";
-            $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
-            $stmtLog = $conn->prepare($sqlLog);
-            if ($stmtLog) {
-                $stmtLog->bind_param("ss", $logDescription, $logType);
-                $stmtLog->execute();
-                $stmtLog->close();
+        try {
+            if ($ticket_type === 'regular') {
+                $sql = "DELETE FROM tbl_ticket WHERE t_ref = ? AND technician_username = ?";
+            } else {
+                $sql = "DELETE FROM tbl_supp_tickets WHERE s_ref = ? AND technician_username = ?";
             }
-            $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
-            ob_end_clean();
-            echo json_encode([
-                'success' => true,
-                'message' => 'Ticket deleted successfully.',
-                'counts' => $updatedCounts
-            ]);
-        } else {
-            error_log("Failed to delete ticket or no rows affected: t_ref=$t_ref");
-            ob_end_clean();
-            echo json_encode(['success' => false, 'error' => 'No tickets found to delete.']);
-            http_response_code(404);
+            
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                throw new Exception("Database prepare error");
+            }
+            
+            $stmt->bind_param("ss", $t_ref, $_SESSION['username']);
+            $result = $stmt->execute();
+            
+            if ($result && $stmt->affected_rows > 0) {
+                // Log the action
+                $logDescription = "Ticket $t_ref deleted by technician $firstName $lastName (Type: $ticket_type)";
+                $logType = "Technician $firstName $lastName";
+                $sqlLog = "INSERT INTO tbl_logs (l_stamp, l_description, l_type) VALUES (NOW(), ?, ?)";
+                $logStmt = $conn->prepare($sqlLog);
+                if ($logStmt) {
+                    $logStmt->bind_param("ss", $logDescription, $logType);
+                    $logStmt->execute();
+                    $logStmt->close();
+                }
+                
+                $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Ticket deleted successfully.',
+                    'counts' => $updatedCounts
+                ]);
+            } else {
+                throw new Exception("No tickets found to delete");
+            }
+            
+            $stmt->close();
+            
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => 'Failed to delete ticket: ' . $e->getMessage()]);
         }
-        $stmtDelete->close();
         exit();
     }
-    ob_end_clean();
+    
     echo json_encode(['success' => false, 'error' => 'Invalid action.']);
-    http_response_code(400);
     exit();
 }
 
 // Handle search tickets
 if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     header('Content-Type: application/json');
-    ob_start();
-    $searchTerm = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
+    $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'regular';
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit = 10;
     $offset = ($page - 1) * $limit;
-    $likeSearch = '%' . $searchTerm . '%';
-    $sql = "";
-    $sqlCount = "";
-    $params = [$_SESSION['username']];
-    $paramTypes = "s";
-
-    if ($tab === 'regular') {
-        // REMOVED archive_status condition
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
-        $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
-        if ($searchTerm) {
-            $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
-            $sqlCount .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
-            $params = array_merge($params, [$likeSearch, $likeSearch, $likeSearch, $likeSearch]);
-            $paramTypes .= "ssss";
-        }
-        $sql .= " LIMIT ?, ?";
-        $params[] = $offset;
-        $params[] = $limit;
-        $paramTypes .= "ii";
-    } elseif ($tab === 'support') {
-        // REMOVED archive_status condition
-        $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
-        $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
-                FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
-                WHERE st.technician_username = ? AND st.s_status = 'open'";
-        if ($searchTerm) {
-            $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
-            $sqlCount .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
-            $params = array_merge($params, [$likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch]);
-            $paramTypes .= "sssss";
-        }
-        $sql .= " LIMIT ?, ?";
-        $params[] = $offset;
-        $params[] = $limit;
-        $paramTypes .= "ii";
-    }
-
-    $stmtCount = $conn->prepare($sqlCount);
-    if (!$stmtCount) {
-        error_log("Prepare failed for count query: " . $conn->error);
-        ob_end_clean();
-        echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare count query.']);
-        http_response_code(500);
-        exit();
-    }
-    $countParams = array_slice($params, 0, strpos($paramTypes, 'ii') ?: count($params));
-    $countParamTypes = substr($paramTypes, 0, strpos($paramTypes, 'ii') ?: strlen($paramTypes));
-    if (!empty($countParams)) {
-        $stmtCount->bind_param($countParamTypes, ...$countParams);
-    }
-    $stmtCount->execute();
-    $countResult = $stmtCount->get_result();
-    $totalRow = $countResult->fetch_assoc();
-    $total = $totalRow['total'];
-    $totalPages = ceil($total / $limit);
-    $stmtCount->close();
-
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        error_log("Prepare failed for ticket query: " . $conn->error);
-        ob_end_clean();
-        echo json_encode(['success' => false, 'error' => 'Database error: Unable to prepare ticket query.']);
-        http_response_code(500);
-        exit();
-    }
-    $stmt->bind_param($paramTypes, ...$params);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    ob_start();
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $ticketData = json_encode([
-                'ref' => $row['t_ref'],
-                'c_id' => $row['c_id'] ?? '',
-                'aname' => $row['t_aname'] ?? '',
-                'subject' => $row['t_subject'] ?? '',
-                'details' => $row['t_details'],
-                'status' => ucfirst(strtolower($row['t_status'] ?? ''))
-            ], JSON_HEX_QUOT | JSON_HEX_TAG);
-            $status = trim(strtolower($row['t_status'] ?? ''));
-            echo "<tr>";
-            echo "<td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>";
-            if ($tab === 'support') {
-                echo "<td>" . htmlspecialchars($row['c_id'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
+    
+    try {
+        if ($tab === 'regular') {
+            $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
+            $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
+            
+            if (!empty($searchTerm)) {
+                $likeSearch = '%' . $searchTerm . '%';
+                $sqlCount .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
+                $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
             }
-            echo "<td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td>";
-            echo "<td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
-            echo "<td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>";
-            echo "<td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) .
-                 ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") .
-                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>";
-            echo "<td class='action-buttons'>";
-            echo "<span class='view-btn btn btn-primary' onclick='showViewModal(\"$tab\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>";
-            echo "<span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>";
-            echo "</td></tr>";
+            
+            $sql .= " LIMIT ?, ?";
+        } else {
+            $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
+            $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
+                    FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
+                    WHERE st.technician_username = ? AND st.s_status = 'open'";
+            
+            if (!empty($searchTerm)) {
+                $likeSearch = '%' . $searchTerm . '%';
+                $sqlCount .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
+                $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
+            }
+            
+            $sql .= " LIMIT ?, ?";
         }
-    } else {
-        $colspan = ($tab === 'support') ? 7 : 6;
-        echo "<tr><td colspan='$colspan' style='text-align: center;'>No tickets found.</td></tr>";
+
+        // Count query
+        $stmtCount = $conn->prepare($sqlCount);
+        if (!$stmtCount) {
+            throw new Exception("Prepare failed for count query");
+        }
+        
+        if (!empty($searchTerm)) {
+            if ($tab === 'regular') {
+                $stmtCount->bind_param("ssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch);
+            } else {
+                $stmtCount->bind_param("sssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
+            }
+        } else {
+            $stmtCount->bind_param("s", $_SESSION['username']);
+        }
+        
+        $stmtCount->execute();
+        $countResult = $stmtCount->get_result();
+        $totalRow = $countResult->fetch_assoc();
+        $total = $totalRow['total'];
+        $totalPages = ceil($total / $limit);
+        $stmtCount->close();
+
+        // Data query
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Prepare failed for ticket query");
+        }
+        
+        if (!empty($searchTerm)) {
+            if ($tab === 'regular') {
+                $stmt->bind_param("ssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
+            } else {
+                $stmt->bind_param("sssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
+            }
+        } else {
+            $stmt->bind_param("sii", $_SESSION['username'], $offset, $limit);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        ob_start();
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $ticketData = json_encode([
+                    'ref' => $row['t_ref'],
+                    'c_id' => $row['c_id'] ?? '',
+                    'aname' => $row['t_aname'] ?? '',
+                    'subject' => $row['t_subject'] ?? '',
+                    'details' => $row['t_details'],
+                    'status' => ucfirst(strtolower($row['t_status'] ?? ''))
+                ], JSON_HEX_QUOT | JSON_HEX_TAG);
+                $status = trim(strtolower($row['t_status'] ?? ''));
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>";
+                if ($tab === 'support') {
+                    echo "<td>" . htmlspecialchars($row['c_id'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
+                }
+                echo "<td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td>";
+                echo "<td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
+                echo "<td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>";
+                echo "<td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) .
+                     ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") .
+                     ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>";
+                echo "<td class='action-buttons'>";
+                echo "<span class='view-btn btn btn-primary' onclick='showViewModal(\"$tab\", $ticketData)' title='View'><i class='fas fa-eye'></i></span>";
+                echo "<span class='delete-btn btn btn-danger' onclick='openModal(\"delete\", \"$tab\", {\"ref\": \"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\"})' title='Delete'><i class='fas fa-trash'></i></span>";
+                echo "</td></tr>";
+            }
+        } else {
+            $colspan = ($tab === 'support') ? 7 : 6;
+            echo "<tr><td colspan='$colspan' style='text-align: center;'>No tickets found.</td></tr>";
+        }
+        $tableRows = ob_get_clean();
+        $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
+        
+        echo json_encode([
+            'success' => true,
+            'html' => $tableRows,
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'counts' => $updatedCounts
+        ]);
+        
+        $stmt->close();
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
     }
-    $tableRows = ob_get_clean();
-    $updatedCounts = fetchDashboardCounts($conn, $_SESSION['username']);
-    ob_end_clean();
-    echo json_encode([
-        'success' => true,
-        'html' => $tableRows,
-        'currentPage' => $page,
-        'totalPages' => $totalPages,
-        'counts' => $updatedCounts
-    ]);
-    $stmt->close();
+    
     $conn->close();
     exit();
 }
@@ -626,7 +446,6 @@ $limit = 10;
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
-// Fetch tickets for initial display - REMOVED archive_status
 if ($tab === 'regular') {
     $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' LIMIT ?, ?";
     $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
@@ -637,6 +456,7 @@ if ($tab === 'regular') {
     $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
 }
 
+$totalTickets = 0;
 $stmtCount = $conn->prepare($sqlCount);
 if ($stmtCount) {
     $stmtCount->bind_param("s", $_SESSION['username']);
@@ -644,23 +464,16 @@ if ($stmtCount) {
     $stmtCount->bind_result($totalTickets);
     $stmtCount->fetch();
     $stmtCount->close();
-} else {
-    error_log("Prepare failed for tickets count query: " . $conn->error);
-    $totalTickets = 0;
 }
 $totalPages = ceil($totalTickets / $limit);
 
+$result = false;
 $stmt = $conn->prepare($sql);
 if ($stmt) {
     $stmt->bind_param("sii", $_SESSION['username'], $offset, $limit);
     $stmt->execute();
     $result = $stmt->get_result();
     $stmt->close();
-} else {
-    error_log("Prepare failed for tickets query: " . $conn->error);
-    $result = false;
-    $totalTickets = 0;
-    $totalPages = 1;
 }
 
 $conn->close();
@@ -687,7 +500,7 @@ $conn->close();
             <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         </ul>
         <footer>
-            <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="technician_staff.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
@@ -718,37 +531,28 @@ $conn->close();
             </div>
         </div>
 
-        <div class="alert-container">
-            <?php if (isset($_SESSION['message'])): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
-            <?php endif; ?>
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
-            <?php endif; ?>
-        </div>
-
         <div class="dashboard-content">
             <div class="dashboard-cards">
                 <div class="card">
                     <i class="fas fa-tasks text-yellow-500"></i>
                     <div class="card-content">
                         <h3>Pending Tasks</h3>
-                        <p><strong id="pendingTasksCount"><?php echo htmlspecialchars($pendingTasks, ENT_QUOTES, 'UTF-8'); ?></strong></p>
-                        <p>Regular Open: <span id="openTicketsCount"><?php echo htmlspecialchars($openTickets, ENT_QUOTES, 'UTF-8'); ?></span> | Support Open: <span id="supportOpenCount"><?php echo htmlspecialchars($supportOpen, ENT_QUOTES, 'UTF-8'); ?></span></p>
+                        <p><strong id="pendingTasksCount"><?php echo $pendingTasks; ?></strong></p>
+                        <p>Regular Open: <span id="openTicketsCount"><?php echo $openTickets; ?></span> | Support Open: <span id="supportOpenCount"><?php echo $supportOpen; ?></span></p>
                     </div>
                 </div>
                 <div class="card">
                     <i class="fas fa-ticket-alt text-orange-500"></i>
                     <div class="card-content">
                         <h3>Regular Tickets</h3>
-                        <p>Open: <span id="openTicketsCount2"><?php echo htmlspecialchars($openTickets, ENT_QUOTES, 'UTF-8'); ?></span> | Closed: <span id="closedTicketsCount"><?php echo htmlspecialchars($closedTickets, ENT_QUOTES, 'UTF-8'); ?></span></p>
+                        <p>Open: <span id="openTicketsCount2"><?php echo $openTickets; ?></span> | Closed: <span id="closedTicketsCount"><?php echo $closedTickets; ?></span></p>
                     </div>
                 </div>
                 <div class="card">
                     <i class="fas fa-headset text-blue-500"></i>
                     <div class="card-content">
                         <h3>Support Tickets</h3>
-                        <p>Open: <span id="supportOpenCount2"><?php echo htmlspecialchars($supportOpen, ENT_QUOTES, 'UTF-8'); ?></span> | Closed: <span id="supportClosedCount"><?php echo htmlspecialchars($supportClosed, ENT_QUOTES, 'UTF-8'); ?></span></p>
+                        <p>Open: <span id="supportOpenCount2"><?php echo $supportOpen; ?></span> | Closed: <span id="supportClosedCount"><?php echo $supportClosed; ?></span></p>
                     </div>
                 </div>
             </div>
@@ -762,14 +566,24 @@ $conn->close();
 
             <div class="tab-container">
                 <div class="table-box">
+                    <!-- Alert Container - POSITIONED AT TOP INSIDE table-box -->
+                    <div class="alert-container" id="tableAlerts">
+                        <?php if (isset($_SESSION['message'])): ?>
+                            <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
+                        <?php endif; ?>
+                        <?php if (isset($_SESSION['error'])): ?>
+                            <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
+                        <?php endif; ?>
+                    </div>
+
                     <div class="main-tab-buttons">
                         <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openTab('regularTickets', 'regular')">Regular Tickets</button>
                         <button class="tab-button <?php echo $tab === 'support' ? 'active' : ''; ?>" onclick="openTab('supportTickets', 'support')">Support Tickets</button>
                     </div>
 
                     <div class="search-container">
-                    <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
-                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
                     </div>
 
                     <div id="regularTickets" class="tab-content <?php echo $tab === 'regular' ? 'active' : ''; ?>">
@@ -818,15 +632,14 @@ $conn->close();
                         </table>
                         <div class="pagination" id="regular-pagination">
                             <?php
-                            $paginationParams = "&search=" . urlencode($searchTerm ?? '');
                             if ($page > 1) {
-                                echo "<a href='?tab=regular&page=" . ($page - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
+                                echo "<a href='?tab=regular&page=" . ($page - 1) . "' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $page of $totalPages</span>";
                             if ($page < $totalPages) {
-                                echo "<a href='?tab=regular&page=" . ($page + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
+                                echo "<a href='?tab=regular&page=" . ($page + 1) . "' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -883,15 +696,14 @@ $conn->close();
                         </table>
                         <div class="pagination" id="support-pagination">
                             <?php
-                            $paginationParams = "&search=" . urlencode($searchTerm ?? '');
                             if ($page > 1) {
-                                echo "<a href='?tab=support&page=" . ($page - 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
+                                echo "<a href='?tab=support&page=" . ($page - 1) . "' class=\"pagination-link\"><i class=\"fas fa-chevron-left\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-left'></i></span>";
                             }
                             echo "<span class='current-page'>Page $page of $totalPages</span>";
                             if ($page < $totalPages) {
-                                echo "<a href='?tab=support&page=" . ($page + 1) . "$paginationParams' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
+                                echo "<a href='?tab=support&page=" . ($page + 1) . "' class=\"pagination-link\"><i class=\"fas fa-chevron-right\"></i></a>";
                             } else {
                                 echo "<span class='pagination-link disabled'><i class='fas fa-chevron-right'></i></span>";
                             }
@@ -1093,7 +905,7 @@ $conn->close();
         }
 
         function showAlert(type, message) {
-            const alertContainer = document.querySelector('.alert-container');
+            const alertContainer = document.getElementById('tableAlerts');
             const alert = document.createElement('div');
             alert.className = `alert alert-${type}`;
             alert.textContent = message;

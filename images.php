@@ -1,29 +1,21 @@
 <?php
 session_start();
 
-// Debug: Log session variables
-error_log("Session data: user=" . (isset($_SESSION['user']) ? json_encode($_SESSION['user']) : 'unset'));
-
 // Check if user is logged in
 if (!isset($_SESSION['user'])) {
-    error_log("No session found, redirecting to customerP.php");
     header("Location: customerP.php");
     exit();
 }
 
-// Determine user identifier
-$username = $_SESSION['user']['c_id']; // Using customer ID as identifier
+$username = $_SESSION['user']['c_id'];
 $avatarFolder = 'Uploads/avatars/';
-$generatedFolder = 'Uploads/generated/';
 
-// Create directories if they don’t exist
-foreach ([$avatarFolder, $generatedFolder] as $folder) {
-    if (!is_dir($folder)) {
-        mkdir($folder, 0777, true);
-    }
+// Create avatar directory if it doesn't exist
+if (!is_dir($avatarFolder)) {
+    mkdir($avatarFolder, 0777, true);
 }
 
-// Default avatar
+// Set avatar path
 $avatarPath = 'default-avatar.png';
 $userAvatar = $avatarFolder . $username . '.png';
 if (file_exists($userAvatar)) {
@@ -34,25 +26,25 @@ if (file_exists($userAvatar)) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
     $uploadFile = $_FILES['avatar'];
     $targetFile = $avatarFolder . $username . '.png';
+    
+    // Validate image
     $imageFileType = strtolower(pathinfo($uploadFile['name'], PATHINFO_EXTENSION));
-
-    // Validate image type and size
-    if (in_array($imageFileType, ['jpg', 'jpeg', 'png', 'gif'])) {
-        if ($uploadFile['size'] <= 5000000) { // 5MB limit
+    $allowedTypes = ['jpg', 'jpeg', 'png', 'gif'];
+    
+    if (in_array($imageFileType, $allowedTypes)) {
+        if ($uploadFile['size'] <= 5000000) {
             if (move_uploaded_file($uploadFile['tmp_name'], $targetFile)) {
-                $_SESSION['avatarPath'] = $targetFile . '?' . time();
-                error_log("Uploaded avatar: $targetFile, Session avatarPath: {$_SESSION['avatarPath']}");
+                // Success - redirect to portal
                 echo "<script>alert('Avatar uploaded successfully!'); window.location.href='portal.php';</script>";
                 exit();
             } else {
-                error_log("Failed to move uploaded file: " . $uploadFile['error']);
-                echo "<script>alert('Error uploading avatar: Unable to move file.');</script>";
+                $error = "Failed to upload image.";
             }
         } else {
-            echo "<script>alert('File size exceeds 5MB limit.');</script>";
+            $error = "File too large. Maximum size is 5MB.";
         }
     } else {
-        echo "<script>alert('Invalid image format. Please upload JPG, PNG, or GIF images.');</script>";
+        $error = "Invalid file type. Please upload JPG, PNG, or GIF.";
     }
 }
 ?>
@@ -62,131 +54,235 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Management</title>
+    <title>Avatar Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="views.css">
     <style>
-        body {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f8f9fa;
-        }
-        .outer-table-box {
-            width: 90%;
             padding: 20px;
-            margin: 20px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-        .inner-table-box {
-            width: 100%;
+        
+        /* Outer container - WHITE background */
+        .outer-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+        }
+        
+        /* Inner container - No padding, image fills completely */
+        .inner-container {
+          
+            border-radius: 15px;
+            margin-top: 20px;
+            width: 90%;
             height: 500px;
-            padding: 10px;
-            margin-top: -20px;
-            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            margin-left: 35px;
         }
-        .inner-table-box img {
-            width: 100%;
+        
+        /* Image styling - Show complete image without cropping */
+        .inner-container img {
+            width: 120%;
             height: 100%;
-            object-fit: cover;
-            border-radius: 8px;
+            object-fit: contain;
+            display: block;
         }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+        
+        .user-info {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+        
         .button-container {
             display: flex;
             justify-content: center;
             gap: 20px;
-            margin-bottom: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
         }
-        .button-container button {
-            padding: 10px 20px;
+        
+        .btn {
+            padding: 14px 30px;
             border: none;
-            border-radius: 5px;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 16px;
-            transition: all 0.3s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 180px;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        #uploadBtn {
-            background-color: #4CAF50;
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             color: white;
         }
-        #uploadBtn:hover {
-            background-color: #45a049;
-        }
-        #generateBtn {
-            background-color: #008CBA;
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #008CBA, #007399);
             color: white;
         }
-        #generateBtn:hover {
-            background-color: #007399;
+        
+        .btn-back {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
         }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
         input[type="file"] {
             display: none;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 500;
+            border-left: 5px solid #dc3545;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .button-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 280px;
+            }
+            
+            .inner-container {
+                height: 400px;
+                width: 100%;
+                margin-left: 0;
+            }
+            
+            .inner-container img {
+                width: 100%;
+            }
+            
+            h2 {
+                font-size: 1.8rem;
+            }
+            
+            .outer-container {
+                padding: 25px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="outer-table-box table-box glass-container">
-        <h2>Manage Avatar</h2>
+    <div class="outer-container">
+        <h2><i class="fas fa-user-circle"></i> AVATAR MANAGEMENT</h2>
+        
+    
+        
+        <?php if (isset($error)): ?>
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
+            </div>
+        <?php endif; ?>
+        
         <div class="button-container">
-            <form id="uploadForm" enctype="multipart/form-data" method="POST">
-                <input type="file" id="avatarInput" name="avatar" accept="image/*">
-                <button type="button" id="uploadBtn">Upload Image</button>
-            </form>
-            <form id="generateForm" enctype="multipart/form-data">
-                <input type="file" id="generateInput" name="generated_image" accept="image/*">
-                <button type="button" id="generateBtn">Generate Image</button>
-            </form>
+            <button class="btn btn-primary" onclick="document.getElementById('avatarInput').click()">
+                <i class="fas fa-upload"></i> CHOOSE IMAGE
+            </button>
+            
+            <button class="btn btn-secondary" onclick="uploadAvatar()" id="uploadBtn">
+                <i class="fas fa-save"></i> SET AVATAR
+            </button>
+            
+            <button class="btn btn-back" onclick="goBack()">
+                <i class="fas fa-arrow-left"></i> BACK TO PORTAL
+            </button>
         </div>
-        <div class="inner-table-box table-box glass-container">
-            <img id="previewImage" src="<?php echo htmlspecialchars($avatarPath, ENT_QUOTES, 'UTF-8'); ?>" alt="Current Avatar">
+        
+        <form id="uploadForm" method="POST" enctype="multipart/form-data">
+            <input type="file" id="avatarInput" name="avatar" accept="image/*" onchange="previewImage(this)">
+        </form>
+        
+        <div class="inner-container">
+            <img id="avatarPreview" src="<?php echo $avatarPath; ?>" alt="" 
+                 onerror="this.src='default-avatar.png'">
         </div>
     </div>
 
     <script>
-        // Generate button triggers file input
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            document.getElementById('generateInput').click();
-        });
-
-        // Preview selected image and copy to avatarInput
-        document.getElementById('generateInput').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
+        function previewImage(input) {
+            const preview = document.getElementById('avatarPreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (input.files && input.files[0]) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    document.getElementById('previewImage').src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-
-                // Clear and update avatarInput with the new file
-                const avatarInput = document.getElementById('avatarInput');
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                avatarInput.files = dataTransfer.files;
-
-                // Debugging: Log the file name to confirm
-                console.log('Selected file:', file.name);
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    uploadBtn.style.display = 'flex';
+                }
+                
+                reader.readAsDataURL(input.files[0]);
             }
-        });
-
-        // Upload button submits form if file is selected
-        document.getElementById('uploadBtn').addEventListener('click', () => {
-            const avatarInput = document.getElementById('avatarInput');
-            if (avatarInput.files.length > 0) {
-                // Debugging: Log the file name being uploaded
-                console.log('Uploading file:', avatarInput.files[0].name);
-                document.getElementById('uploadForm').submit();
-            } else {
-                alert('Please select an image first using the Generate Image button.');
+        }
+        
+        function uploadAvatar() {
+            const fileInput = document.getElementById('avatarInput');
+            if (fileInput.files.length === 0) {
+                alert('Please select an image first!');
+                return;
             }
-        });
+            document.getElementById('uploadForm').submit();
+        }
+        
+        function goBack() {
+            window.location.href = 'portal.php';
+        }
+        
+        // Hide upload button initially
+        document.getElementById('uploadBtn').style.display = 'none';
     </script>
 </body>
 </html>

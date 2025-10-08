@@ -39,19 +39,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['userId'] = $user['u_id'];
                 $_SESSION['username'] = $user['u_username'];
 
-                // Update is_online for technicians
-                if ($user['u_type'] === 'technician') {
-                    $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 1 WHERE u_username = ? AND u_type = 'technician'";
-                    $stmtUpdate = $conn->prepare($sqlUpdateStatus);
-                    if ($stmtUpdate) {
-                        $stmtUpdate->bind_param("s", $username);
-                        $stmtUpdate->execute();
-                        $stmtUpdate->close();
-                        error_log("Technician $username logged in, set is_online = 1");
-                    } else {
-                        error_log("Failed to prepare login status update: " . $conn->error);
-                    }
-                }
+                // REMOVED ALL is_online UPDATES
+                error_log("User $username logged in successfully (Type: {$user['u_type']})");
 
                 // Log the successful login
                 $log_description = "has successfully logged in";
@@ -91,21 +80,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 // Handle logout
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    if (isset($_SESSION['username']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'technician') {
-        $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 0 WHERE u_username = ? AND u_type = 'technician'";
-        $stmtUpdate = $conn->prepare($sqlUpdateStatus);
-        if ($stmtUpdate) {
-            $stmtUpdate->bind_param("s", $_SESSION['username']);
-            $stmtUpdate->execute();
-            $stmtUpdate->close();
-            error_log("Technician {$_SESSION['username']} logged out, set is_online = 0");
-        } else {
-            error_log("Failed to prepare logout status update: " . $conn->error);
-        }
+    // REMOVED ALL is_online UPDATES
+    if (isset($_SESSION['username']) && isset($_SESSION['user_type'])) {
+        error_log("User {$_SESSION['username']} ({$_SESSION['user_type']}) logged out");
     }
     session_unset();
     session_destroy();
-    header("Location: technician_staff_portal.php");
+    header("Location: technician_staff.php");
     exit;
 }
 ?>

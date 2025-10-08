@@ -1,3 +1,5 @@
+
+
 <?php
 session_start();
 
@@ -634,6 +636,10 @@ $stmt->close();
         .filter-btn:hover {
             color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
         }
+        .btn-processing {
+            opacity: 0.7;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -974,7 +980,7 @@ $stmt->close();
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="modal-btn cancel" onclick="closeModal('addUserModal')">Cancel</button>
-                    <button type="submit" class="modal-btn confirm">Add User</button>
+                    <button type="submit" class="modal-btn confirm" id="addUserSubmit">Add User</button>
                 </div>
             </form>
         </div>
@@ -1269,9 +1275,19 @@ $stmt->close();
                 passwordInput.type = 'password';
                 toggleIcon.classList.remove('fa-eye-slash');
                 toggleIcon.classList.add('fa-eye');
+                // Reset submit button
+                const submitBtn = document.getElementById('addUserSubmit');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-processing');
+                submitBtn.textContent = 'Add User';
             } else if (modalId === 'editUserModal') {
                 document.querySelectorAll('#editUserForm .error').forEach(el => el.textContent = '');
                 document.getElementById('editUserForm').reset();
+                // Reset submit button
+                const submitBtn = document.getElementById('editUserSubmit');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-processing');
+                submitBtn.textContent = 'Confirm User';
             } else if (modalId === 'typeFilterModal') {
                 document.getElementById('typeFilterForm').reset();
             } else if (modalId === 'statusFilterModal') {
@@ -1448,11 +1464,21 @@ $stmt->close();
                 }
 
                 if (isValid) {
+                    const submitBtn = document.getElementById('addUserSubmit');
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('btn-processing');
+                    submitBtn.textContent = 'Processing...';
+
                     const formData = new FormData(this);
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', 'viewU.php', true);
                     xhr.onreadystatechange = function() {
                         if (xhr.readyState === 4) {
+                            // Re-enable button regardless of response
+                            submitBtn.disabled = false;
+                            submitBtn.classList.remove('btn-processing');
+                            submitBtn.textContent = 'Add User';
+
                             if (xhr.status === 200) {
                                 try {
                                     const response = JSON.parse(xhr.responseText);
@@ -1526,11 +1552,21 @@ $stmt->close();
                 }
 
                 if (isValid) {
+                    const submitBtn = document.getElementById('editUserSubmit');
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('btn-processing');
+                    submitBtn.textContent = 'Processing...';
+
                     const formData = new FormData(this);
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', 'viewU.php', true);
                     xhr.onreadystatechange = function() {
                         if (xhr.readyState === 4) {
+                            // Re-enable button regardless of response
+                            submitBtn.disabled = false;
+                            submitBtn.classList.remove('btn-processing');
+                            submitBtn.textContent = 'Confirm User';
+
                             if (xhr.status === 200) {
                                 try {
                                     const response = JSON.parse(xhr.responseText);
@@ -1583,24 +1619,36 @@ $stmt->close();
             // Handle Archive Form submission
             document.getElementById('archiveForm').addEventListener('submit', function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('btn-processing');
+                submitBtn.textContent = 'Processing...';
+
                 const formData = new FormData(this);
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', 'viewU.php', true);
                 xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            console.log('Archive Response:', response);
-                            if (response.success) {
-                                closeModal('archiveModal');
-                                debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                                showAlert('success', response.message);
-                            } else {
-                                showAlert('error', response.message || 'Failed to archive user.');
+                    if (xhr.readyState === 4) {
+                        // Re-enable button
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('btn-processing');
+                        submitBtn.textContent = 'Archive';
+
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Archive Response:', response);
+                                if (response.success) {
+                                    closeModal('archiveModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to archive user.');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process archive response.');
                             }
-                        } catch (e) {
-                            console.error('Error parsing JSON:', e, xhr.responseText);
-                            showAlert('error', 'Failed to process archive response.');
                         }
                     }
                 };
@@ -1610,24 +1658,36 @@ $stmt->close();
             // Handle Restore Form submission
             document.getElementById('restoreForm').addEventListener('submit', function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('btn-processing');
+                submitBtn.textContent = 'Processing...';
+
                 const formData = new FormData(this);
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', 'viewU.php', true);
                 xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            console.log('Restore Response:', response);
-                            if (response.success) {
-                                closeModal('restoreModal');
-                                debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                                showAlert('success', response.message);
-                            } else {
-                                showAlert('error', response.message || 'Failed to unarchive user.');
+                    if (xhr.readyState === 4) {
+                        // Re-enable button
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('btn-processing');
+                        submitBtn.textContent = 'Unarchive';
+
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Restore Response:', response);
+                                if (response.success) {
+                                    closeModal('restoreModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to unarchive user.');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process unarchive response.');
                             }
-                        } catch (e) {
-                            console.error('Error parsing JSON:', e, xhr.responseText);
-                            showAlert('error', 'Failed to process unarchive response.');
                         }
                     }
                 };
@@ -1637,24 +1697,36 @@ $stmt->close();
             // Handle Delete Form submission
             document.getElementById('deleteForm').addEventListener('submit', function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('btn-processing');
+                submitBtn.textContent = 'Processing...';
+
                 const formData = new FormData(this);
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', 'viewU.php', true);
                 xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            console.log('Delete Response:', response);
-                            if (response.success) {
-                                closeModal('deleteModal');
-                                debouncedSearchUsers(archivedPage);
-                                showAlert('success', response.message);
-                            } else {
-                                showAlert('error', response.message || 'Failed to delete user.');
+                    if (xhr.readyState === 4) {
+                        // Re-enable button
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('btn-processing');
+                        submitBtn.textContent = 'Delete';
+
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Delete Response:', response);
+                                if (response.success) {
+                                    closeModal('deleteModal');
+                                    debouncedSearchUsers(archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to delete user.');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process delete response.');
                             }
-                        } catch (e) {
-                            console.error('Error parsing JSON:', e, xhr.responseText);
-                            showAlert('error', 'Failed to process delete response.');
                         }
                     }
                 };
@@ -1664,24 +1736,36 @@ $stmt->close();
             // Handle Restore All Form submission
             document.getElementById('restoreAllForm').addEventListener('submit', function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('btn-processing');
+                submitBtn.textContent = 'Processing...';
+
                 const formData = new FormData(this);
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', 'viewU.php', true);
                 xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            console.log('Restore All Response:', response);
-                            if (response.success) {
-                                closeModal('restoreAllModal');
-                                debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                                showAlert('success', response.message);
-                            } else {
-                                showAlert('error', response.message || 'Failed to restore all users.');
+                    if (xhr.readyState === 4) {
+                        // Re-enable button
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('btn-processing');
+                        submitBtn.textContent = 'Restore All';
+
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Restore All Response:', response);
+                                if (response.success) {
+                                    closeModal('restoreAllModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to restore all users.');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process restore all response.');
                             }
-                        } catch (e) {
-                            console.error('Error parsing JSON:', e, xhr.responseText);
-                            showAlert('error', 'Failed to process restore all response.');
                         }
                     }
                 };
