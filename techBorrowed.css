@@ -205,10 +205,13 @@ footer {
 }
 
 .search-container {
-    position: relative;
+    position: absolute;
+    top: 20px;
+    right: 20px;
     width: 300px;
-    margin-top: -27px;
-    margin-left: 1150px;
+    z-index: 10;
+    
+    
 }
 
 .search-bar {

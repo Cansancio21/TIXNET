@@ -1,3 +1,4 @@
+
 :root {
     --primary: #3d28e2;
     --secondary: #372fa7;
@@ -176,8 +177,6 @@ footer {
     margin-bottom: 5px;
 }
 
-
-
 /* Main Content */
 .container {
     flex: 1;
@@ -213,11 +212,12 @@ footer {
 }
 
 .search-container {
-    position: relative;
+    position: absolute;
+    top: 60px;
+    right: 20px;
     width: 300px;
-    margin-left: 1155px;
-    margin-top: -60px;
-    margin-bottom: 10px;
+    z-index: 10;
+    
     
 }
 
@@ -287,6 +287,7 @@ footer {
 
 /* Table Box */
 .table-box {
+    position: relative;
     width: 100%;
     padding: 20px;
     background-color: #fff;
@@ -319,7 +320,7 @@ footer {
 .add-user-btn {
     position: absolute;
     top: 60px;
-    right: 35px;
+    right: 330px;
     display: inline-flex;
     align-items: center;
     background: var(--primary);
@@ -331,6 +332,8 @@ footer {
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
     border: none; 
     outline: none;
+
+
 }
 
 .add-user-btn:hover {
@@ -437,6 +440,7 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
+    font-size: 14px;
 }
 
 tr:last-child td {
@@ -787,3 +791,81 @@ tr:hover td {
     opacity: 0;
 }
 
+/* Media Queries for Smaller Screens */
+@media screen and (max-width: 1366px) {
+    .search-container {
+        right: 10px; /* Reduce right margin for smaller screens */
+        width: 250px; /* Slightly reduce width */
+    }
+
+    .add-user-btn {
+        right: 280px; /* Adjust to account for reduced search bar width */
+        padding: 8px 15px; /* Slightly smaller padding */
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .container {
+        margin-left: 200px; /* Ensure container respects sidebar width */
+        padding: 20px; /* Reduce padding for smaller screens */
+    }
+
+    .search-container {
+        right: 10px;
+        width: 200px; /* Further reduce width */
+        top: 80px; /* Adjust vertical position */
+    }
+
+    .add-user-btn {
+        right: 230px; /* Adjust position */
+        font-size: 14px; /* Smaller font size */
+        padding: 8px 12px;
+    }
+
+    .upper {
+        left: 210px; /* Adjust header position */
+        right: 20px;
+        padding: 8px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .sidebar {
+        width: 180px; /* Slightly reduce sidebar width */
+    }
+
+    .container {
+        margin-left: 180px; /* Adjust for smaller sidebar */
+        padding: 15px;
+    }
+
+    .search-container {
+        width: 100%; /* Full width for very small screens */
+        max-width: 300px;
+        right: 10px;
+        top: 70px;
+    }
+
+    .add-user-btn {
+        right: 10px; /* Move to the right edge */
+        top: 120px; /* Place below search bar */
+        width: 100%;
+        max-width: 150px; /* Limit button width */
+        text-align: center;
+    }
+
+    .upper {
+        left: 190px; /* Adjust header for smaller sidebar */
+        right: 10px;
+        height: 60px;
+    }
+
+    .user-details {
+        margin-left: 0; /* Remove large margin */
+    }
+
+    .user-details span,
+    .user-details small {
+        margin-left: 0; /* Reset margins */
+    }
+}

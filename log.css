@@ -176,7 +176,6 @@ footer {
     margin-bottom: 5px;
 }
 
-
 /* Main Content */
 .container {
     flex: 1;
@@ -190,7 +189,7 @@ footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px;
+    padding: 10px;
     background: linear-gradient(135deg, #3d28e2, #594fdd);
     color: white;
     border-radius: 10px;
@@ -203,12 +202,15 @@ footer {
     font-weight: 600;
 }
 
+
 .search-container {
-    position: relative;
+    position: absolute;
+    top: 30px;
+    right: 20px;
     width: 300px;
-    margin-left: 20px;
-    margin-top: -50px;
-    margin-left: 1150px;
+    z-index: 10;
+    
+    
 }
 
 .search-bar {
@@ -274,99 +276,119 @@ footer {
     margin-left: -300px;
 }
 
-/* Tab Buttons */
-.tab-buttons {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-    margin-top: 10px;
-}
-
-.tab-btn {
-    position: relative;
-    padding: 8px 16px;
-    background: #f1f1f1;
-    border: none;
-    cursor: pointer;
-    border-radius: 4px 4px 0 0;
-    font-size: 14px;
-    transition: background-color 0.3s, color 0.3s;
-}
-
-.tab-btn.active {
-    background: #4CAF50 !important;
-    color: white;
-}
-
-.tab-btn.disabled {
-    background: #d3d3d3;
-    color: #999;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.tab-badge {
-    background-color: #ff5722;
-    color: #fff;
-    border-radius: 10px;
-    padding: 2px 8px;
-    font-size: 12px;
-    position: absolute;
-    top: -5px;
-    right: -5px;
-}
-
-.create-ticket-btn {
-    background-color: var(--primary);
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s, transform 0.2s;
-}
-
-.create-ticket-btn:hover {
-    background-color: var(--secondary);
-    transform: translateY(-2px);
-}
-
 /* Table Box */
 .table-box {
     width: 100%;
     padding: 20px;
-    background: white;
+    background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    margin-top: -2px;
+}
+
+.table-box h2{
+    margin-top: 20px;
+}
+
+.username {
+    position: absolute;
+    left: 25px;
+    top: 25px;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.admin-icon {
+    color: var(--warning);
+    margin-left: 5px;
+}
+
+.add-user-btn {
+    position: absolute;
+    top: 65px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.add-user-btn:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.add-user-btn i {
+    margin-right: 8px;
+}
+
+/* Tabs */
+.tab-buttons {
+    display: flex;
+    margin-bottom: 15px;
+    margin-top: 50px;
+}
+
+.tab-btn {
+    padding: 8px 16px;
+    background: #f1f1f1;
+    border: none;
+    cursor: pointer;
+    margin-right: 5px;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+}
+
+.tab-btn.active {
+    background: #4CAF50;
+    color: white;
+}
+
+.tab-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff5722;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#active-users-tab,
+#archived-users-tab {
     display: none;
+    width: 100%;
+    flex-grow: 1;
     flex-direction: column;
 }
 
-.table-box.active {
+#active-users-tab.active,
+#archived-users-tab.active {
     display: flex;
 }
 
-#archivedTable {
-    background: #f9f9f9;
-}
-
-/* Table Wrapper */
-.table-wrapper {
-    flex: 1;
-    overflow: auto;
-    max-height: 500px;
-}
-
-/* Table */
+/* Enhanced Table Styling for Consistent Layout */
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    table-layout: auto;
-    margin-top: 15px;
+    margin-top: 10px;
+    table-layout: fixed; /* This ensures consistent column widths */
 }
 
 thead {
@@ -377,11 +399,13 @@ thead {
     z-index: 10;
 }
 
+/* Header cells - Centered alignment */
 th {
-    padding: 15px;
-    text-align: center;
+    padding: 15px 10px;
+    text-align: center !important;
     font-weight: 500;
     vertical-align: middle;
+    color: white;
     border: none;
 }
 
@@ -393,16 +417,76 @@ th:last-child {
     border-top-right-radius: 10px;
 }
 
-td {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
+/* General table cell styling */
+th, td {
+    padding: 12px 10px; /* Consistent padding */
     vertical-align: middle;
-    text-align: center;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: normal;
+}
+
+/* Specific column widths with centered content */
+th:nth-child(1), 
+td.timestamp-cell {
+    width: 25%;
+    text-align: center !important;
+    min-width: 150px;
+    max-width: 200px;
+}
+
+th:nth-child(2), 
+td.type-cell {
+    width: 25%;
+    text-align: center !important;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+th:nth-child(3), 
+td.description-cell {
+    width: 40%;
+    text-align: center !important;
+    min-width: 200px;
+    max-width: 400px;
+    word-break: break-word;
+}
+
+/* Remove conflicting td center alignment */
+td {
+    padding: 12px 10px !important; /* Consistent padding */
+    vertical-align: middle;
+    text-align: center !important; /* All cells centered */
     word-wrap: break-word;
     white-space: normal;
-    border-left: none;
-    border-right: none;
-    border-top: none;
+    margin: 0 !important; /* Remove any margins */
+}
+
+/* No logs cell */
+.no-logs-cell {
+    text-align: center !important;
+    padding: 20px !important;
+    color: #666;
+    width: 100% !important;
+    margin: 0 !important;
+}
+
+/* Row hover effects */
+tr.log-row:hover td {
+    background: rgba(108, 92, 231, 0.05) !important;
+    transition: background-color 0.2s ease;
+}
+
+/* Ensure consistent font and spacing */
+.log-row td {
+    font-size: 16px;
+    line-height: 1.4;
+    white-space: normal;
+    margin: 0 !important; /* Remove any margins */
+    padding: 12px 10px !important; /* Consistent padding */
 }
 
 tr:last-child td {
@@ -412,27 +496,22 @@ tr:last-child td {
 tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
-.filter-btn {
-    background: transparent !important;
-    border: none;
-    cursor: pointer;
-    font-size: 15px;
-    color: var(--light, #f5f8fc);
-    margin-left: 5px;
-    vertical-align: middle;
-    padding: 0;
-    outline: none;
+
+/* Status Badges */
+.status-active {
+    color: var(--success) !important;
 }
 
-.filter-btn:hover {
-    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
-    background: transparent !important;
+.status-inactive {
+    color: var(--danger) !important;
 }
 
-th .filter-btn {
-    background: transparent !important;
+.status-pending {
+    color: #ff9800;
+    font-weight: 500;
 }
 
+/* Pagination */
 .pagination {
     display: flex;
     justify-content: center;
@@ -475,89 +554,21 @@ th .filter-btn {
     color: var(--dark);
 }
 
-/* Empty State */
-.empty-state {
-    font-size: 16px;
-    color: #666;
-    padding: 20px;
-    text-align: center;
-    border: 1px dashed #ddd;
-    border-radius: 8px;
-    margin-top: 10px;
-}
-
-/* Alerts */
-.alert-container {
-    position: relative;
-}
-
-.alert {
-    padding: 10px;
-    border-radius: 5px;
-    position: absolute;
-    top: -10px;
-    left: 15px;
-    width: 100%;
-    z-index: 1000;
-}
-
-.alert-success {
-    background-color: transparent;
-    color: #155724;
-    border: none;
-}
-
-.alert-error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.error-red {
-    color: red;
-}
-
-.settings-link {
-    position: absolute;
-    right: 10px;
-    top: 20px;
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: #e7e6e6;
-    font-size: 16px;
-    font-weight: 600;
-    transition: 0.3s ease-in-out;
-}
-
-.settings-link i {
-    font-size: 24px;
-    margin-right: 5px;
-    color: #dad9d9;
-}
-
-.settings-link:hover span {
-    opacity: 1;
-    transform: translateX(0);
-}
-
 /* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
-    align-items: center;
-    justify-content: center;
 }
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 10% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -585,25 +596,14 @@ th .filter-btn {
     transition: all 0.3s;
 }
 
-.modal-btn.delete {
-    background-color: var(--primary);
-    color: white;
-}
-
-.modal-btn.delete:hover {
-    background-color: var(--secondary);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
 .modal-btn.confirm {
     background: var(--primary);
     color: white;
 }
 
 .modal-btn.cancel {
-    background: var(--primary);
-    color: var(--light);
+    background: var(--light);
+    color: var(--dark);
 }
 
 .modal-btn:hover {
@@ -620,287 +620,91 @@ th .filter-btn {
     border-radius: 5px;
 }
 
-/* Modal Form Textarea */
-.modal-form textarea {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-    resize: vertical;
-    min-height: 100px;
-    outline: none;
-    transition: border-color 0.3s ease;
-}
-
-.modal-form textarea:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
-}
-
-#addTicketModal .modal-content {
-    margin: 5% auto;
-    max-width: 500px;
-}
-
-#editTicketModal .modal-content {
-    margin: 5% auto;
-    max-width: 500px;
-}
-
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#archiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#unarchiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#viewModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#statusFilterModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-/* Error message styling */
-.modal-form .error {
-    color: var(--danger);
-    font-size: 12px;
-    display: block;
-    margin-top: -10px;
-    margin-bottom: 10px;
-}
-
-.field-row {
+/* Archive Header */
+.archive-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
-.field-row label {
-    width: 120px;
-    font-weight: bold;
-    color: var(--dark);
-}
-
-.field-row p {
-    flex: 1;
-    margin: 0;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    color: #333;
-    word-wrap: break-word;
-    white-space: normal;
-}
-
-/* View modal fields */
-.field-row .view-field {
+.restore-all-btn {
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
     border: none;
-    padding: 4px 0;
-    background: transparent;
-    color: #333;
-    word-wrap: break-word;
-    white-space: normal;
-    margin: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: -65px;
+    margin-left: 17.5%;
 }
 
-/* Action Buttons */
-.action-buttons {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: center;
+.restore-all-btn:hover {
+    background: #45a049;
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
+/* Alerts */
+.alert-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 10px;
     border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
-}
-
-.view-btn {
-    background-color: #3498db;
-    color: #fff;
-}
-.view-btn:hover {
-    background-color: #2980b9;
-}
-
-.edit-btn {
-    background-color: #2ecc71;
-    color: #fff;
-}
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-    color: #fff;
-}
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.unarchive-btn {
-    background-color: #9b59b6;
-    color: #fff;
-}
-.unarchive-btn:hover {
-    background-color: #8e44ad;
-}
-
-.delete-btn {
-    background-color: #ff6200;
-    color: #fff;
-}
-.delete-btn:hover {
-    background-color: #e55a00;
-}
-
-.delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
-    font-size: 16px;
-}
-
-/* Close Button in Modals */
-.close {
     position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--dark);
+    top: -5px;
+    left: 15px;
+    width: 100%;
+    z-index: 1000;
 }
 
-/* Status Badges */
-.status-open {
-    color: var(--success);
+.alert-success {
+    background-color: transparent;
+    color: #155724;
+    border: none;
 }
 
-.status-closed {
-    color: var(--danger);
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
-.status-archived {
-    color: #6c757d;
-}
-
-.status-clickable {
-    cursor: pointer;
-}
-
-.status-clickable:hover {
-    text-decoration: underline;
-}
-
-/* Responsive design for Close Ticket Modal */
-@media (max-width: 480px) {
-    .close-ticket-input {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .ticket-id-input input {
-        width: 100%;
-    }
-}
-
-.alert-hidden {
-    opacity: 0;
-    transition: opacity 0.5s ease;
-}
-
-.status-warning {
-    color: red;
-    font-size: 12px;
-    margin-top: -10px;
-    margin-bottom: 10px;
-}
-
-/* Filter Icons */
-.filter-icons {
-    margin-left: 8px;
-    display: inline-flex;
+.settings-link {
+    position: absolute;
+    right: 40px;
+    top: 10;
+    display: flex;
     align-items: center;
-    gap: 6px;
-}
-
-.filter-icon {
-    font-size: 16px;
-    cursor: pointer;
-    transition: color 0.3s, transform 0.2s;
-}
-
-.filter-open {
-    color: #00b894;
-}
-
-.filter-open:hover {
-    color: #009670;
-    transform: scale(1.2);
-}
-
-.filter-closed {
-    color: #d63031;
-}
-
-.filter-closed:hover {
-    color: #b12728;
-    transform: scale(1.2);
-}
-
-/* Remove underline from status on hover */
-.status-clickable:hover {
     text-decoration: none;
+    color: #e7e6e6;
+    font-size: 16px;
+    font-weight: 600;
+    transition: 0.3s ease-in-out;
 }
 
-/* Status header clickable */
-.status-header {
-    cursor: pointer;
+.settings-link i {
+    font-size: 24px;
+    margin-right: 5px;
+    transition: 0.3s ease-in-out;
+    color: #dad9d9;
 }
 
-/* Status Filter Dropdown */
-.status-filter {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 6px;
-    font-size: 14px;
-    color: var(--dark);
-    cursor: pointer;
-    margin-left: 5px;
-    outline: none;
-    transition: border-color 0.3s, box-shadow 0.3s;
+.settings-link:hover span {
+    opacity: 1;
+    transform: translateX(0);
 }
 
-.status-filter:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
-}
-
-.status-filter:hover {
-    border-color: var(--secondary);
-}
-
-.status-filter option {
-    background: white;
-    color: var(--dark);
+/* Empty state styling */
+.empty-state {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #666;
+    border: 1px dashed #ddd;
+    border-radius: 8px;
+    margin-top: 10px;
 }

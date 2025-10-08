@@ -810,7 +810,7 @@ $conn->close();
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppsT.css">
+    <link rel="stylesheet" href="suppT.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -1231,6 +1231,59 @@ $conn->close();
 </div>
 
 <script>
+  // Mobile menu toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const upperHeader = document.querySelector('.upper');
+    const mobileMenuToggle = document.createElement('button');
+    mobileMenuToggle.className = 'mobile-menu-toggle';
+    mobileMenuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+    mobileMenuToggle.setAttribute('aria-label', 'Toggle menu');
+    
+    // Insert the toggle button at the beginning of the header
+    upperHeader.insertBefore(mobileMenuToggle, upperHeader.firstChild);
+    
+    const sidebar = document.querySelector('.sidebar');
+    
+    mobileMenuToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('active');
+        // Toggle menu icon
+        const icon = this.querySelector('i');
+        if (sidebar.classList.contains('active')) {
+            icon.className = 'fas fa-times';
+        } else {
+            icon.className = 'fas fa-bars';
+        }
+    });
+    
+    // Close sidebar when clicking on a link (on mobile)
+    const sidebarLinks = document.querySelectorAll('.sidebar a');
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        });
+    });
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(event) {
+        if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        }
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('active');
+            mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+        }
+    });
+});
 function showNotification(message, type) {
     const container = document.getElementById('alertContainer');
     container.innerHTML = '';

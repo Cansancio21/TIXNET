@@ -38,6 +38,7 @@ body {
 }
 
 /* Sidebar */
+/* Sidebar */
 .sidebar {
     width: 200px;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -212,11 +213,12 @@ footer {
 }
 
 .search-container {
-    position: relative;
+    position: absolute;
+    top: 60px;
+    right: 20px;
     width: 300px;
-    margin-left: 1310px;
-    margin-top: -35px;
-    margin-bottom: 10px;
+    z-index: 10;
+    
     
 }
 
@@ -386,18 +388,19 @@ footer {
     position: relative;
     min-height: 60vh;
     overflow: visible;
-    margin-top: -16px;
+    margin-top: -15px;
+    
 }
 
 .table-box h2{
-    margin-top: 23px;
+    margin-top: 15px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    margin-top: 18px;
+     margin-top: 40px;
     
 }
 
@@ -415,7 +418,6 @@ th {
     font-weight: 500;
     vertical-align: middle;
     border: none;
-    
 }
 
 th:first-child {
@@ -433,7 +435,9 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
-    font-size: 14px;
+    border-left: none;
+    border-right: none;
+    border-top: none;
 }
 
 tr:last-child td {
@@ -447,11 +451,20 @@ tr:hover td {
 th:nth-child(1) { width: 150px; } /* Ticket ID */
 th:nth-child(2) { width: 150px; } /* Account Name */
 th:nth-child(3) { width: 100px; } /* Type */
-th:nth-child(4) { width: 150px; } /* Status */
-th:nth-child(5) { width: 150px; } /* Ticket Details */
+th:nth-child(4) { width: 100px; } /* Status */
+th:nth-child(5) { width: 250px; } /* Ticket Details */
 th:nth-child(6) { width: 100px; } /* Date */
 th:nth-child(7) { width: 100px; } /* Action */
 
+td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    font-size: 16px;
+    vertical-align: middle;
+    line-height: 1.4;
+    min-height: 50px;
+}
 
 td:nth-child(2), td:nth-child(5) {
     white-space: nowrap;
@@ -468,6 +481,28 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
+.delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+    background-color: #e55a00;
+    color: #fff;
+}
+
+.delete-btn i {
+    font-size: 16px;
+}
+
 /* Action Buttons */
 .action-buttons {
     display: flex;
@@ -478,7 +513,7 @@ tr:hover td {
     min-height: 50px;
 }
 
-.view-btn, .edit-btn {
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -492,7 +527,6 @@ tr:hover td {
 
 .view-btn {
     background-color: #3498db;
-    color: #fff;
 }
 
 .view-btn:hover {
@@ -501,11 +535,26 @@ tr:hover td {
 
 .edit-btn {
     background-color: #2ecc71;
-    color: #fff;
 }
 
 .edit-btn:hover {
     background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+}
+
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.restore-btn {
+    background-color: #9b59b6;
+}
+
+.restore-btn:hover {
+    background-color: #8e44ad;
 }
 
 /* Status Badges */
@@ -521,6 +570,7 @@ tr:hover td {
   color: #ff9800;
     font-weight: 500;
 }
+
 
 .status-clickable {
     cursor: pointer;
@@ -773,24 +823,4 @@ tr:hover td {
 
 .alert-hidden {
     opacity: 0;
-}
-
-.filter-btn {
-    background: transparent;
-    border: none;
-    color: white;
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 5px;
-    transition: color 0.3s ease;
-    display: inline-flex; /* Align inline with text */
-    align-items: center; /* Vertically center the icon with text */
-}
-
-.filter-btn:hover {
-    color: var(--light);
-}
-
-.filter-btn i {
-    font-size: 1.2rem;
 }

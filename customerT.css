@@ -212,11 +212,13 @@ footer {
 }
 
 .search-container {
-    position: relative;
+    position: absolute;
+    top: 60px;
+    right: 20px;
     width: 300px;
-    margin-left: 1310px;
-    margin-top: -60px;
-    margin-bottom: 10px;
+    z-index: 10;
+    
+    
 }
 
 .search-bar {
