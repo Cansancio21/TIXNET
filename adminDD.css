@@ -17,7 +17,7 @@
 }
 
 body {
-    background-color: #fff;
+    background-color: #f8f9fa;
     color: var(--dark);
 }
 
@@ -229,6 +229,7 @@ footer {
     font-size: 24px;
     font-weight: 600;
 }
+
 .search-container {
     position: relative;
     width: 300px;

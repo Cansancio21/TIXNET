@@ -182,8 +182,8 @@ footer {
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
+    padding-top: 100px;
 }
-
 /* Header */
 .upper {
     display: flex;
@@ -194,6 +194,7 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
+    margin-top: -70px;
 }
 
 .upper h1 {
@@ -202,15 +203,12 @@ footer {
     font-weight: 600;
 }
 
-
 .search-container {
     position: absolute;
-    top: 30px;
+    top: 60px;
     right: 20px;
     width: 300px;
     z-index: 10;
-    
-    
 }
 
 .search-bar {
@@ -278,6 +276,7 @@ footer {
 
 /* Table Box */
 .table-box {
+    position: relative;
     width: 100%;
     padding: 20px;
     background-color: #fff;
@@ -287,19 +286,21 @@ footer {
     min-height: 600px;
     display: flex;
     flex-direction: column;
-    margin-top: -2px;
+    margin-top: -10px;
 }
 
 .table-box h2{
-    margin-top: 20px;
+    margin-top: 2px;
 }
 
 .username {
     position: absolute;
     left: 25px;
-    top: 25px;
-    font-weight: 500;
+    top: 45px;
+    padding-bottom: 25px;
+    margin-bottom: 25px;
     color: var(--primary);
+    
 }
 
 .admin-icon {
@@ -309,7 +310,7 @@ footer {
 
 .add-user-btn {
     position: absolute;
-    top: 65px;
+    top: 45px;
     right: 20px;
     display: inline-flex;
     align-items: center;
@@ -320,6 +321,8 @@ footer {
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    border: none; /* Remove border */
+    outline: none; /* Remove outline on focus */
 }
 
 .add-user-btn:hover {
@@ -336,7 +339,8 @@ footer {
 .tab-buttons {
     display: flex;
     margin-bottom: 15px;
-    margin-top: 50px;
+    margin-top: 10px;
+    gap: 5px;
 }
 
 .tab-btn {
@@ -352,6 +356,17 @@ footer {
 .tab-btn.active {
     background: #4CAF50;
     color: white;
+}
+
+.tab-content {
+    display: none;
+    width: 100%;
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.tab-content.active {
+    display: flex;
 }
 
 .tab-badge {
@@ -382,13 +397,14 @@ footer {
     display: flex;
 }
 
-/* Enhanced Table Styling for Consistent Layout */
+/* Table */
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
+    margin-top: -5px;
+    table-layout: auto;
     margin-top: 10px;
-    table-layout: fixed; /* This ensures consistent column widths */
 }
 
 thead {
@@ -399,14 +415,11 @@ thead {
     z-index: 10;
 }
 
-/* Header cells - Centered alignment */
 th {
-    padding: 15px 10px;
-    text-align: center !important;
+    padding: 15px;
+    text-align: center;
     font-weight: 500;
     vertical-align: middle;
-    color: white;
-    border: none;
 }
 
 th:first-child {
@@ -417,76 +430,14 @@ th:last-child {
     border-top-right-radius: 10px;
 }
 
-/* General table cell styling */
-th, td {
-    padding: 12px 10px; /* Consistent padding */
-    vertical-align: middle;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    border-bottom: 1px solid #eee;
-    font-size: 14px;
-    line-height: 1.4;
-    white-space: normal;
-}
-
-/* Specific column widths with centered content */
-th:nth-child(1), 
-td.timestamp-cell {
-    width: 25%;
-    text-align: center !important;
-    min-width: 150px;
-    max-width: 200px;
-}
-
-th:nth-child(2), 
-td.type-cell {
-    width: 25%;
-    text-align: center !important;
-    min-width: 120px;
-    max-width: 200px;
-}
-
-th:nth-child(3), 
-td.description-cell {
-    width: 40%;
-    text-align: center !important;
-    min-width: 200px;
-    max-width: 400px;
-    word-break: break-word;
-}
-
-/* Remove conflicting td center alignment */
 td {
-    padding: 12px 10px !important; /* Consistent padding */
+    padding: 10px;
+    border-bottom: 1px solid #eee;
     vertical-align: middle;
-    text-align: center !important; /* All cells centered */
+    text-align: center;
     word-wrap: break-word;
     white-space: normal;
-    margin: 0 !important; /* Remove any margins */
-}
-
-/* No logs cell */
-.no-logs-cell {
-    text-align: center !important;
-    padding: 20px !important;
-    color: #666;
-    width: 100% !important;
-    margin: 0 !important;
-}
-
-/* Row hover effects */
-tr.log-row:hover td {
-    background: rgba(108, 92, 231, 0.05) !important;
-    transition: background-color 0.2s ease;
-}
-
-/* Ensure consistent font and spacing */
-.log-row td {
-    font-size: 16px;
-    line-height: 1.4;
-    white-space: normal;
-    margin: 0 !important; /* Remove any margins */
-    padding: 12px 10px !important; /* Consistent padding */
+    font-size: 14px;
 }
 
 tr:last-child td {
@@ -510,6 +461,162 @@ tr:hover td {
     color: #ff9800;
     font-weight: 500;
 }
+
+button {
+    border: none;
+    outline: none;
+}
+
+
+/* Action Buttons */
+.delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+    background-color: #e55a00;
+    color: #fff;
+}
+
+.delete-btn i {
+    font-size: 16px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.view-btn {
+    background-color: #3498db;
+    color: #fff;
+}
+
+.view-btn:hover {
+    background-color: #2980b9;
+}
+
+.edit-btn {
+    background-color: #2ecc71;
+    color: #fff;
+}
+
+.edit-btn:hover {
+    background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+    color: #fff;
+}
+
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.unarchive-btn {
+    background-color: #9b59b6;
+    color: #fff;
+}
+
+.unarchive-btn:hover {
+    background-color: #8e44ad;
+}
+
+.export-btn {
+    position: absolute;
+    top: -55px;
+    left: 280px;
+    display: inline-flex;
+    align-items: center;
+    background-color: #63c216;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    border: none;
+    outline: none;
+    z-index: 5;
+}
+
+
+
+.export-btn:hover {
+    background-color: #58a814;
+}
+
+.export-btn i {
+    margin-right: 8px;
+}
+
+/* Export Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+}
+
+.export-dropdown {
+    display: none;
+    position: absolute;
+    top: -18px;
+    left: 235px;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.export-container:hover .export-dropdown {
+    display: block;
+}
+
+.export-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.export-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
 
 /* Pagination */
 .pagination {
@@ -558,17 +665,19 @@ tr:hover td {
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    top: 0px;
     left: 0;
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-content {
     background: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -602,8 +711,8 @@ tr:hover td {
 }
 
 .modal-btn.cancel {
-    background: var(--light);
-    color: var(--dark);
+    background: var(--primary);
+    color: var(--light);
 }
 
 .modal-btn:hover {
@@ -618,6 +727,24 @@ tr:hover td {
     margin: 5px 0 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
+}
+
+#viewTicketModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: 165px;
+}
+
+#editAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+    margin-top: -10px;
+}
+
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: 170px;
 }
 
 /* Archive Header */
@@ -646,14 +773,14 @@ tr:hover td {
 /* Alerts */
 .alert-container {
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
 }
 
 .alert {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: -5px;
+    top: 15px;
     left: 15px;
     width: 100%;
     z-index: 1000;
@@ -708,3 +835,14 @@ tr:hover td {
     border-radius: 8px;
     margin-top: 10px;
 }
+
+.alert {
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.alert-hidden {
+    opacity: 0;
+}
+
+

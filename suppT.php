@@ -810,7 +810,7 @@ $conn->close();
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="suppT.css">
+    <link rel="stylesheet" href="suppsT.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -871,16 +871,16 @@ $conn->close();
                 <?php if (isset($_GET['id']) && $ticket): ?>
                     <table>
                      <thead>
-    <tr>
-        <th>Ticket No</th>
-        <th>Customer ID</th>
-        <th>Customer Name</th>
-        <th>Subject</th>
-        <th>Message</th>
-        <th>Status <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
-        <th>Actions</th>
-    </tr>
-</thead>
+                      <tr>
+                       <th>Ticket No</th>
+                       <th>Customer ID</th>
+                       <th>Customer Name</th>
+                       <th>Subject</th>
+                       <th>Message</th>
+                       <th>Status <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+                       <th>Actions</th>
+                     </tr>
+                     </thead>
                         <tbody>
                             <tr>
                                 <td><?php echo htmlspecialchars($ticket['s_ref'] ?: '-'); ?></td>

@@ -485,7 +485,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Dashboard</title>
-    <link rel="stylesheet" href="technicianD.css">
+    <link rel="stylesheet" href="technicianDS.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -566,15 +566,15 @@ $conn->close();
 
             <div class="tab-container">
                 <div class="table-box">
-                    <!-- Alert Container - POSITIONED AT TOP INSIDE table-box -->
+                    <!-- Fixed Alert Container - ABSOLUTE POSITION -->
                     <div class="alert-container" id="tableAlerts">
-                        <?php if (isset($_SESSION['message'])): ?>
-                            <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
-                        <?php endif; ?>
-                        <?php if (isset($_SESSION['error'])): ?>
-                            <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
-                        <?php endif; ?>
-                    </div>
+        <?php if (isset($_SESSION['message'])): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
+        <?php endif; ?>
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
+        <?php endif; ?>
+    </div>
 
                     <div class="main-tab-buttons">
                         <button class="tab-button <?php echo $tab === 'regular' ? 'active' : ''; ?>" onclick="openTab('regularTickets', 'regular')">Regular Tickets</button>

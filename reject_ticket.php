@@ -153,30 +153,11 @@ $conn->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="reject_tickets.css">
+    <link rel="stylesheet" href="reject_tickeTs.css">
 
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        .table-box {
-            display: block;
-            width: 100%;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            margin-top: 20px;
-        }
-        .rejected-tickets table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-    
-        .status-rejected {
-            color: red;
-        }
-    
         .alert {
             padding: 10px;
             margin-bottom: 20px;
@@ -230,68 +211,68 @@ $conn->close();
 
         <div class="alert-container" id="alertContainer"></div>
 
-     <div class="table-box">
-    <div class="search-container">
+        <div class="table-box">
+            <div class="search-container">
                 <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
-    <div class="rejected-tickets">
-        <div class="table-wrapper">
-            <table id="rejected-tickets-table">
-                <thead>
-                    <tr>
-                        <th>Ticket No</th>
-                        <th>Customer ID</th>
-                        <th>Account Name</th>
-                        <th>Subject</th>
-                        <th>Message</th>
-                        <th>Remarks</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="rejected-table-body">
-                    <?php
-                    if ($resultTickets->num_rows > 0) {
-                        while ($row = $resultTickets->fetch_assoc()) {
-                            $statusClass = 'status-' . strtolower($row['s_status']);
-                            $accountName = $firstName . ' ' . $lastName;
-                            $remarks = htmlspecialchars($row['s_remarks'] ?: '', ENT_QUOTES, 'UTF-8');
-                            echo "<tr> 
-                                <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td>
-                                <td>" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "</td>
-                                <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                <td>" . $remarks . "</td>
-                                <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
-                                <td class='action-buttons'>
-                                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "', '" . $remarks . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                </td>
-                            </tr>";
+            
+            <div class="table-wrapper">
+                <table id="rejected-tickets-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket No</th>
+                            <th>Customer ID</th>
+                            <th>Account Name</th>
+                            <th>Subject</th>
+                            <th>Message</th>
+                            <th>Remarks</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rejected-table-body">
+                        <?php
+                        if ($resultTickets->num_rows > 0) {
+                            while ($row = $resultTickets->fetch_assoc()) {
+                                $statusClass = 'status-' . strtolower($row['s_status']);
+                                $accountName = $firstName . ' ' . $lastName;
+                                $remarks = htmlspecialchars($row['s_remarks'] ?: '', ENT_QUOTES, 'UTF-8');
+                                echo "<tr> 
+                                    <td>" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "</td>
+                                    <td>" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "</td> 
+                                    <td>" . $remarks . "</td>
+                                    <td class='$statusClass'>" . ucfirst(strtolower($row['s_status'])) . "</td>
+                                    <td class='action-buttons'>
+                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['c_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($accountName, ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_message'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['s_status'], ENT_QUOTES, 'UTF-8') . "', '" . $remarks . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                    </td>
+                                </tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='8' class='empty-state'>No Declined tickets found.</td></tr>";
                         }
-                    } else {
-                        echo "<tr><td colspan='8' class='empty-state'>No rejected tickets found.</td></tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination" id="pagination">
+                <?php if ($page > 1): ?>
+                    <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+                <?php else: ?>
+                    <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+                <?php endif; ?>
+                <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
+                <?php if ($page < $totalPages): ?>
+                    <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+                <?php else: ?>
+                    <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+                <?php endif; ?>
+            </div>
         </div>
-        <div class="pagination" id="pagination">
-            <?php if ($page > 1): ?>
-                <a href="?page=<?php echo $page - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-            <?php else: ?>
-                <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-            <?php endif; ?>
-            <span class="current-page">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-            <?php if ($page < $totalPages): ?>
-                <a href="?page=<?php echo $page + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-            <?php else: ?>
-                <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-            <?php endif; ?>
-        </div>
-    </div>
-</div>
     </div>
 </div>
 
@@ -309,6 +290,60 @@ $conn->close();
 </div>
 
 <script>
+// Mobile menu toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const upperHeader = document.querySelector('.upper');
+    const mobileMenuToggle = document.createElement('button');
+    mobileMenuToggle.className = 'mobile-menu-toggle';
+    mobileMenuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+    mobileMenuToggle.setAttribute('aria-label', 'Toggle menu');
+    
+    // Insert the toggle button at the beginning of the header
+    upperHeader.insertBefore(mobileMenuToggle, upperHeader.firstChild);
+    
+    const sidebar = document.querySelector('.sidebar');
+    
+    mobileMenuToggle.addEventListener('click', function() {
+        sidebar.classList.toggle('active');
+        // Toggle menu icon
+        const icon = this.querySelector('i');
+        if (sidebar.classList.contains('active')) {
+            icon.className = 'fas fa-times';
+        } else {
+            icon.className = 'fas fa-bars';
+        }
+    });
+    
+    // Close sidebar when clicking on a link (on mobile)
+    const sidebarLinks = document.querySelectorAll('.sidebar a');
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        });
+    });
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(event) {
+        if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+            }
+        }
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('active');
+            mobileMenuToggle.querySelector('i').className = 'fas fa-bars';
+        }
+    });
+});
+
 function showNotification(message, type) {
     const container = document.getElementById('alertContainer');
     container.innerHTML = '';

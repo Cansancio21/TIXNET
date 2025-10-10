@@ -177,41 +177,35 @@ footer {
     margin-bottom: 5px;
 }
 
+/* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-    transition: all 0.3s ease;
 }
 
-/* Header */
 .upper {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
+    padding: 10px;
     background: linear-gradient(135deg, #3d28e2, #594fdd);
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 15px;
-    position: relative; /* Added for mobile menu positioning */
 }
 
 .upper h1 {
     margin: 0;
     font-size: 24px;
     font-weight: 600;
-    flex: 1;
-    min-width: 200px;
 }
 
 .user-profile {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -273,16 +267,16 @@ footer {
 
 /* Table Box */
 .table-box {
+    position: relative;
     width: 100%;
-    padding: 30px;
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     min-height: 600px;
     display: flex;
     flex-direction: column;
-    margin-top: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    margin-top: 0; /* Remove the extra margin-top since we added it to container */
 }
 
 .table-box h2 {
@@ -371,7 +365,7 @@ thead {
 
 .settings-link {
     position: absolute;
-    right: 35px;
+    right: 40px;
     top: 40px;
     display: flex;
     align-items: center;
