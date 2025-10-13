@@ -289,7 +289,6 @@ footer {
     margin-top: 0;
     position: relative;
 }
-
 /* Tab buttons position - moved down to make space for alerts */
 .main-tab-buttons {
     display: flex;
@@ -315,9 +314,17 @@ footer {
     color: white;
 }
 
-.tab-button:hover {
+/* FIX: Only apply hover effect to non-active tabs */
+.tab-button:not(.active):hover {
     background: #e0e0e0;
 }
+
+/* FIX: Keep active tab green even on hover */
+.tab-button.active:hover {
+    background: #4CAF50; /* Same green color */
+    color: white;
+}
+
 
 .alert-container {
     position: absolute;

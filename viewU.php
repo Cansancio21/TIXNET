@@ -636,10 +636,11 @@ $stmt->close();
         .filter-btn:hover {
             color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
         }
-        .btn-processing {
-            opacity: 0.7;
-            pointer-events: none;
-        }
+      .btn-processing {
+    opacity: 0.7;
+    pointer-events: none;
+    background: var(--primary);
+}
     </style>
 </head>
 <body>

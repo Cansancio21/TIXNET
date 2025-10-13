@@ -97,7 +97,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Portal</title>
-    <link rel="stylesheet" href="technician_stafff.css">
+    <link rel="stylesheet" href="technician_staff.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 </head>
 <body>

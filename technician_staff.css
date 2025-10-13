@@ -143,12 +143,12 @@ input[type="password"]:focus {
     top: 50%;
     transform: translateY(-50%);
     font-size: 20px;
-    color: #6b7280;
+    color: #000000; /* Changed to black */
     transition: color 0.3s ease;
 }
 
 .input-box i:hover {
-    color: var(--primary);
+    color: #000000; /* Changed to black on hover too */
 }
 
 .input-box select {

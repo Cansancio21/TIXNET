@@ -34,8 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
     if (in_array($imageFileType, $allowedTypes)) {
         if ($uploadFile['size'] <= 5000000) {
             if (move_uploaded_file($uploadFile['tmp_name'], $targetFile)) {
-                // Success - redirect to portal
-                echo "<script>alert('Avatar uploaded successfully!'); window.location.href='portal.php';</script>";
+                // Success - set session message and redirect
+                $_SESSION['message'] = 'Avatar uploaded successfully!';
+                header("Location: portal.php");
                 exit();
             } else {
                 $error = "Failed to upload image.";
@@ -82,11 +83,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             width: 90%;
             max-width: 800px;
             text-align: center;
+            position: relative;
         }
         
-        /* Inner container - No padding, image fills completely */
+        /* Simple Text Alert Styles - No background */
+        .alert-text {
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+            z-index: 100;
+            /* No background - transparent */
+            background: transparent;
+        }
+        
+        .alert-success {
+            color: #155724;
+        }
+        
+        .alert-error {
+            color: #721c24;
+        }
+        
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        /* Inner container */
         .inner-container {
-          
             border-radius: 15px;
             margin-top: 20px;
             width: 90%;
@@ -101,11 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             margin-left: 35px;
         }
         
-        /* Image styling - Show complete image without cropping */
+        /* Image styling - FORCE image to fill entire container */
         .inner-container img {
-            width: 120%;
+            width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
             display: block;
         }
         
@@ -212,14 +242,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             .outer-container {
                 padding: 25px;
             }
+            
+            .alert-text {
+                top: 10px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="outer-container">
-        <h2><i class="fas fa-user-circle"></i> AVATAR MANAGEMENT</h2>
+        <!-- Simple Text Alerts - Positioned absolutely so they don't affect layout -->
+        <?php if (isset($_SESSION['message'])): ?>
+            <div class="alert-text alert-success">
+                <i class="fas fa-check-circle"></i> 
+                <?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?>
+            </div>
+        <?php endif; ?>
         
-    
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert-text alert-error">
+                <i class="fas fa-exclamation-triangle"></i> 
+                <?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?>
+            </div>
+        <?php endif; ?>
+
+        <h2><i class="fas fa-user-circle"></i> AVATAR MANAGEMENT</h2>
         
         <?php if (isset($error)): ?>
             <div class="error-message">
@@ -246,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         </form>
         
         <div class="inner-container">
-            <img id="avatarPreview" src="<?php echo $avatarPath; ?>" alt="" 
+            <img id="avatarPreview" src="<?php echo $avatarPath; ?>" alt="Avatar Preview" 
                  onerror="this.src='default-avatar.png'">
         </div>
     </div>
@@ -271,7 +320,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         function uploadAvatar() {
             const fileInput = document.getElementById('avatarInput');
             if (fileInput.files.length === 0) {
-                alert('Please select an image first!');
+                // Create simple text alert for "Please select image"
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert-text alert-error';
+                alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Please select an image first!';
+                
+                // Insert into the outer container
+                const outerContainer = document.querySelector('.outer-container');
+                outerContainer.appendChild(alertDiv);
+                
+                // Auto remove after 3 seconds
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 3000);
                 return;
             }
             document.getElementById('uploadForm').submit();
@@ -283,6 +344,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         
         // Hide upload button initially
         document.getElementById('uploadBtn').style.display = 'none';
+        
+        // Auto-hide session alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert-text');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            });
+        });
     </script>
 </body>
 </html>

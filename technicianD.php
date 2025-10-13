@@ -1,6 +1,16 @@
 <?php
 session_start();
 include 'db.php';
+
+// Include PHPMailer dependencies
+require 'PHPmailer-master/PHPmailer-master/src/Exception.php';
+require 'PHPmailer-master/PHPmailer-master/src/PHPMailer.php';
+require 'PHPmailer-master/PHPmailer-master/src/SMTP.php';
+
+// Use PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
@@ -124,7 +134,7 @@ $supportOpen = $counts['supportOpen'];
 $supportClosed = $counts['supportClosed'];
 $pendingTasks = $counts['pendingTasks'];
 
-// Handle ticket actions - SIMPLIFIED VERSION
+// Handle ticket actions - WITH EMAIL FUNCTIONALITY
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     
@@ -132,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $t_ref = trim($_POST['id'] ?? '');
     $ticket_type = trim($_POST['type'] ?? '');
     $submitted_csrf = $_POST['csrf_token'] ?? '';
+    $technician_name = trim($firstName . ' ' . $lastName);
     
     // CSRF validation
     if ($submitted_csrf !== $csrfToken) {
@@ -150,8 +161,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $conn->begin_transaction();
             
             if ($ticket_type === 'regular') {
-                // First get the ticket details before closing
-                $sqlSelect = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE t_ref = ? AND technician_username = ? AND t_status = 'open'";
+                // First get the ticket details including customer email before closing
+                $sqlSelect = "SELECT t.t_ref, t.t_aname, t.t_subject, t.t_details, t.t_status, c.c_email 
+                             FROM tbl_ticket t
+                             JOIN tbl_customer c ON t.t_aname = CONCAT(c.c_fname, ' ', c.c_lname)
+                             WHERE t.t_ref = ? AND t.technician_username = ? AND t.t_status = 'open'";
                 $stmtSelect = $conn->prepare($sqlSelect);
                 $stmtSelect->bind_param("ss", $t_ref, $_SESSION['username']);
                 $stmtSelect->execute();
@@ -168,11 +182,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $sqlInsert = "INSERT INTO tbl_close_regular (t_ref, t_aname, te_technician, t_subject, t_details, t_status, te_date) 
                              VALUES (?, ?, ?, ?, ?, 'Closed', NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
-                $technicianName = $firstName . ' ' . $lastName;
                 $stmtInsert->bind_param("sssss", 
                     $ticketData['t_ref'],
                     $ticketData['t_aname'],
-                    $technicianName,
+                    $technician_name,
                     $ticketData['t_subject'],
                     $ticketData['t_details']
                 );
@@ -181,9 +194,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 // Now close the original ticket
                 $sql = "UPDATE tbl_ticket SET t_status = 'Closed' WHERE t_ref = ? AND technician_username = ? AND t_status = 'open'";
+                
+                // Send email notification to customer
+                if (!empty($ticketData['c_email'])) {
+                    $mail = new PHPMailer(true);
+                    try {
+                        // Server settings
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'jonwilyammayormita@gmail.com';
+                        $mail->Password = 'mqkcqkytlwurwlks';
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
+
+                        // Recipients
+                        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
+                        $mail->addAddress($ticketData['c_email'], $ticketData['t_aname']);
+
+                        // Content
+                        $mail->isHTML(true);
+                        $mail->Subject = 'Your Ticket Has Been Resolved';
+                        $mail->Body = "
+                            <html>
+                            <head>
+                                <title>Ticket Resolution Confirmation</title>
+                            </head>
+                            <body>
+                                <p>Dear {$ticketData['t_aname']},</p>
+                                <p>We are pleased to inform you that your ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.</p>
+                                <p><strong>Ticket Details:</strong></p>
+                                <p><strong>Ticket Ref:</strong> {$t_ref}</p>
+                                <p><strong>Subject:</strong> {$ticketData['t_subject']}</p>
+                                <p><strong>Message:</strong> {$ticketData['t_details']}</p>
+                                <p><strong>Status:</strong> Closed</p>
+                                <p>If you have any further questions or need additional assistance, please contact our support team.</p>
+                                <p><a href='http://localhost/TIMSSS/index.php'>Visit TixNet System</a></p>
+                                <p>Best regards,<br>TixNet System Administrator</p>
+                            </body>
+                            </html>
+                        ";
+                        $mail->AltBody = "Dear {$ticketData['t_aname']},\n\nWe are pleased to inform you that your ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nSubject: {$ticketData['t_subject']}\nMessage: {$ticketData['t_details']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
+
+                        // Send the email
+                        $mail->send();
+                    } catch (Exception $e) {
+                        error_log("PHPMailer Error for regular ticket {$t_ref}: " . $mail->ErrorInfo);
+                        // Don't throw exception for email failure - continue with ticket closure
+                    }
+                } else {
+                    error_log("No customer email found for regular ticket {$t_ref}");
+                }
+                
             } else {
-                // First get the support ticket details before closing
-                $sqlSelect = "SELECT st.s_ref, st.c_id, st.s_subject, st.s_message, st.s_status, c.c_fname, c.c_lname 
+                // First get the support ticket details including customer email before closing
+                $sqlSelect = "SELECT st.s_ref, st.c_id, c.c_fname, c.c_lname, st.s_subject, st.s_message, st.s_status, c.c_email 
                              FROM tbl_supp_tickets st 
                              JOIN tbl_customer c ON st.c_id = c.c_id 
                              WHERE st.s_ref = ? AND st.technician_username = ? AND st.s_status = 'open'";
@@ -203,11 +268,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $sqlInsert = "INSERT INTO tbl_close_supp (s_ref, c_id, te_technician, s_subject, s_message, s_status, s_date) 
                              VALUES (?, ?, ?, ?, ?, 'Closed', NOW())";
                 $stmtInsert = $conn->prepare($sqlInsert);
-                $technicianName = $firstName . ' ' . $lastName;
                 $stmtInsert->bind_param("sssss", 
                     $ticketData['s_ref'],
                     $ticketData['c_id'],
-                    $technicianName,
+                    $technician_name,
                     $ticketData['s_subject'],
                     $ticketData['s_message']
                 );
@@ -216,6 +280,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 // Now close the original support ticket
                 $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed', technician_username = NULL WHERE s_ref = ? AND technician_username = ? AND s_status = 'open'";
+                
+                // Send email notification to customer
+                if (!empty($ticketData['c_email'])) {
+                    $mail = new PHPMailer(true);
+                    try {
+                        // Server settings
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'jonwilyammayormita@gmail.com';
+                        $mail->Password = 'mqkcqkytlwurwlks';
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
+
+                        // Recipients
+                        $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet System');
+                        $mail->addAddress($ticketData['c_email'], $ticketData['c_fname'] . ' ' . $ticketData['c_lname']);
+
+                        // Content
+                        $mail->isHTML(true);
+                        $mail->Subject = 'Your Support Ticket Has Been Resolved';
+                        $mail->Body = "
+                            <html>
+                            <head>
+                                <title>Support Ticket Resolution Confirmation</title>
+                            </head>
+                            <body>
+                                <p>Dear {$ticketData['c_fname']} {$ticketData['c_lname']},</p>
+                                <p>We are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.</p>
+                                <p><strong>Ticket Details:</strong></p>
+                                <p><strong>Ticket Ref:</strong> {$t_ref}</p>
+                                <p><strong>Customer ID:</strong> {$ticketData['c_id']}</p>
+                                <p><strong>Subject:</strong> {$ticketData['s_subject']}</p>
+                                <p><strong>Message:</strong> {$ticketData['s_message']}</p>
+                                <p><strong>Status:</strong> Closed</p>
+                                <p>If you have any further questions or need additional assistance, please contact our support team.</p>
+                                <p><a href='http://localhost/TIMSSS/index.php'>Visit TixNet System</a></p>
+                                <p>Best regards,<br>TixNet System Administrator</p>
+                            </body>
+                            </html>
+                        ";
+                        $mail->AltBody = "Dear {$ticketData['c_fname']} {$ticketData['c_lname']},\n\nWe are pleased to inform you that your support ticket (Ref# {$t_ref}) has been resolved by our technician, {$technician_name}.\n\nTicket Details:\nTicket Ref: {$t_ref}\nCustomer ID: {$ticketData['c_id']}\nSubject: {$ticketData['s_subject']}\nMessage: {$ticketData['s_message']}\nStatus: Closed\n\nIf you have any further questions or need additional assistance, please contact our support team at http://localhost/TIMSSS/index.php.\n\nBest regards,\nTixNet System Administrator";
+
+                        // Send the email
+                        $mail->send();
+                    } catch (Exception $e) {
+                        error_log("PHPMailer Error for support ticket {$t_ref}: " . $mail->ErrorInfo);
+                        // Don't throw exception for email failure - continue with ticket closure
+                    }
+                } else {
+                    error_log("No customer email found for support ticket {$t_ref}");
+                }
             }
             
             $stmt = $conn->prepare($sql);
@@ -485,7 +601,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Dashboard</title>
-    <link rel="stylesheet" href="technicianDS.css">
+    <link rel="stylesheet" href="technicianD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">

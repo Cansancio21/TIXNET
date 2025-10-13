@@ -1,3 +1,4 @@
+
 :root {
     --primary: #3d28e2;
     --secondary: #372fa7;
@@ -520,8 +521,8 @@ button {
 
 .export-btn {
     position: absolute;
-    top: -57px;
-    left: 395px;
+    top: -55px;
+    left: 145px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;

@@ -52,13 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             if (move_uploaded_file($uploadFile['tmp_name'], $targetFile)) {
                 // Determine redirect URL based on user type
                 if ($userType === 'admin') {
-                    $redirectUrl = 'viewU.php';
+                    $redirectUrl = 'adminD.php';
                 } elseif ($userType === 'technician') {
                     $redirectUrl = 'technicianD.php';
                 } else {
                     $redirectUrl = 'staffD.php';
                 }
-                echo "<script>alert('Avatar uploaded successfully!'); window.location.href='$redirectUrl';</script>";
+                // Removed the alert that shows "localhost says"
+                header("Location: $redirectUrl");
                 exit();
             } else {
                 $error = "Failed to upload image.";
@@ -105,32 +106,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             width: 90%;
             max-width: 800px;
             text-align: center;
+            position: relative;
         }
         
-        /* Inner container - No padding, image fills completely */
-        .inner-container {
-           
-            border-radius: 15px;
-            margin-top: 20px;
-            width: 90%;
-            height: 500px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
-                        inset 0 1px 1px rgba(255, 255, 255, 0.2);
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            margin-left: 35px;
+        /* Simple Text Alert Styles - No background */
+        .alert-text {
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+            z-index: 100;
+            background: transparent;
         }
         
-        /* Image styling - Show complete image without cropping */
-        .inner-container img {
-            width: 120%;
-            height: 100%;
-            object-fit: contain; /* CHANGED from 'cover' to 'contain' */
-            display: block;
+        .alert-success {
+            color: #155724;
         }
+        
+        .alert-error {
+            color: #721c24;
+        }
+        
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+     /* Inner container */
+.inner-container {
+    border-radius: 15px;
+    margin-top: 20px;
+    width: 90%;
+    height: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    margin-left: 35px;
+}
+
+/* Image styling - FORCE image to fill entire container */
+.inner-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Change to 'fill' if you want exact fit (may distort) */
+    display: block;
+}
         
         h2 {
             color: #333;
@@ -229,14 +258,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             .outer-container {
                 padding: 25px;
             }
+            
+            .alert-text {
+                top: 10px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="outer-container">
+        <!-- Simple Text Alerts - Positioned absolutely so they don't affect layout -->
+        <?php if (isset($_SESSION['message'])): ?>
+            <div class="alert-text alert-success">
+                <i class="fas fa-check-circle"></i> 
+                <?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert-text alert-error">
+                <i class="fas fa-exclamation-triangle"></i> 
+                <?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?>
+            </div>
+        <?php endif; ?>
+
         <h2><i class="fas fa-user-circle"></i> AVATAR MANAGEMENT</h2>
         
-      
         <?php if (isset($error)): ?>
             <div class="error-message">
                 <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
@@ -287,7 +336,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         function uploadAvatar() {
             const fileInput = document.getElementById('avatarInput');
             if (fileInput.files.length === 0) {
-                alert('Please select an image first!');
+                // Create simple text alert for "Please select image"
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert-text alert-error';
+                alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Please select an image first!';
+                
+                // Insert into the outer container
+                const outerContainer = document.querySelector('.outer-container');
+                outerContainer.appendChild(alertDiv);
+                
+                // Auto remove after 3 seconds
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 3000);
                 return;
             }
             document.getElementById('uploadForm').submit();
@@ -298,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             let redirectUrl = 'staffD.php';
             
             if (userType === 'admin') {
-                redirectUrl = 'viewU.php';
+                redirectUrl = 'adminD.php';
             } else if (userType === 'technician') {
                 redirectUrl = 'technicianD.php';
             }
@@ -308,6 +369,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         
         // Hide upload button initially
         document.getElementById('uploadBtn').style.display = 'none';
+        
+        // Auto-hide session alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert-text');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            });
+        });
     </script>
 </body>
 </html>
