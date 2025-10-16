@@ -186,6 +186,30 @@ button:focus {
     line-height: 1.5;
 }
 
+/* Fix for error messages - prevent layout movement */
+.form-group {
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.error-message {
+    color: #d63031;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    padding: 5px 0;
+    font-weight: 500;
+    height: 20px;
+    display: block;
+    position: absolute;
+    bottom: -20px;
+    left: 5;
+    width: 100%;
+}
+
+.input-box input.error {
+    border-color: #d63031;
+    box-shadow: 0 0 0 2px rgba(214, 48, 49, 0.2);
+}
 /* Responsive Design */
 @media (max-width: 768px) {
     .form-container {

@@ -304,7 +304,7 @@ $conn->close();
                             <th>Credit Date</th>
                             <th>Description</th>
                             <th>Amount</th>
-                            <th>Advance Balance</th>
+                            <th>Balance</th>
                             <th>Actions</th>
                         </tr>
                     </thead>

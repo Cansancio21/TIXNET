@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include 'db.php';
@@ -5,7 +6,7 @@ include 'db.php';
 // Enable error reporting for debugging (remove in production)
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
-ob_start(); // Start output buffering to prevent stray output
+ob_start();
 
 // Check user authentication
 $username = $_SESSION['username'] ?? '';
@@ -137,12 +138,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $offset = ($searchPage - 1) * $ticketsPerPage;
     $searchLike = $searchTerm ? "%$searchTerm%" : null;
 
-    // Validate type filter - only allow Open/Closed for active tab
+    // Validate type filter
     if ($typeFilter && !in_array($typeFilter, ['Open', 'Closed'])) {
         $typeFilter = '';
     }
 
-    // Count total tickets for pagination (REMOVED technician_username filter)
+    // Count total tickets for pagination
     $sqlCount = "SELECT COUNT(*) as count 
                  FROM tbl_supp_tickets 
                  WHERE c_id = ? AND ";
@@ -154,7 +155,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         }
     } else {
         $sqlCount .= "s_status = 'Archived'";
-        $typeFilter = ''; // Reset type filter for archived tab
+        // For archived tab, we don't filter by Open/Closed since we show original status
     }
     
     if ($searchTerm) {
@@ -169,7 +170,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         exit();
     }
     
-    // Bind parameters based on conditions
     $paramTypes = "i";
     $paramValues = [$filterCid];
     
@@ -179,7 +179,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     }
     
     if ($searchTerm) {
-        $paramTypes .= str_repeat("s", 4); // 4 parameters for search
+        $paramTypes .= str_repeat("s", 4);
         $paramValues = array_merge($paramValues, [$searchLike, $searchLike, $searchLike, $searchLike]);
     }
     
@@ -196,7 +196,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $stmtCount->close();
     $totalPages = max(1, ceil($totalTickets / $ticketsPerPage));
 
-    // Fetch tickets (REMOVED technician_username filter)
+    // Fetch tickets
     $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
             FROM tbl_supp_tickets 
             WHERE c_id = ? AND ";
@@ -208,7 +208,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         }
     } else {
         $sql .= "s_status = 'Archived'";
-        $typeFilter = '';
+        // For archived tab, we don't filter by Open/Closed
     }
     
     if ($searchTerm) {
@@ -225,7 +225,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
         exit();
     }
     
-    // Bind parameters for main query
     $paramTypes = "i";
     $paramValues = [$filterCid];
     
@@ -235,7 +234,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     }
     
     if ($searchTerm) {
-        $paramTypes .= str_repeat("s", 4); // 4 parameters for search
+        $paramTypes .= str_repeat("s", 4);
         $paramValues = array_merge($paramValues, [$searchLike, $searchLike, $searchLike, $searchLike]);
     }
     
@@ -261,9 +260,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     ob_start();
     if ($tickets) {
         foreach ($tickets as $row) {
-            // For archived tab, always display as "Open" regardless of actual status
-            $displayStatus = ($tab === 'archived') ? 'Open' : ($row['status'] ?: 'Open');
-            $statusClass = ($tab === 'archived') ? 'open' : strtolower($row['status'] ?: 'open');
+            // For archived tickets, we need to get the original status from session
+            $displayStatus = $row['status'];
+            $statusClass = strtolower($row['status']);
+            
+            // If ticket is archived, show the original status stored in session
+            if ($row['status'] === 'Archived') {
+                $originalStatus = $_SESSION['original_status_' . $row['id']] ?? 'Open';
+                $displayStatus = $originalStatus;
+                $statusClass = strtolower($originalStatus);
+            }
             ?>
             <tr>
                 <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
@@ -271,12 +277,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
                 <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
                 <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
                 <td><?php echo htmlspecialchars($row['s_message'] ?: '-'); ?></td>
-                <td class="status-<?php echo $statusClass; ?>" 
-                    onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
+                <td class="status-<?php echo $statusClass; ?>">
                     <?php echo htmlspecialchars($displayStatus); ?>
                 </td>
                 <td class="action-buttons">
-                    <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($row['s_message']); ?>', '<?php echo $row['status']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
+                    <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($row['s_message']); ?>', '<?php echo $displayStatus; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
                     <?php if ($tab !== 'archived'): ?>
                         <a class="edit-btn" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8'); ?>)" title="Edit"><i class="fas fa-edit"></i></a>
                     <?php endif; ?>
@@ -316,7 +321,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     <?php
     $paginationContent = ob_get_clean();
 
-    // Send JSON response
     header('Content-Type: application/json');
     echo json_encode([
         'html' => $tableContent,
@@ -329,6 +333,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
     $conn->close();
     exit();
 }
+
 // Handle create ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     $c_id = $isCustomer ? $userId : $filterCid;
@@ -337,9 +342,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     $s_subject = trim($_POST['subject'] ?? '');
     $s_message = trim($_POST['message'] ?? '');
     $s_status = 'Pending';
-    $s_ref = trim($_POST['s_ref'] ?? ''); // Use s_ref from form
+    $s_ref = trim($_POST['s_ref'] ?? '');
 
-    // Validate s_ref format
     if (empty($s_ref) || !preg_match('/^ref#-\d{2}-\d{2}-\d{4}-\d{6}$/', $s_ref)) {
         error_log("Invalid s_ref received: $s_ref");
         $_SESSION['error'] = "Invalid ticket reference.";
@@ -347,7 +351,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
         exit();
     }
 
-    // Check for duplicate s_ref
     $sqlCheckRef = "SELECT s_ref FROM tbl_customer_ticket WHERE s_ref = ? UNION SELECT s_ref FROM tbl_supp_tickets WHERE s_ref = ?";
     $stmtCheckRef = $conn->prepare($sqlCheckRef);
     if (!$stmtCheckRef) {
@@ -367,9 +370,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     }
     $stmtCheckRef->close();
 
-    error_log("Received s_ref for insertion: $s_ref for customer ID: $c_id"); // Log for debugging
+    error_log("Received s_ref for insertion: $s_ref for customer ID: $c_id");
 
-    // Check for existing pending tickets
     $sqlCheckPending = "SELECT COUNT(*) as count FROM tbl_customer_ticket WHERE c_id = ? AND s_status = 'Pending'";
     $stmtCheckPending = $conn->prepare($sqlCheckPending);
     if ($stmtCheckPending) {
@@ -420,6 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_ticket'])) {
     header("Location: suppT.php" . ($filterCid ? "?c_id=$filterCid" : "") . "&tab=active&active_page=$activePage&archived_page=$archivedPage&refresh=" . time());
     exit();
 }
+
 // Handle edit ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
@@ -492,13 +495,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_ticket'])) {
     exit();
 }
 
-// Handle archive/unarchive ticket
+// Handle archive ticket - FIXED: Store original status in session
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
     $ticketId = (int)$_POST['t_id'];
     $archiveAction = $_POST['archive_action'] ?? '';
-    $newStatus = $archiveAction === 'archive' ? 'Archived' : 'Open';
-
-    $sqlFetch = "SELECT s_ref, c_fname, c_lname 
+    
+    // Get current ticket details
+    $sqlFetch = "SELECT s_ref, c_fname, c_lname, s_status 
                  FROM tbl_supp_tickets 
                  WHERE id = ? 
                  AND c_id = ? 
@@ -518,6 +521,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
         $s_ref = $ticketData['s_ref'];
         $c_fname = $ticketData['c_fname'];
         $c_lname = $ticketData['c_lname'];
+        $currentStatus = $ticketData['s_status'];
+        
+        if ($archiveAction === 'archive') {
+            // Store original status in session before archiving
+            $_SESSION['original_status_' . $ticketId] = $currentStatus;
+            $newStatus = 'Archived';
+        } else {
+            // When unarchiving, restore the original status from session
+            $originalStatus = $_SESSION['original_status_' . $ticketId] ?? 'Open';
+            $newStatus = $originalStatus;
+            // Clean up the session
+            unset($_SESSION['original_status_' . $ticketId]);
+        }
     } else {
         $_SESSION['error'] = "Ticket not found or unauthorized.";
         $stmtFetch->close();
@@ -541,9 +557,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
             if ($stmt->affected_rows > 0) {
                 error_log("Ticket ID $ticketId updated to status: $newStatus");
                 $logType = ($isCustomer ? "customer" : "technician") . " $c_fname $c_lname";
-                $logDescription = ($newStatus === 'Archived' ? 'archived' : 'unarchived') . " ticket $s_ref";
+                $logDescription = ($archiveAction === 'archive' ? 'archived' : 'unarchived') . " ticket $s_ref";
                 logAction($conn, $logType, $logDescription);
-                $_SESSION['message'] = "Ticket " . ($newStatus === 'Archived' ? 'archived' : 'unarchived') . " successfully!";
+                $_SESSION['message'] = "Ticket " . ($archiveAction === 'archive' ? 'archived' : 'unarchived') . " successfully!";
             } else {
                 error_log("No rows affected for ticket ID $ticketId, status: $newStatus");
                 $_SESSION['error'] = "Ticket not found or status unchanged.";
@@ -555,7 +571,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_ticket'])) {
         $stmt->close();
     }
     $redirectTab = $tab;
-    if ($tab === 'archived' && $newStatus === 'Open') {
+    if ($tab === 'archived' && $archiveAction === 'unarchive') {
         $redirectTab = 'active';
         $sqlCount = "SELECT COUNT(*) as count 
                      FROM tbl_supp_tickets 
@@ -598,9 +614,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_ticket'])) {
         $s_ref = $ticketData['s_ref'];
         $c_fname = $ticketData['c_fname'];
         $c_lname = $ticketData['c_lname'];
+        // Clean up session when deleting archived ticket
+        unset($_SESSION['original_status_' . $ticketId]);
     } else {
         $_SESSION['error'] = "Ticket not found, not archived, or unauthorized.";
-        $stmt->close();
+        $stmtFetch->close();
         header("Location: suppT.php?tab=archived&active_page=$activePage&archived_page=$archivedPage" . ($filterCid ? "&c_id=$filterCid" : ""));
         exit();
     }
@@ -686,7 +704,7 @@ if ($filterCid != 0) {
     }
 }
 
-// Fetch ticket counts (REMOVED technician_username filter)
+// Fetch ticket counts
 $totalActiveTickets = 0;
 $totalArchivedTickets = 0;
 if ($filterCid != 0) {
@@ -746,32 +764,32 @@ if ($filterCid != 0) {
             $stmt->close();
         }
     } else {
-      // Active tickets (REMOVED technician_username filter)
-$sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
-        FROM tbl_supp_tickets 
-        WHERE s_status IN ('Open', 'Closed') 
-        AND c_id = ? 
-        ORDER BY id ASC LIMIT ? OFFSET ?";
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    error_log("Prepare failed for active tickets: " . $conn->error);
-    $_SESSION['error'] = "Error preparing query for active tickets.";
-} else {
-    $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $activeOffset);
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            error_log("Fetched active ticket: ID={$row['id']}, s_ref={$row['s_ref']}, c_id={$row['c_id']}"); // Added log for debugging
-            $activeTickets[] = $row;
+        // Active tickets
+        $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
+                FROM tbl_supp_tickets 
+                WHERE s_status IN ('Open', 'Closed') 
+                AND c_id = ? 
+                ORDER BY id ASC LIMIT ? OFFSET ?";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("Prepare failed for active tickets: " . $conn->error);
+            $_SESSION['error'] = "Error preparing query for active tickets.";
+        } else {
+            $stmt->bind_param("iii", $filterCid, $ticketsPerPage, $activeOffset);
+            if ($stmt->execute()) {
+                $result = $stmt->get_result();
+                while ($row = $result->fetch_assoc()) {
+                    error_log("Fetched active ticket: ID={$row['id']}, s_ref={$row['s_ref']}, c_id={$row['c_id']}");
+                    $activeTickets[] = $row;
+                }
+            } else {
+                error_log("Execute failed for active tickets: " . $stmt->error);
+                $_SESSION['error'] = "Error executing query for active tickets.";
+            }
+            $stmt->close();
         }
-    } else {
-        error_log("Execute failed for active tickets: " . $stmt->error);
-        $_SESSION['error'] = "Error executing query for active tickets.";
-    }
-    $stmt->close();
-}
 
-        // Archived tickets (REMOVED technician_username filter)
+        // Archived tickets
         $sql = "SELECT id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, s_status AS status 
                 FROM tbl_supp_tickets 
                 WHERE s_status = 'Archived' 
@@ -807,7 +825,7 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support Ticket Details - Customer ID <?php echo htmlspecialchars($filterCid); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-        <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="suppsT.css">
@@ -852,11 +870,11 @@ $conn->close();
             </div>
         </div>
 
-        <div class="alert-container" id="alertContainer"></div>
-
         <?php if ($filterCid != 0): ?>
             <!-- Active Tickets Table -->
             <div class="table-box <?php echo $tab === 'active' ? 'active' : ''; ?>" id="activeTable">
+                <div class="alert-container" id="activeAlertContainer"></div>
+                
                 <div class="tab-buttons">
                     <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>Active (<?php echo $totalActiveTickets; ?>)</button>
                     <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>
@@ -945,8 +963,7 @@ $conn->close();
                                         <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
                                         <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
                                         <td><?php echo htmlspecialchars($row['s_message'] ?: '-'); ?></td>
-                                        <td class="status-<?php echo strtolower($row['status'] ?: 'open'); ?> status-clickable" 
-                                            onclick="<?php echo $isCustomer ? 'showStatusRestrictedMessage()' : "openCloseModal('{$row['id']}', '" . htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8') . "')"; ?>">
+                                        <td class="status-<?php echo strtolower($row['status'] ?: 'open'); ?>">
                                             <?php echo htmlspecialchars($row['status'] ?: 'Open'); ?>
                                         </td>
                                         <td class="action-buttons">
@@ -983,69 +1000,82 @@ $conn->close();
                 <?php endif; ?>
             </div>
 
-            <!-- Archived Tickets Table -->
-            <div class="table-box <?php echo $tab === 'archived' ? 'active' : ''; ?>" id="archivedTable">
-                <div class="tab-buttons">
-                    <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>Active (<?php echo $totalActiveTickets; ?>)</button>
-                    <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>
-                        Archived <?php if ($totalArchivedTickets > 0): ?><span class="tab-badge"><?php echo $totalArchivedTickets; ?></span><?php endif; ?>
-                    </button>
-                    <button type="button" class="create-ticket-btn" onclick="openModal()">Create Ticket</button>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ticket No</th>
-                            <th>Customer ID</th>
-                            <th>Customer Name</th>
-                            <th>Subject</th>
-                            <th>Message</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="archivedTableBody">
-                        <?php if ($archivedTickets): ?>
-                            <?php foreach ($archivedTickets as $row): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($row['c_id'] ?: '-'); ?></td>
-                                    <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
-                                    <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($row['s_message'] ?: '-'); ?></td>
-                                    <td class="status-open">Open</td>
-                                    <td class="action-buttons">
-                                        <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($row['s_message']); ?>', '<?php echo $row['status']; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
-                                        <a class="unarchive-btn" 
-                                           onclick="openUnarchiveModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" 
-                                           title="Unarchive">
-                                            <i class="fas fa-box-open"></i>
-                                        </a>
-                                        <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="7" class="empty-state">No archived tickets found.</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-                <div class="pagination" id="archivedPagination">
-                    <?php if ($archivedPage > 1): ?>
-                        <a href="javascript:searchTickets('', <?php echo $archivedPage - 1; ?>)" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
-                    <?php endif; ?>
-                    <span class="current-page">Page <?php echo $archivedPage; ?> of <?php echo $totalArchivedPages; ?></span>
-                    <?php if ($archivedPage < $totalArchivedPages): ?>
-                        <a href="javascript:searchTickets('', <?php echo $archivedPage + 1; ?>)" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
-                    <?php else: ?>
-                        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
-                    <?php endif; ?>
-                </div>
-            </div>
+          <!-- Archived Tickets Table -->
+<div class="table-box <?php echo $tab === 'archived' ? 'active' : ''; ?>" id="archivedTable">
+    <div class="alert-container" id="archivedAlertContainer"></div>
+    
+    <div class="tab-buttons">
+        <button class="tab-btn <?php echo $tab === 'active' ? 'active' : ''; ?>" onclick="showTab('active')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>Active (<?php echo $totalActiveTickets; ?>)</button>
+        <button class="tab-btn <?php echo $tab === 'archived' ? 'active' : ''; ?>" onclick="showTab('archived')" <?php echo !empty($pendingTickets) ? 'disabled' : ''; ?>>
+            Archived <?php if ($totalArchivedTickets > 0): ?><span class="tab-badge"><?php echo $totalArchivedTickets; ?></span><?php endif; ?>
+        </button>
+        <button type="button" class="create-ticket-btn" onclick="openModal()">Create Ticket</button>
+    </div>
+    <div class="search-container">
+        <input type="text" class="search-bar" id="archivedSearchInput" placeholder="Search archived tickets..." onkeyup="debouncedSearchTickets()">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Ticket No</th>
+                <th>Customer ID</th>
+                <th>Customer Name</th>
+                <th>Subject</th>
+                <th>Message</th>
+                <th>Status <button class="filter-btn" onclick="showTypeFilterModal('archived')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="archivedTableBody">
+            <?php if ($archivedTickets): ?>
+                <?php foreach ($archivedTickets as $row): ?>
+                    <?php
+                    // For archived tickets, get the original status from session
+                    $displayStatus = $_SESSION['original_status_' . $row['id']] ?? 'Open';
+                    $statusClass = strtolower($displayStatus);
+                    ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['s_ref'] ?: '-'); ?></td>
+                        <td><?php echo htmlspecialchars($row['c_id'] ?: '-'); ?></td>
+                        <td><?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown'); ?></td>
+                        <td><?php echo htmlspecialchars($row['s_subject'] ?: '-'); ?></td>
+                        <td><?php echo htmlspecialchars($row['s_message'] ?: '-'); ?></td>
+                        <td class="status-<?php echo $statusClass; ?>">
+                            <?php echo htmlspecialchars($displayStatus); ?>
+                        </td>
+                        <td class="action-buttons">
+                            <a class="view-btn" onclick="showViewModal('<?php echo $row['id']; ?>', '<?php echo $row['c_id']; ?>', '<?php echo addslashes($row['c_fname']); ?>', '<?php echo addslashes($row['c_lname']); ?>', '<?php echo addslashes($row['s_ref']); ?>', '<?php echo addslashes($row['s_subject']); ?>', '<?php echo addslashes($row['s_message']); ?>', '<?php echo $displayStatus; ?>', '<?php echo $tab; ?>')" title="View"><i class="fas fa-eye"></i></a>
+                            <a class="unarchive-btn" 
+                               onclick="openUnarchiveModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" 
+                               title="Unarchive">
+                                <i class="fas fa-box-open"></i>
+                            </a>
+                            <a class="delete-btn" onclick="openDeleteModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8'); ?>')" title="Delete"><i class="fas fa-trash"></i></a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="7" class="empty-state">No archived tickets found.</td>
+                </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <div class="pagination" id="archivedPagination">
+        <?php if ($archivedPage > 1): ?>
+            <a href="javascript:searchTickets('', <?php echo $archivedPage - 1; ?>)" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
+        <?php else: ?>
+            <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+        <?php endif; ?>
+        <span class="current-page">Page <?php echo $archivedPage; ?> of <?php echo $totalArchivedPages; ?></span>
+        <?php if ($archivedPage < $totalArchivedPages): ?>
+            <a href="javascript:searchTickets('', <?php echo $archivedPage + 1; ?>)" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
+        <?php else: ?>
+            <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+        <?php endif; ?>
+    </div>
+</div>
         <?php endif; ?>
     </div>
 </div>
@@ -1061,9 +1091,8 @@ $conn->close();
             <input type="hidden" name="c_id" value="<?php echo htmlspecialchars($filterCid); ?>">
             <label for="ticket_ref">Reference No</label>
             <?php
-            // Generate s_ref server-side for modal
             $modal_s_ref = 'ref#-' . date('d-m-Y') . '-' . rand(100000, 999999);
-            error_log("Modal generated s_ref: $modal_s_ref"); // Log for debugging
+            error_log("Modal generated s_ref: $modal_s_ref");
             ?>
             <input type="text" name="s_ref" id="ticket_ref" value="<?php echo htmlspecialchars($modal_s_ref, ENT_QUOTES, 'UTF-8'); ?>" readonly>
             <span class="error" id="ticket_ref_error"></span>
@@ -1230,6 +1259,7 @@ $conn->close();
     </div>
 </div>
 
+
 <script>
   // Mobile menu toggle
 document.addEventListener('DOMContentLoaded', function() {
@@ -1285,14 +1315,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 function showNotification(message, type) {
-    const container = document.getElementById('alertContainer');
-    container.innerHTML = '';
+    const activeContainer = document.getElementById('activeAlertContainer');
+    const archivedContainer = document.getElementById('archivedAlertContainer');
+    
+    // Clear any existing alerts in both containers
+    activeContainer.innerHTML = '';
+    archivedContainer.innerHTML = '';
     
     const notification = document.createElement('div');
     notification.className = `alert alert-${type}`;
     notification.textContent = message;
     
-    container.appendChild(notification);
+    // Show notification in the currently active tab
+    if (currentTab === 'active') {
+        activeContainer.appendChild(notification);
+    } else {
+        archivedContainer.appendChild(notification);
+    }
     
     setTimeout(() => {
         notification.classList.add('fade-out');
@@ -1379,8 +1418,8 @@ function filterTicketsByType(type, tab) {
         searchTickets(currentSearchTerm, 1, currentTypeFilter);
     } else {
         currentArchivedPage = 1;
-        // Don't apply type filter for archived tab
-        searchTickets(currentSearchTerm, 1, '');
+        // Apply type filter for archived tab too
+        searchTickets(currentSearchTerm, 1, currentTypeFilter);
     }
 }
 
@@ -1389,13 +1428,7 @@ document.getElementById('typeFilterForm').addEventListener('submit', function(e)
     const typeFilter = document.getElementById('type_filter').value;
     const tab = document.getElementById('typeFilterTab').value;
     
-    if (tab === 'archived') {
-        // Don't apply type filter for archived tab
-        filterTicketsByType('', tab);
-    } else {
-        filterTicketsByType(typeFilter, tab);
-    }
-    
+    filterTicketsByType(typeFilter, tab);
     closeModal('typeFilterModal');
 });
 function openEditModal(ticket) {
@@ -1418,8 +1451,7 @@ function showViewModal(id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, 
     const safeSubject = htmlspecialchars(s_subject);
     const safeMessage = htmlspecialchars(s_message);
     const safeStatus = htmlspecialchars(status);
-    const displayStatus = (tab === 'archived' && status === 'Archived') ? 'Open' : (status || 'Open');
-    const statusClass = (tab === 'archived' && status === 'Archived') ? 'open' : (status ? status.toLowerCase() : 'open');
+    const statusClass = status ? status.toLowerCase() : 'open';
 
     const viewContent = document.getElementById('viewContent');
     viewContent.innerHTML = `
@@ -1429,7 +1461,7 @@ function showViewModal(id, c_id, c_fname, c_lname, s_ref, s_subject, s_message, 
         <p><strong>Last Name:</strong> ${safeLname}</p>
         <p><strong>Subject:</strong> ${safeSubject}</p>
         <p><strong>Message:</strong> ${safeMessage}</p>
-        <p><strong>Status:</strong> <span class="status-${statusClass}">${displayStatus}</span></p>
+        <p><strong>Status:</strong> <span class="status-${statusClass}">${safeStatus}</span></p>
     `;
     document.getElementById('viewModal').style.display = 'block';
 }

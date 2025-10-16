@@ -718,7 +718,7 @@ tr:hover td {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: 15px;
+    top: -10px;
     left: 15px;
     width: 100%;
     z-index: 1000;
@@ -782,6 +782,8 @@ tr:hover td {
 .alert-hidden {
     opacity: 0;
 }
+
+
 
 /* Media Queries for Smaller Screens */
 @media screen and (max-width: 1366px) {

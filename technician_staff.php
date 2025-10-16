@@ -7,74 +7,99 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Initialize error variables
+$usernameError = "";
+$passwordError = "";
+
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
-
-    // Query to check username and password in tbl_user
-    $sql = "SELECT u_id, u_fname, u_lname, u_username, u_password, u_type, u_status FROM tbl_user WHERE u_username = ? AND u_type IN ('staff', 'technician')";
-    $stmt = $conn->prepare($sql);
     
-    if (!$stmt) {
-        error_log("Prepare failed: " . $conn->error);
-        die("Database error. Please try again later.");
+    // Basic validation
+    $isValid = true;
+    
+    if (empty($username)) {
+        $usernameError = "Username is required.";
+        $isValid = false;
     }
-
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
+    
+    if (empty($password)) {
+        $passwordError = "Password is required.";
+        $isValid = false;
+    }
+    
+    if ($isValid) {
+        // Query to check username and password in tbl_user
+        $sql = "SELECT u_id, u_fname, u_lname, u_username, u_password, u_type, u_status FROM tbl_user WHERE u_username = ? AND u_type IN ('staff', 'technician')";
+        $stmt = $conn->prepare($sql);
         
-        // Verify password
-        if (password_verify($password, $user['u_password'])) {
-            if (strtolower($user['u_status']) === 'pending') {
-                echo "<script>alert('Your account is pending. Please contact an administrator.');</script>";
-            } elseif (strtolower($user['u_status']) === 'active') {
-                // Store user data in session
-                $_SESSION['user'] = $user;
-                $_SESSION['user_type'] = $user['u_type'];
-                $_SESSION['userId'] = $user['u_id'];
-                $_SESSION['username'] = $user['u_username'];
+        if (!$stmt) {
+            error_log("Prepare failed: " . $conn->error);
+            die("Database error. Please try again later.");
+        }
 
-                // REMOVED ALL is_online UPDATES
-                error_log("User $username logged in successfully (Type: {$user['u_type']})");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-                // Log the successful login
-                $log_description = "has successfully logged in";
-                $log_type = $user['u_fname'] . ' ' . $user['u_lname'];
-                
-                $log_stmt = $conn->prepare("INSERT INTO tbl_logs (l_description, l_type, l_stamp) VALUES (?, ?, NOW())");
-                if (!$log_stmt) {
-                    error_log("Log prepare failed: " . $conn->error);
-                    die("Logging error. Please try again later.");
-                }
-                $log_stmt->bind_param("ss", $log_description, $log_type);
-                if (!$log_stmt->execute()) {
-                    error_log("Log execute failed: " . $log_stmt->error);
-                } else {
-                    error_log("Logged: l_type='$log_type', l_description='$log_description'");
-                }
-                $log_stmt->close();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            
+            // Verify password
+            if (password_verify($password, $user['u_password'])) {
+                if (strtolower($user['u_status']) === 'pending') {
+                    $usernameError = "Your account is pending. Please contact an administrator.";
+                } elseif (strtolower($user['u_status']) === 'active') {
+                    // Store user data in session
+                    $_SESSION['user'] = $user;
+                    $_SESSION['user_type'] = $user['u_type'];
+                    $_SESSION['userId'] = $user['u_id'];
+                    $_SESSION['username'] = $user['u_username'];
 
-                // Redirect based on user type
-                if ($user['u_type'] === 'staff') {
-                    header("Location: staffD.php");
-                } elseif ($user['u_type'] === 'technician') {
-                    header("Location: technicianD.php");
+                    // REMOVED ALL is_online UPDATES
+                    error_log("User $username logged in successfully (Type: {$user['u_type']})");
+
+                    // Log the successful login
+                    $log_description = "has successfully logged in";
+                    $log_type = $user['u_fname'] . ' ' . $user['u_lname'];
+                    
+                    $log_stmt = $conn->prepare("INSERT INTO tbl_logs (l_description, l_type, l_stamp) VALUES (?, ?, NOW())");
+                    if (!$log_stmt) {
+                        error_log("Log prepare failed: " . $conn->error);
+                        die("Logging error. Please try again later.");
+                    }
+                    $log_stmt->bind_param("ss", $log_description, $log_type);
+                    if (!$log_stmt->execute()) {
+                        error_log("Log execute failed: " . $log_stmt->error);
+                    } else {
+                        error_log("Logged: l_type='$log_type', l_description='$log_description'");
+                    }
+                    $log_stmt->close();
+
+                    $stmt->close();
+                    $conn->close();
+
+                    // Redirect based on user type
+                    if ($user['u_type'] === 'staff') {
+                        header("Location: staffD.php");
+                    } elseif ($user['u_type'] === 'technician') {
+                        header("Location: technicianD.php");
+                    }
+                    exit();
                 }
-                exit();
+            } else {
+                // Password is incorrect but username exists
+                $passwordError = "Incorrect password. Please try again.";
             }
         } else {
-            echo "<script>alert('Invalid username or password. Please try again.');</script>";
+            // Username doesn't exist
+            $usernameError = "Incorrect username. Please try again.";
         }
-    } else {
-        echo "<script>alert('Invalid username or password. Please try again.');</script>";
-    }
 
-    $stmt->close();
+        $stmt->close();
+    }
+    
     $conn->close();
 }
 
@@ -116,16 +141,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                 <div class="form-group">
                     <label for="username">Username:</label>
                     <div class="input-box">
-                        <input type="text" id="username" name="username" placeholder="Enter Username" required>
+                        <input type="text" id="username" name="username" placeholder="Enter Username" 
+                               value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
+                               class="<?php echo !empty($usernameError) ? 'error' : ''; ?>" required>
                         <i class="bx bxs-user user-icon"></i>
                     </div>
+                    <?php if (!empty($usernameError)): ?>
+                        <p class="error-message"><?php echo $usernameError; ?></p>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
                     <div class="input-box">
-                        <input type="password" id="password" name="password" placeholder="Enter Password" required>
+                        <input type="password" id="password" name="password" placeholder="Enter Password" 
+                               class="<?php echo !empty($passwordError) ? 'error' : ''; ?>" required>
                         <i class="bx bxs-lock-alt password-icon" id="toggleLoginPassword" style="cursor: pointer;"></i>
                     </div>
+                    <?php if (!empty($passwordError)): ?>
+                        <p class="error-message"><?php echo $passwordError; ?></p>
+                    <?php endif; ?>
                 </div>
                 <button type="submit">Login</button>
                 <p class="additional-info">Welcome to TixNet Pro Technician & Staff Portal!</p>

@@ -3,7 +3,6 @@ date_default_timezone_set('Asia/Manila');
 session_start();
 include 'db.php';
 
-
 // Function to escape strings for JavaScript
 function jsEscape($str) {
     return str_replace(
@@ -21,14 +20,72 @@ function formatDateDisplay($date) {
     return date('Y/M/d', strtotime($date));
 }
 
+// Function to check automatic bill notifications (EMAIL FUNCTIONALITY REMOVED)
+function checkAndSendAutomaticBillNotifications($conn) {
+    date_default_timezone_set('Asia/Manila');
+    $today = date('Y-m-d');
+    
+    // Define multiple notification periods
+    $notification_periods = [1, 3, 7, 14];
+    
+    foreach ($notification_periods as $days_before) {
+        $target_date = date('Y-m-d', strtotime("+$days_before days"));
+        
+        // Get customers with bills due on the target date
+        $sql = "SELECT c_account_no, c_fname, c_lname, c_email, c_plan, c_balance, c_nextbill, c_nextdue 
+                FROM tbl_customer 
+                WHERE c_nextbill = ? 
+                AND (c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL) 
+                AND c_billstatus = 'Active'";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $target_date);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        // EMAIL SENDING CODE REMOVED - Just process the query but don't send emails
+        while ($row = $result->fetch_assoc()) {
+            // No email sending logic here
+        }
+        $stmt->close();
+    }
+    
+    return 0;
+}
+
+// Function to check overdue notifications (EMAIL FUNCTIONALITY REMOVED)
+function checkAndSendOverdueNotifications($conn) {
+    date_default_timezone_set('Asia/Manila');
+    $today = date('Y-m-d');
+    
+    $sql = "SELECT c_account_no, c_fname, c_lname, c_email, c_plan, c_balance, c_nextbill, c_nextdue 
+            FROM tbl_customer 
+            WHERE c_nextdue < ? 
+            AND (c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL) 
+            AND c_billstatus = 'Active' 
+            AND c_balance > 0";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $overdue_notifications_sent = 0;
+    
+    while ($row = $result->fetch_assoc()) {
+        // No email sending logic here
+    }
+    $stmt->close();
+    
+    return $overdue_notifications_sent;
+}
+
 function updateDueAndBillDates($conn, $account_no, $next_due) {
     date_default_timezone_set('Asia/Manila');
     $current_date = new DateTime();
     $next_due_date = new DateTime($next_due);
 
-    // If current date is past the next due date, update dates
     if ($current_date > $next_due_date) {
-        // Get customer details
         $sql = "SELECT c_advancedays, c_plan, c_balance FROM tbl_customer WHERE c_account_no = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $account_no);
@@ -40,13 +97,11 @@ function updateDueAndBillDates($conn, $account_no, $next_due) {
         $current_balance = floatval($row['c_balance']);
         $stmt->close();
         
-        // Extract the numeric value from the string (e.g., "8 days" -> 8)
         $advance_days = (int)$advance_days_str;
         
         $last_due_date = $next_due_date->format('Y-m-d');
         $next_due_date->modify('+31 days');
 
-        // Adjust for month-end
         $day = (int)$next_due_date->format('d');
         if ($day > 28) {
             $next_due_date->modify('first day of next month');
@@ -59,14 +114,12 @@ function updateDueAndBillDates($conn, $account_no, $next_due) {
         $next_bill = (clone $next_due_date)->modify("-{$advance_days} days");
         $new_next_bill = $next_bill->format('Y-m-d');
 
-        // Check if today is the next bill date and update balance
         $today = date('Y-m-d');
         $new_balance = $current_balance;
         if ($today === $new_next_bill) {
-            $new_balance = $plan_price; // Set balance to plan price on bill date
+            $new_balance = $plan_price;
         }
 
-        // Update the database
         $sql = "UPDATE tbl_customer SET c_nextdue = ?, c_lastdue = ?, c_nextbill = ?, c_balance = ? WHERE c_account_no = ?";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
@@ -76,7 +129,7 @@ function updateDueAndBillDates($conn, $account_no, $next_due) {
         }
         return [$new_next_due, $last_due_date, $new_next_bill];
     }
-    return [$next_due, null, null];
+    return [$next_due, null, $next_due];
 }
 
 $firstName = '';
@@ -125,7 +178,6 @@ if (isset($_GET['action'])) {
                     LIMIT ?, ?";
         }
 
-        // Get total count for pagination
         $stmtCount = $conn->prepare($sqlCount);
         $stmtCount->bind_param("sssssssss", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
         $stmtCount->execute();
@@ -135,7 +187,6 @@ if (isset($_GET['action'])) {
         $totalPages = ceil($total / $limit);
         $stmtCount->close();
 
-        // Fetch search results
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("sssssssssii", $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
         $stmt->execute();
@@ -144,7 +195,6 @@ if (isset($_GET['action'])) {
         ob_start();
         if ($result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
-                // Update due and bill dates if necessary
                 if ($tab === 'active' && !empty($row['c_nextdue'])) {
                     list($updated_next_due, $updated_last_due, $updated_next_bill) = updateDueAndBillDates($conn, $row['c_account_no'], $row['c_nextdue']);
                     $row['c_nextdue'] = $updated_next_due;
@@ -181,18 +231,16 @@ if (isset($_GET['action'])) {
                 echo "</td></tr>";
             }
         } else {
-            echo "<tr><td colspan='10' style='text-align: center;'>No customers found.</td></tr>";
+            echo "<tr><td colspan='9' style='text-align: center;'>No customers found.</td></tr>";
         }
         $tableRows = ob_get_clean();
 
-        // Update pagination
         echo "<script>updatePagination($page, $totalPages, '$tab', '" . htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8') . "');</script>";
         echo $tableRows;
         $stmt->close();
         $conn->close();
         exit();
     } elseif ($_GET['action'] === 'get_all_active_customers') {
-        // Fetch all active customers
         $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_plan, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                 FROM tbl_customer 
                 WHERE c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL";
@@ -201,7 +249,6 @@ if (isset($_GET['action'])) {
 
         if ($result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
-                // Update due and bill dates if necessary
                 if (!empty($row['c_nextdue'])) {
                     list($updated_next_due, $updated_last_due, $updated_next_bill) = updateDueAndBillDates($conn, $row['c_account_no'], $row['c_nextdue']);
                     $row['c_nextdue'] = $updated_next_due;
@@ -238,9 +285,12 @@ if (isset($_GET['action'])) {
         $conn->close();
         exit();
     }
-} else {
-    // Debug: Log when action is not set
-    error_log("No 'action' parameter provided in request to customersT.php");
+}
+
+// Check automatic notifications when page loads (NO NOTIFICATIONS SENT)
+if ($conn) {
+    $auto_notifications_count = checkAndSendAutomaticBillNotifications($conn);
+    $overdue_notifications_count = checkAndSendOverdueNotifications($conn);
 }
 
 // Handle form submissions
@@ -248,7 +298,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pageActive = isset($_GET['page_active']) ? (int)$_GET['page_active'] : 1;
     $pageArchived = isset($_GET['page_archived']) ? (int)$_GET['page_archived'] : 1;
     $tab = isset($_GET['tab']) ? $_GET['tab'] : 'customers_active';
-    $isAjax = isset($_POST['ajax']) && $_POST['ajax'] === 'true';
 
     if (isset($_POST['archive_customer'])) {
         $account_no = $_POST['c_account_no'];
@@ -273,7 +322,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer archived successfully!";
         } else {
             $_SESSION['error'] = "Error archiving customer: " . $stmt->error;
-            error_log("Error archiving customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
@@ -300,7 +348,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer unarchived successfully!";
         } else {
             $_SESSION['error'] = "Error unarchiving customer: " . $stmt->error;
-            error_log("Error unarchiving customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_active';
@@ -317,152 +364,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Customer deleted permanently!";
         } else {
             $_SESSION['error'] = "Error deleting customer: " . $stmt->error;
-            error_log("Error deleting customer account_no $account_no: " . $stmt->error);
         }
         $stmt->close();
         $tab = 'customers_archived';
     } elseif (isset($_POST['activate_billing'])) {
-    $account_no = $_POST['c_account_no'];
-    $due_date = $_POST['due_date'];
-    $advance_days = (int)$_POST['advance_days'];
-    $advance_days_with_suffix = $advance_days . ' days';
+        $account_no = $_POST['c_account_no'];
+        $due_date = $_POST['due_date'];
+        $advance_days = (int)$_POST['advance_days'];
+        $advance_days_with_suffix = $advance_days . ' days';
 
-    // Set Philippines time zone
-    date_default_timezone_set('Asia/Manila');
+        date_default_timezone_set('Asia/Manila');
 
-    // Validate inputs
-    if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
-        $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
-    } elseif ($advance_days <= 0) {
-        $_SESSION['error'] = "Advance days must be a positive number.";
-    } else {
-        // Calculate dates
-        $start_date = date('Y-m-d'); // Current date in Asia/Manila
-        $due_date_obj = new DateTime($due_date);
-        $next_due = (clone $due_date_obj)->modify('+31 days');
-
-        // Adjust for month-end
-        $day = $due_date_obj->format('d');
-        if ($day > 28) {
-            $next_due->modify('first day of next month');
-            if ($day == 31) {
-                $next_due->modify('-1 day');
-            }
-        }
-
-        $next_due_date = $next_due->format('Y-m-d');
-        $next_bill = (clone $next_due)->modify("-{$advance_days} days");
-        $next_bill_date = $next_bill->format('Y-m-d');
-        $last_due_date = null;
-        $billing_status = 'Active';
-        $balance = 0.00;
-
-        // Update database with advance days
-        $sql = "UPDATE tbl_customer 
-                SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, 
-                    c_nextbill = ?, c_billstatus = ?, c_advancedays = ? 
-                WHERE c_account_no = ?";
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("dsssssis", $balance, $start_date, $next_due_date, 
-                             $last_due_date, $next_bill_date, $billing_status, 
-                             $advance_days_with_suffix, $account_no);
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Billing activated successfully for account $account_no!";
-            } else {
-                $_SESSION['error'] = "Error activating billing: " . $stmt->error;
-                error_log("Error activating billing for account_no $account_no: " . $stmt->error);
-            }
-            $stmt->close();
+        if (empty($due_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
+            $_SESSION['error'] = "Invalid due date format. Please use YYYY-MM-DD.";
+        } elseif ($advance_days <= 0) {
+            $_SESSION['error'] = "Advance days must be a positive number.";
         } else {
-            $_SESSION['error'] = "Prepare failed: " . $conn->error;
-            error_log("Prepare failed for activate billing: " . $conn->error);
-        }
-    }
-} elseif (isset($_POST['record_payment'])) {
-    $account_no = $_POST['c_account_no'];
-    $transaction_date = $_POST['t_date'];
-    $credit_date = $_POST['t_credit_date'];
-    $transaction_description = $_POST['t_description'] === 'Custom description' ? $_POST['custom_description'] : $_POST['t_description'];
-    $transaction_amount = $_POST['t_amount'];
+            $start_date = date('Y-m-d');
+            $due_date_obj = new DateTime($due_date);
+            $next_due = (clone $due_date_obj)->modify('+31 days');
 
-    // Set Philippines time zone
-    date_default_timezone_set('Asia/Manila');
-
-    // Validate inputs
-    if (empty($credit_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $credit_date)) {
-        $_SESSION['error'] = "Invalid credit date format. Please use YYYY-MM-DD.";
-    } elseif (!is_numeric($transaction_amount) || !preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $transaction_amount)) {
-        $_SESSION['error'] = "Transaction amount should be numbers only.";
-    } elseif ($transaction_amount <= 0) {
-        $_SESSION['error'] = "Transaction amount must be a positive number.";
-    } else {
-        // Fetch customer details
-        $sql = "SELECT c_fname, c_lname, c_plan, c_balance, c_nextbill FROM tbl_customer WHERE c_account_no = ?";
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("s", $account_no);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $customer = $result->fetch_assoc();
-            $stmt->close();
-            
-            $customer_name = $customer['c_fname'] . ' ' . $customer['c_lname'];
-            $plan_price = floatval(preg_replace('/[^0-9.]/', '', $customer['c_plan']));
-            $current_balance = floatval($customer['c_balance']);
-            $next_bill_date = $customer['c_nextbill'];
-            
-            // Calculate new balance (if payment is more than plan price)
-            $new_balance = 0.00;
-            if ($transaction_amount > $plan_price) {
-                $new_balance = $transaction_amount - $plan_price;
-            }
-            
-            // Check if today is the next bill date
-            $today = date('Y-m-d');
-            if ($today === $next_bill_date) {
-                // If it's bill date, add plan price to balance (minus any advance payment)
-                $new_balance = max(0, $plan_price - $transaction_amount);
-            }
-            
-            // Insert transaction record
-            $sql = "INSERT INTO tbl_transactions (t_date, t_balance, t_credit_date, t_description, t_amount, t_customer_name) 
-                    VALUES (?, ?, ?, ?, ?, ?)";
-            $insert_stmt = $conn->prepare($sql);
-            if ($insert_stmt) {
-                $insert_stmt->bind_param("sdssds", $transaction_date, $new_balance, $credit_date, $transaction_description, $transaction_amount, $customer_name);
-                if ($insert_stmt->execute()) {
-                    // Update customer balance
-                    $sql = "UPDATE tbl_customer SET c_balance = ? WHERE c_account_no = ?";
-                    $update_stmt = $conn->prepare($sql);
-                    if ($update_stmt) {
-                        $update_stmt->bind_param("ds", $new_balance, $account_no);
-                        if ($update_stmt->execute()) {
-                            $_SESSION['message'] = "Payment recorded successfully for account $account_no!";
-                        } else {
-                            $_SESSION['error'] = "Error updating balance: " . $update_stmt->error;
-                        }
-                        $update_stmt->close();
-                    }
-                } else {
-                    $_SESSION['error'] = "Error recording payment: " . $insert_stmt->error;
+            $day = $due_date_obj->format('d');
+            if ($day > 28) {
+                $next_due->modify('first day of next month');
+                if ($day == 31) {
+                    $next_due->modify('-1 day');
                 }
-                $insert_stmt->close();
-            } else {
-                $_SESSION['error'] = "Prepare failed for payment: " . $conn->error;
             }
+
+            $next_due_date = $next_due->format('Y-m-d');
+            $next_bill = (clone $next_due)->modify("-{$advance_days} days");
+            $next_bill_date = $next_bill->format('Y-m-d');
+            $last_due_date = null;
+            $billing_status = 'Active';
+            $balance = 0.00;
+
+            $sql = "UPDATE tbl_customer 
+                    SET c_balance = ?, c_startdate = ?, c_nextdue = ?, c_lastdue = ?, 
+                        c_nextbill = ?, c_billstatus = ?, c_advancedays = ? 
+                    WHERE c_account_no = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("dsssssis", $balance, $start_date, $next_due_date, 
+                                 $last_due_date, $next_bill_date, $billing_status, 
+                                 $advance_days_with_suffix, $account_no);
+                if ($stmt->execute()) {
+                    $_SESSION['message'] = "Billing activated successfully for account $account_no!";
+                } else {
+                    $_SESSION['error'] = "Error activating billing: " . $stmt->error;
+                }
+                $stmt->close();
+            } else {
+                $_SESSION['error'] = "Prepare failed: " . $conn->error;
+            }
+        }
+    } elseif (isset($_POST['record_payment'])) {
+        $account_no = $_POST['c_account_no'];
+        $transaction_date = $_POST['t_date'];
+        $credit_date = $_POST['t_credit_date'];
+        $transaction_description = $_POST['t_description'] === 'Custom description' ? $_POST['custom_description'] : $_POST['t_description'];
+        $transaction_amount = $_POST['t_amount'];
+
+        date_default_timezone_set('Asia/Manila');
+
+        if (empty($credit_date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $credit_date)) {
+            $_SESSION['error'] = "Invalid credit date format. Please use YYYY-MM-DD.";
+        } elseif (!is_numeric($transaction_amount) || !preg_match('/^[0-9]+(\.[0-9]{1,2})?$/', $transaction_amount)) {
+            $_SESSION['error'] = "Transaction amount should be numbers only.";
+        } elseif ($transaction_amount <= 0) {
+            $_SESSION['error'] = "Transaction amount must be a positive number.";
         } else {
-            $_SESSION['error'] = "Prepare failed for fetching customer details: " . $conn->error;
+            $sql = "SELECT c_fname, c_lname, c_plan, c_balance, c_nextbill FROM tbl_customer WHERE c_account_no = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("s", $account_no);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $customer = $result->fetch_assoc();
+                $stmt->close();
+                
+                $customer_name = $customer['c_fname'] . ' ' . $customer['c_lname'];
+                $plan_price = floatval(preg_replace('/[^0-9.]/', '', $customer['c_plan']));
+                $current_balance = floatval($customer['c_balance']);
+                $next_bill_date = $customer['c_nextbill'];
+                
+                $new_balance = 0.00;
+                if ($transaction_amount > $plan_price) {
+                    $new_balance = $transaction_amount - $plan_price;
+                }
+                
+                $today = date('Y-m-d');
+                if ($today === $next_bill_date) {
+                    $new_balance = max(0, $plan_price - $transaction_amount);
+                }
+                
+                $sql = "INSERT INTO tbl_transactions (t_date, t_balance, t_credit_date, t_description, t_amount, t_customer_name) 
+                        VALUES (?, ?, ?, ?, ?, ?)";
+                $insert_stmt = $conn->prepare($sql);
+                if ($insert_stmt) {
+                    $insert_stmt->bind_param("sdssds", $transaction_date, $new_balance, $credit_date, $transaction_description, $transaction_amount, $customer_name);
+                    if ($insert_stmt->execute()) {
+                        $sql = "UPDATE tbl_customer SET c_balance = ? WHERE c_account_no = ?";
+                        $update_stmt = $conn->prepare($sql);
+                        if ($update_stmt) {
+                            $update_stmt->bind_param("ds", $new_balance, $account_no);
+                            if ($update_stmt->execute()) {
+                                $_SESSION['message'] = "Payment recorded successfully for account $account_no!";
+                            } else {
+                                $_SESSION['error'] = "Error updating balance: " . $update_stmt->error;
+                            }
+                            $update_stmt->close();
+                        }
+                    } else {
+                        $_SESSION['error'] = "Error recording payment: " . $insert_stmt->error;
+                    }
+                    $insert_stmt->close();
+                } else {
+                    $_SESSION['error'] = "Prepare failed for payment: " . $conn->error;
+                }
+            } else {
+                $_SESSION['error'] = "Prepare failed for fetching customer details: " . $conn->error;
+            }
         }
     }
-    header("Location: customersT.php");
-    exit();
-}
-
 }
 
 if ($conn) {
-    // Fetch user data
     $sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
     $stmt = $conn->prepare($sqlUser);
     $stmt->bind_param("s", $_SESSION['username']);
@@ -476,9 +503,7 @@ if ($conn) {
     }
     $stmt->close();
 
-    // Pagination setup
     $limit = 10;
-    // Active customers
     $pageActive = isset($_GET['page_active']) ? (int)$_GET['page_active'] : 1;
     $offsetActive = ($pageActive - 1) * $limit;
     $totalActiveQuery = "SELECT COUNT(*) AS total FROM tbl_customer WHERE c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL";
@@ -487,7 +512,6 @@ if ($conn) {
     $totalActive = $totalActiveRow['total'];
     $totalActivePages = ceil($totalActive / $limit);
 
-    // Archived customers
     $pageArchived = isset($_GET['page_archived']) ? (int)$_GET['page_archived'] : 1;
     $offsetArchived = ($pageArchived - 1) * $limit;
     $totalArchivedQuery = "SELECT COUNT(*) AS total FROM tbl_customer WHERE c_status LIKE 'ARCHIVED:%'";
@@ -496,7 +520,6 @@ if ($conn) {
     $totalArchived = $totalArchivedRow['total'];
     $totalArchivedPages = ceil($totalArchived / $limit);
 
-    // Fetch active customers
     $sqlActive = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                   FROM tbl_customer WHERE c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL LIMIT ?, ?";
     $stmtActive = $conn->prepare($sqlActive);
@@ -505,7 +528,6 @@ if ($conn) {
     $resultActive = $stmtActive->get_result();
     $stmtActive->close();
 
-    // Fetch archived customers
     $sqlArchived = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
                     FROM tbl_customer WHERE c_status LIKE 'ARCHIVED:%' LIMIT ?, ?";
     $stmtArchived = $conn->prepare($sqlArchived);
@@ -524,10 +546,9 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customersT.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="customerT.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -583,6 +604,8 @@ if ($conn) {
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
+            
+            <!-- BILL NOTIFICATION ALERT REMOVED -->
         </div>
 
         <div class="table-box glass-container">
@@ -614,6 +637,7 @@ if ($conn) {
                     </div>
                 </div>
             </div>
+
             <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
                 <table id="active-customers-table">
                     <thead>
@@ -633,7 +657,6 @@ if ($conn) {
                         <?php
                         if ($resultActive->num_rows > 0) {
                             while ($row = $resultActive->fetch_assoc()) {
-                                // Update due and bill dates if necessary
                                 if (!empty($row['c_nextdue'])) {
                                     list($updated_next_due, $updated_last_due, $updated_next_bill) = updateDueAndBillDates($conn, $row['c_account_no'], $row['c_nextdue']);
                                     $row['c_nextdue'] = $updated_next_due;
@@ -656,7 +679,7 @@ if ($conn) {
                                         <td>" . htmlspecialchars($row['c_coordinates'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape(formatDateDisplay($row['c_startdate'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_lastdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextbill'] ?? '')) . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape(formatDateDisplay($row['c_nextdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_lastdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextbill'] ?? '')) . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='edit-btn' href='editC.php?account_no=" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "' title='Edit'><i class='fas fa-edit'></i></a>
                                             <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                         </td>
@@ -681,7 +704,6 @@ if ($conn) {
                         <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                     <?php endif; ?>
                 </div>
-                <!-- Customer Details Section -->
                 <div id="customerDetailsActive" class="customer-details-section" style="display: none;">
                     <div id="customerDetailsContentActive" class="customer-details"></div>
                 </div>
@@ -717,32 +739,33 @@ if ($conn) {
                                         <td>" . htmlspecialchars($row['c_coordinates'], ENT_QUOTES, 'UTF-8') . "</td> 
                                         <td>" . htmlspecialchars($row['c_email'], ENT_QUOTES, 'UTF-8') . "</td>
                                         <td class='action-buttons'>
-                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape(formatDateDisplay($row['c_startdate'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_lastdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextbill'] ?? '')) . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                            <a class='view-btn' onclick=\"showViewDetails('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname']) . "', '" . jsEscape($row['c_lname']) . "', '" . jsEscape($row['c_purok']) . "', '" . jsEscape($row['c_barangay']) . "', '" . jsEscape($row['c_contact']) . "', '" . jsEscape($row['c_email']) . "', '" . jsEscape($row['c_coordinates']) . "', '" . jsEscape($row['c_date']) . "', '" . jsEscape($row['c_napname']) . "', '" . jsEscape($row['c_napport']) . "', '" . jsEscape($row['c_macaddress']) . "', '" . jsEscape($displayStatus) . "', '" . jsEscape($row['c_plan']) . "', '" . jsEscape($row['c_equipment']) . "', '" . jsEscape($row['c_balance'] ?? '0.00') . "', '" . jsEscape($row['c_startdate'] ?? '') . "', '" . jsEscape(formatDateDisplay($row['c_nextdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_lastdue'] ?? '')) . "', '" . jsEscape(formatDateDisplay($row['c_nextbill'] ?? '')) . "', '" . jsEscape($row['c_billstatus'] ?? 'Inactive') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                             <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                             <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "', '" . jsEscape($row['c_fname'] . ' ' . $row['c_lname']) . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                         </td>
                                       </tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='9' style='text-align: center;'>No archived customers found.</td></tr>";
+                            echo "<tr>
+                                    <td colspan='9' style='text-align: center;'>No archived customers found.</td>
+                                  </tr>";
                         }
                         ?>
                     </tbody>
                 </table>
                 <div class="pagination" id="archived-customers-pagination">
-                    <?php if ($pageArchived > 1): ?>
+                    <?php if ($pageArchived > 1 && $resultArchived->num_rows > 0): ?>
                         <a href="?tab=customers_archived&page_active=<?php echo $pageActive; ?>&page_archived=<?php echo $pageArchived - 1; ?>" class="pagination-link"><i class="fas fa-chevron-left"></i></a>
                     <?php else: ?>
                         <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
                     <?php endif; ?>
                     <span class="current-page">Page <?php echo $pageArchived; ?> of <?php echo $totalArchivedPages; ?></span>
-                    <?php if ($pageArchived < $totalArchivedPages): ?>
+                    <?php if ($pageArchived < $totalArchivedPages && $resultArchived->num_rows > 0): ?>
                         <a href="?tab=customers_archived&page_active=<?php echo $pageActive; ?>&page_archived=<?php echo $pageArchived + 1; ?>" class="pagination-link"><i class="fas fa-chevron-right"></i></a>
                     <?php else: ?>
                         <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
                     <?php endif; ?>
                 </div>
-                <!-- Customer Details Section -->
                 <div id="customerDetailsArchived" class="customer-details-section" style="display: none;">
                     <div id="customerDetailsContentArchived" class="customer-details"></div>
                 </div>
@@ -899,7 +922,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tab = urlParams.get('tab') || 'customers_active';
     showTab(tab);
 
-    // Handle alert messages disappearing after 10 seconds
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
@@ -909,17 +931,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 10000);
     });
 
-    // Initialize search on page load if there's a search term
     const searchInput = document.getElementById('searchInput');
     if (searchInput.value) {
         searchCustomers();
     }
 
-    // Start auto-update table
     updateInterval = setInterval(updateTable, 30000);
 });
 
-// Clear interval when leaving the page
 window.addEventListener('beforeunload', () => {
     if (updateInterval) {
         clearInterval(updateInterval);
@@ -931,16 +950,13 @@ function showTab(tab) {
     const archivedSection = document.getElementById('customers_archived');
     const tabButtons = document.querySelectorAll('.tab-buttons .tab-btn');
 
-    // Remove active class from all buttons
     tabButtons.forEach(button => button.classList.remove('active'));
 
-    // Add active class to the clicked button
     const targetButton = Array.from(tabButtons).find(button => button.getAttribute('onclick').includes(`showTab('${tab}')`));
     if (targetButton) {
         targetButton.classList.add('active');
     }
 
-    // Show/hide sections
     if (tab === 'customers_active') {
         activeSection.style.display = 'block';
         archivedSection.style.display = 'none';
@@ -951,12 +967,10 @@ function showTab(tab) {
         document.getElementById('customerDetailsActive').style.display = 'none';
     }
 
-    // Update URL
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('tab', tab);
     history.replaceState(null, '', '?' + urlParams.toString());
 
-    // Refresh table content
     updateTable();
 }
 
@@ -1025,7 +1039,6 @@ function calculateNextDates() {
         const nextDue = new Date(dueDate);
         nextDue.setDate(dueDate.getDate() + 31);
 
-        // Adjust for month-end
         const day = dueDate.getDate();
         if (day > 28) {
             nextDue.setDate(1);
@@ -1060,7 +1073,6 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
     const tableBoxTitle = document.querySelector('.table-box h2');
     const searchContainer = document.querySelector('.search-container');
 
-    // Hide the table, pagination, tab buttons, export button, add customer button, title, and search bar
     table.style.display = 'none';
     pagination.style.display = 'none';
     tabButtons.style.display = 'none';
@@ -1071,7 +1083,6 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
         searchContainer.style.display = 'none';
     }
 
-    // Format dates consistently
     const formatDate = (dateStr) => {
         if (!dateStr || dateStr === '') return '';
         const dateObj = new Date(dateStr);
@@ -1085,15 +1096,12 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
     const formattedStartDate = formatDate(startdate);
     const formattedLastDue = formatDate(lastdue);
 
-    // Determine if the customer is activated (has nextdue or nextbill)
     const isActivated = nextdue !== '' || nextbill !== '' || billstatus === 'Active';
 
-    // Conditionally render the Activate button
     const activateButtonHtml = isActivated
         ? '<span class="activate-btn disabled" title="Billing Already Activated"><i class="fas fa-play"></i></span>'
         : `<a class='activate-btn' onclick="showActivateBillingModal('${account_no}', '${fname} ${lname}')" title='Activate'><i class='fas fa-play'></i></a>`;
 
-    // Populate and show the details section
     contentDiv.innerHTML = `
     <div class="customer-details-container">
         <div class="customer-details-inner">
@@ -1151,7 +1159,6 @@ function hideViewDetails(sectionId) {
     const tableBoxTitle = document.querySelector('.table-box h2');
     const searchContainer = document.querySelector('.search-container');
 
-    // Hide the details section and show the table, pagination, tab buttons, export button, add customer button, title, and search bar
     document.getElementById(sectionId).style.display = 'none';
     table.style.display = 'table';
     pagination.style.display = 'flex';
@@ -1193,12 +1200,10 @@ function showPaymentTransactionModal(account_no, name, balance, plan) {
     document.getElementById('paymentCustomerName').innerText = name;
     document.getElementById('t_balance').value = parseFloat(balance).toFixed(2);
     
-    // Get current date in Asia/Manila timezone
     const now = new Date();
-    const timezoneOffset = 8 * 60; // Manila is UTC+8
+    const timezoneOffset = 8 * 60;
     const manilaTime = new Date(now.getTime() + (timezoneOffset + now.getTimezoneOffset()) * 60000);
     
-    // Format as YYYY-MM-DD
     const year = manilaTime.getFullYear();
     const month = String(manilaTime.getMonth() + 1).padStart(2, '0');
     const day = String(manilaTime.getDate()).padStart(2, '0');
@@ -1206,7 +1211,6 @@ function showPaymentTransactionModal(account_no, name, balance, plan) {
     
     document.getElementById('t_credit_date').value = today;
     
-    // Set plan as default description if available
     const descriptionSelect = document.getElementById('t_description');
     if (plan && descriptionSelect.options) {
         for (let option of descriptionSelect.options) {
@@ -1270,8 +1274,17 @@ function updateTable() {
     searchCustomers(currentSearchPage);
 }
 
+function toggleCustomDescription() {
+    const descriptionSelect = document.getElementById('t_description');
+    const customContainer = document.getElementById('customDescriptionContainer');
+    
+    if (descriptionSelect.value === 'Custom description') {
+        customContainer.style.display = 'block';
+    } else {
+        customContainer.style.display = 'none';
+    }
+}
+
 </script>
 </body>
 </html>
-
-
