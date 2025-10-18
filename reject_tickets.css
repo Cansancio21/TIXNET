@@ -19,6 +19,7 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    overflow-x: hidden;
 }
 
 .glass-container {
@@ -33,6 +34,7 @@ body {
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
 }
 
 /* Sidebar */
@@ -47,6 +49,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    transition: transform 0.3s ease;
 }
 
 .sidebar h2 {
@@ -199,6 +202,7 @@ footer {
     margin: 0;
     font-size: 24px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .user-profile {
@@ -207,7 +211,6 @@ footer {
     gap: 10px;
     margin-left: 50px;
 }
-
 
 .user-icon img,
 .user-icon i {
@@ -237,37 +240,38 @@ footer {
     display: block;
     color: white;
     margin-right: 25px;
+    white-space: nowrap;
 }
 
 .user-details small {
     color: #fdfdfd;
     font-size: 12px;
     margin-right: 3px;
-   
+    white-space: nowrap;
 }
-
 
 /* Table Box */
 .table-box {
     position: relative;
     width: 100%;
     padding: 20px;
-    background-color: #fff;
+    background: white;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    min-height: 600px;
+    position: relative;
     display: flex;
     flex-direction: column;
-    margin-top: 0; /* Remove the extra margin-top since we added it to container */
+    overflow: visible;
+    box-sizing: border-box;
 }
 
+/* Search Container */
 .search-container {
     position: absolute;
     top: 60px;
     right: 20px;
     width: 300px;
     z-index: 10;
-    
 }
 
 .search-bar {
@@ -290,23 +294,25 @@ footer {
     top: 50%;
     transform: translateY(-50%);
     color: #666;
+    z-index: 11;
 }
 
 /* Table Wrapper */
 .table-wrapper {
-    flex: 1;
-    overflow: auto;
-    max-height: 500px;
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    -webkit-overflow-scrolling: touch;
 }
 
-/* Table */
+/* Table - FIXED SHRINKING ISSUE */
 table {
     width: 100%;
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
-    table-layout: auto;
-    margin-top: 110px;
-    min-width: 800px;
+    margin-top: 40px;
+    /* REMOVED fixed min-width to allow proper shrinking */
 }
 
 thead {
@@ -318,11 +324,13 @@ thead {
 }
 
 th {
-    padding: 15px;
+    padding: 12px 8px;
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
     border: none;
+    white-space: nowrap;
+    font-size: 14px;
 }
 
 th:first-child {
@@ -334,7 +342,7 @@ th:last-child {
 }
 
 td {
-    padding: 10px;
+    padding: 10px 8px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
     text-align: center;
@@ -360,6 +368,7 @@ tr:hover td {
     align-items: center;
     margin-top: auto;
     padding-top: 20px;
+    flex-wrap: wrap;
 }
 
 .pagination-link {
@@ -409,64 +418,55 @@ tr:hover td {
 
 /* Alerts */
 .alert-container {
-    position: relative;
+    position: absolute;
+    top: 5px;
+    left: 20px;
+    z-index: 100;
+    max-width: calc(100% - 40px);
 }
 
 .alert {
-    padding: 10px;
-    border-radius: 5px;
-    position: absolute;
-    top: -10px;
-    left: 15px;
-    width: 100%;
-    z-index: 1000;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 0;
 }
 
 .alert-success {
-    background-color: transparent;
     color: #155724;
-    border: none;
 }
 
 .alert-error {
-    background-color: #f8d7da;
     color: #721c24;
-    border: 1px solid #f5c6cb;
+    border-color: #f5c6cb;
+}
+
+.alert.fade-out {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .error-red {
     color: red;
 }
 
-.settings-link {
-    position: absolute;
-    right: 40px;
-    top: 20px;
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: #e7e6e6;
-    font-size: 16px;
-    font-weight: 600;
-    transition: 0.3s ease-in-out;
-}
-
-.settings-link i {
-    font-size: 24px;
-    margin-right: 5px;
-    color: #dad9d9;
-}
-
-.settings-link:hover span {
-    opacity: 1;
-    transform: translateX(0);
-}
-
 /* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
@@ -474,6 +474,8 @@ tr:hover td {
     z-index: 1000;
     align-items: center;
     justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -484,6 +486,8 @@ tr:hover td {
     width: 90%;
     max-width: 500px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-header {
@@ -539,6 +543,7 @@ tr:hover td {
     margin: 5px 0 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
+    box-sizing: border-box;
 }
 
 /* Modal Form Textarea */
@@ -553,6 +558,7 @@ tr:hover td {
     min-height: 100px;
     outline: none;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
 }
 
 .modal-form textarea:focus {
@@ -560,37 +566,7 @@ tr:hover td {
     box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
 }
 
-#addTicketModal .modal-content {
-    margin: 5% auto;
-    max-width: 500px;
-}
-
-#editTicketModal .modal-content {
-    margin: 5% auto;
-    max-width: 500px;
-}
-
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#archiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#unarchiveModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
 #viewModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-}
-
-#statusFilterModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
 }
@@ -647,7 +623,7 @@ tr:hover td {
     justify-content: center;
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
+.view-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -666,39 +642,7 @@ tr:hover td {
     background-color: #2980b9;
 }
 
-.edit-btn {
-    background-color: #2ecc71;
-    color: #fff;
-}
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-    color: #fff;
-}
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.unarchive-btn {
-    background-color: #9b59b6;
-    color: #fff;
-}
-.unarchive-btn:hover {
-    background-color: #8e44ad;
-}
-
-.delete-btn {
-    background-color: #ff6200;
-    color: #fff;
-}
-.delete-btn:hover {
-    background-color: #e55a00;
-}
-
-.delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
+.view-btn i {
     font-size: 16px;
 }
 
@@ -729,74 +673,7 @@ tr:hover td {
     text-decoration: underline;
 }
 
-/* Responsive design for Close Ticket Modal */
-@media (max-width: 480px) {
-    .close-ticket-input {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .ticket-id-input input {
-        width: 100%;
-    }
-}
-
-.alert-hidden {
-    opacity: 0;
-    transition: opacity 0.5s ease;
-}
-
-.status-warning {
-    color: red;
-    font-size: 12px;
-    margin-top: -10px;
-    margin-bottom: 10px;
-}
-
-/* Remove underline from status on hover */
-.status-clickable:hover {
-    text-decoration: none;
-}
-
-/* Mobile Responsive Styles */
-@media (max-width: 1200px) {
-    .container {
-        margin-left: 200px;
-        padding: 25px;
-    }
-    
-    .search-container {
-        width: 280px;
-    }
-}
-
-@media (max-width: 1024px) {
-    .container {
-        margin-left: 200px;
-        padding: 20px;
-    }
-    
-    .search-container {
-        width: 250px;
-    }
-}
-
-@media (max-width: 992px) {
-    .container {
-        margin-left: 200px;
-        padding: 15px;
-    }
-    
-    .search-container {
-        width: 220px;
-    }
-    
-    .upper h1 {
-        font-size: 22px;
-    }
-}
-
-/* Mobile Menu Toggle - Fixed in Header */
+/* Mobile Menu Toggle */
 .mobile-menu-toggle {
     display: none;
     position: absolute;
@@ -818,41 +695,166 @@ tr:hover td {
     background: rgba(255, 255, 255, 0.3);
 }
 
+/* ========== IMPROVED RESPONSIVE DESIGN ========== */
+
+/* Large screens */
+@media (max-width: 1200px) {
+    .container {
+        margin-left: 200px;
+        padding: 25px;
+        width: calc(100% - 200px);
+    }
+    
+    .search-container {
+        width: 280px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .container {
+        margin-left: 200px;
+        padding: 20px;
+        width: calc(100% - 200px);
+    }
+    
+    .search-container {
+        width: 250px;
+    }
+    
+    th, td {
+        padding: 12px 6px;
+        font-size: 13px;
+    }
+}
+
+/* 900px and below */
+@media (max-width: 992px) {
+    .container {
+        margin-left: 200px;
+        padding: 15px;
+        width: calc(100% - 200px);
+    }
+    
+    .search-container {
+        width: 220px;
+    }
+    
+    .upper h1 {
+        font-size: 22px;
+    }
+    
+    th, td {
+        padding: 10px 5px;
+        font-size: 12px;
+    }
+    
+    th {
+        white-space: normal;
+        font-size: 12px;
+    }
+}
+
+/* 833px and below - Search repositioning */
+@media (max-width: 833px) {
+    .search-container {
+        position: relative;
+        width: 100%;
+        top: auto;
+        right: auto;
+        margin: 15px 0;
+        order: 3;
+    }
+    
+    .search-bar {
+        width: 100%;
+    }
+    
+    .upper {
+        padding: 15px 15px 15px 60px;
+        gap: 15px;
+    }
+    
+    .upper h1 {
+        font-size: 20px;
+        min-width: 150px;
+    }
+    
+    .user-profile {
+        gap: 10px;
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+}
+
+/* 768px and below - Mobile layout */
 @media (max-width: 768px) {
     .mobile-menu-toggle {
         display: block;
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1001;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 18px;
+        transition: all 0.3s ease;
+    }
+    
+    .mobile-menu-toggle:hover {
+        background: rgba(255, 255, 255, 0.3);
     }
     
     .sidebar {
         transform: translateX(-100%);
-        width: 250px;
+        width: 60%;
         transition: all 0.3s ease;
+        z-index: 1000;
     }
     
     .sidebar.active {
         transform: translateX(0);
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
     }
     
     .container {
         margin-left: 0;
         padding: 15px;
+        width: 100%;
         transition: all 0.3s ease;
     }
     
     .upper {
-        flex-direction: row;
+        display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: 15px 15px 15px 60px;
+        flex-wrap: nowrap;
         gap: 10px;
         position: relative;
+        min-height: 70px;
     }
     
     .upper h1 {
         font-size: 18px;
-        text-align: left;
-        margin-left: 0;
         flex: 1;
+        min-width: 0;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 120px);
+        margin: 0;
     }
     
     .user-profile {
@@ -861,36 +863,50 @@ tr:hover td {
         align-items: center;
         gap: 10px;
         justify-content: flex-end;
+        min-width: fit-content;
+        flex-shrink: 0;
     }
     
     .user-details {
-        margin-left: 0;
         text-align: right;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
     }
     
     .user-details span {
-        display: block;
         font-size: 14px;
-        margin-left: 0;
     }
     
     .user-details small {
-        display: block;
         font-size: 11px;
-        margin-left: 0;
     }
     
-    /* Search container positioning inside table-box */
     .search-container {
-        position: static;
+        position: relative;
         width: 100%;
-        margin: 0 0 15px 0;
-        align-self: stretch;
+        top: auto;
+        right: auto;
+        order: 3;
+        margin-top: 10px;
     }
     
-    /* Table adjustments to show all data */
+    .search-bar {
+        width: 100%;
+        padding: 10px 40px 10px 15px;
+        font-size: 16px;
+    }
+    
+    .search-icon {
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
     .table-box {
-        padding: 15px;
+        padding: 20px;
         width: 100%;
         overflow-x: auto;
     }
@@ -898,137 +914,27 @@ tr:hover td {
     .table-wrapper {
         overflow-x: auto;
         width: 100%;
-    }
-    
-    table {
-        width: 100%;
-        min-width: 800px;
+        -webkit-overflow-scrolling: touch;
     }
     
     th, td {
-        padding: 12px 8px;
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 651px) {
-    .container {
-        padding: 12px;
-    }
-    
-    .upper {
-        padding: 12px 12px 12px 55px;
-    }
-    
-    .upper h1 {
-        font-size: 16px;
-    }
-    
-    .search-container {
-        margin: 0 0 12px 0;
-    }
-    
-    .user-icon img,
-    .user-icon i {
-        width: 35px;
-        height: 35px;
-    }
-    
-    .user-details span {
-        font-size: 13px;
-    }
-    
-    .user-details small {
-        font-size: 10px;
-    }
-    
-    .table-box {
-        padding: 12px;
-    }
-    
-    table {
-        min-width: 750px;
-    }
-    
-    th, td {
-        padding: 10px 6px;
-        font-size: 13px;
+        padding: 10px 5px;
+        font-size: 11px;
     }
     
     .action-buttons {
         gap: 3px;
     }
     
-    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
+    .view-btn {
         width: 28px;
         height: 28px;
     }
     
-    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 480px) {
-    .container {
-        padding: 10px;
-    }
-    
-    .upper {
-        padding: 10px 10px 10px 50px;
-    }
-    
-    .upper h1 {
+    .view-btn i {
         font-size: 14px;
     }
     
-    .user-profile {
-        gap: 8px;
-    }
-    
-    .user-details span {
-        font-size: 12px;
-    }
-    
-    .user-details small {
-        font-size: 9px;
-    }
-    
-    .table-box {
-        padding: 10px;
-    }
-    
-    table {
-        min-width: 700px;
-    }
-    
-    th, td {
-        padding: 8px 4px;
-        font-size: 12px;
-    }
-}
-
-@media (max-width: 400px) {
-    .sidebar {
-        width: 100%;
-    }
-    
-    .user-details {
-        display: none;
-    }
-    
-    table {
-        min-width: 650px;
-    }
-    
-    th, td {
-        padding: 6px 3px;
-        font-size: 11px;
-    }
-}
-
-/* Ensure modal remains centered on mobile */
-@media (max-width: 768px) {
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -1042,7 +948,385 @@ tr:hover td {
     }
 }
 
-/* Mobile menu backdrop */
+/* FIXED: 600px and below - Proper spacing for mobile toggle */
+@media (max-width: 600px) {
+    .container {
+        padding: 12px;
+    }
+    
+    .upper {
+        padding: 12px 12px 12px 55px;
+        position: relative;
+    }
+    
+    .upper h1 {
+        font-size: 16px;
+        padding-right: 15px;
+        min-width: 100px;
+        max-width: calc(100% - 100px);
+    }
+    
+    .mobile-menu-toggle {
+        left: 12px;
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .user-details {
+        text-align: right;
+        gap: 5px;
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+    
+    .table-box {
+        padding: 15px;
+    }
+    
+    th, td {
+        padding: 8px 4px;
+        font-size: 10px;
+    }
+    
+    th {
+        font-size: 10px;
+        white-space: normal;
+    }
+    
+    .action-buttons {
+        gap: 2px;
+        flex-wrap: nowrap;
+    }
+    
+    .view-btn {
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+    }
+    
+    .view-btn i {
+        font-size: 13px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-bar {
+        padding: 10px 35px 10px 15px;
+        font-size: 13px;
+    }
+    
+    .search-icon {
+        right: 8px;
+        font-size: 14px;
+    }
+}
+
+/* FIXED: 477px - Fix Tixnet Pro overlap */
+@media (max-width: 477px) {
+    .sidebar {
+        width: 60%;
+    }
+    
+    .upper h1 {
+        font-size: 15px;
+        max-width: calc(100% - 100px);
+        padding-right: 5px;
+    }
+    
+    .user-profile {
+        gap: 8px;
+    }
+    
+    .user-details span {
+        font-size: 13px;
+    }
+    
+    .user-details small {
+        font-size: 10px;
+    }
+}
+
+/* FIXED: 425px - Fix Tixnet Pro overlap */
+@media (max-width: 425px) {
+    .sidebar {
+        width: 60%;
+    }
+    
+    .upper h1 {
+        font-size: 14px;
+        max-width: calc(100% - 90px);
+    }
+    
+    .user-profile {
+        gap: 6px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .user-details span {
+        font-size: 12px;
+    }
+    
+    .user-details small {
+        font-size: 9px;
+    }
+}
+
+/* FIXED: 480px and below - Better header spacing */
+@media (max-width: 480px) {
+    .sidebar {
+        width: 60%;
+    }
+    
+    .container {
+        padding: 10px;
+    }
+    
+    .upper {
+        padding: 10px 10px 10px 50px;
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-height: 60px;
+    }
+    
+    .upper h1 {
+        font-size: 14px;
+        margin-right: 5px;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex-shrink: 1;
+        max-width: calc(100% - 90px);
+    }
+    
+    .mobile-menu-toggle {
+        left: 10px;
+        padding: 7px 9px;
+        font-size: 15px;
+    }
+    
+    .user-profile {
+        gap: 8px;
+        flex-shrink: 0;
+        min-width: fit-content;
+    }
+    
+    .user-details {
+        gap: 7px;
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+    
+    .table-box {
+        padding: 10px;
+    }
+    
+    th, td {
+        padding: 6px 3px;
+        font-size: 9px;
+    }
+    
+    th {
+        font-size: 9px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-bar {
+        padding: 8px 30px 8px 12px;
+        font-size: 12px;
+    }
+    
+    .search-icon {
+        right: 6px;
+        font-size: 12px;
+    }
+    
+    .modal-content {
+        padding: 15px;
+        margin: 5% auto;
+    }
+    
+    .modal-btn {
+        padding: 6px 15px;
+        font-size: 14px;
+    }
+}
+
+/* FIXED: 380px and below - Critical fixes for small screens */
+@media (max-width: 380px) {
+    .sidebar {
+        width: 60%;
+    }
+    
+    .container {
+        padding: 8px;
+    }
+    
+    .upper {
+        padding: 8px 8px 8px 45px;
+        gap: 5px;
+        min-height: 55px;
+    }
+    
+    .upper h1 {
+        font-size: 13px;
+        padding-right: 5px;
+        margin-right: 0;
+        max-width: calc(100% - 80px);
+    }
+    
+    .mobile-menu-toggle {
+        left: 8px;
+        padding: 6px 8px;
+        font-size: 14px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .user-details {
+        gap: 7px;
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+    
+}
+
+/* FIXED: 300px and below - Minimum viable screens with sidebar visibility */
+@media (max-width: 400px) {
+    .sidebar {
+        width: 60%;
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-bar {
+        padding: 6px 25px 6px 10px;
+        font-size: 11px;
+    }
+    
+    .search-icon {
+        right: 5px;
+        font-size: 11px;
+    }
+    
+    th, td {
+        padding: 5px 2px;
+        font-size: 8px;
+    }
+    
+    th {
+        font-size: 8px;
+    }
+    
+    .pagination-link {
+        width: 35px;
+        height: 35px;
+        font-size: 12px;
+    }
+    
+    .current-page {
+        font-size: 12px;
+        margin: 0 10px;
+    }
+}
+
+/* FIXED: 300px and below - Specific adjustments */
+@media (max-width: 300px) {
+    .sidebar {
+        width: 60%;
+    }
+    
+    .container {
+        padding: 5px;
+    }
+    
+    .upper {
+        padding: 8px 8px 8px 40px;
+        min-height: 50px;
+    }
+    
+    .mobile-menu-toggle {
+        left: 5px;
+        padding: 5px 7px;
+        font-size: 13px;
+    }
+    
+    .upper h1 {
+        font-size: 11px;
+        max-width: calc(100% - 70px);
+    }
+    
+    .user-profile {
+        gap: 5px;
+    }
+    
+    .user-details {
+        gap: 3px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .user-details span {
+        font-size: 12px;
+    }
+    
+    .user-details small {
+        font-size: 9px;
+    }
+}
+
+/* FIXED: Mobile menu backdrop */
 @media (max-width: 768px) {
     .sidebar::before {
         content: '';
@@ -1051,7 +1335,7 @@ tr:hover td {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
         z-index: -1;
         opacity: 0;
         transition: opacity 0.3s ease;
@@ -1064,22 +1348,38 @@ tr:hover td {
     }
 }
 
-/* Fix for search container to not interfere with table layout */
-@media (max-width: 768px) {
+/* Ensure proper scrolling on all devices */
+.table-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Print styles */
+@media print {
+    .sidebar, .mobile-menu-toggle, .search-container, .action-buttons {
+        display: none !important;
+    }
+    
+    .container {
+        margin-left: 0;
+        width: 100%;
+    }
+    
     .table-box {
-        position: relative;
-    }
-    
-    .search-container {
-        position: relative;
-        margin-bottom: 15px;
-    }
-    
-    table {
-        order: 2;
-    }
-    
-    .pagination {
-        order: 3;
+        box-shadow: none;
+        border: 1px solid #000;
     }
 }

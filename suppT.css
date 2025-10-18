@@ -202,6 +202,7 @@ footer {
     margin: 0;
     font-size: 24px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .user-profile {
@@ -210,7 +211,6 @@ footer {
     gap: 10px;
     margin-left: 50px;
 }
-
 
 .user-icon img,
 .user-icon i {
@@ -240,13 +240,14 @@ footer {
     display: block;
     color: white;
     margin-right: 25px;
+    white-space: nowrap;
 }
 
 .user-details small {
     color: #fdfdfd;
     font-size: 12px;
     margin-right: 3px;
-   
+    white-space: nowrap;
 }
 
 /* Table Box */
@@ -272,7 +273,7 @@ footer {
     background: #f9f9f9;
 }
 
-/* Tab Buttons */
+/* Tab Buttons - UPDATED POSITION */
 .tab-buttons {
     display: flex;
     align-items: center;
@@ -280,6 +281,7 @@ footer {
     margin-bottom: 15px;
     margin-top: 20px;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .tab-btn {
@@ -291,6 +293,7 @@ footer {
     border-radius: 4px 4px 0 0;
     font-size: 14px;
     transition: background-color 0.3s, color 0.3s;
+    flex-shrink: 0;
 }
 
 .tab-btn.active {
@@ -326,6 +329,7 @@ footer {
     font-size: 14px;
     transition: background-color 0.3s, transform 0.2s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .create-ticket-btn:hover {
@@ -333,13 +337,13 @@ footer {
     transform: translateY(-2px);
 }
 
+/* Search Container - UPDATED POSITION */
 .search-container {
     position: absolute;
     top: 60px;
     right: 20px;
     width: 300px;
     z-index: 10;
-    
 }
 
 .search-bar {
@@ -362,6 +366,7 @@ footer {
     top: 50%;
     transform: translateY(-50%);
     color: #666;
+    z-index: 11;
 }
 
 /* Table Wrapper */
@@ -373,14 +378,13 @@ footer {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Table */
+/* Table - FIXED SHRINKING ISSUE */
 table {
     width: 100%;
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
-    table-layout: auto;
     margin-top: 40px;
-    min-width: 800px;
+    /* REMOVED fixed min-width to allow proper shrinking */
 }
 
 thead {
@@ -392,12 +396,13 @@ thead {
 }
 
 th {
-    padding: 15px;
+    padding: 12px 8px;
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
     border: none;
     white-space: nowrap;
+    font-size: 14px;
 }
 
 th:first-child {
@@ -409,7 +414,7 @@ th:last-child {
 }
 
 td {
-    padding: 10px;
+    padding: 10px 8px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
     text-align: center;
@@ -519,12 +524,10 @@ th .filter-btn {
     font-weight: 500;
     font-size: 14px;
     margin-bottom: 0;
-   
 }
 
 .alert-success {
     color: #155724;
-  
 }
 
 .alert-error {
@@ -851,7 +854,9 @@ th .filter-btn {
     background: rgba(255, 255, 255, 0.3);
 }
 
-/* Responsive design */
+/* ========== IMPROVED RESPONSIVE DESIGN ========== */
+
+/* Large screens */
 @media (max-width: 1200px) {
     .container {
         margin-left: 200px;
@@ -861,7 +866,6 @@ th .filter-btn {
     
     .search-container {
         width: 280px;
-        margin-left: 600px;
     }
 }
 
@@ -874,10 +878,15 @@ th .filter-btn {
     
     .search-container {
         width: 250px;
-        margin-left: 400px;
+    }
+    
+    th, td {
+        padding: 12px 6px;
+        font-size: 13px;
     }
 }
 
+/* 900px and below */
 @media (max-width: 992px) {
     .container {
         margin-left: 200px;
@@ -887,23 +896,115 @@ th .filter-btn {
     
     .search-container {
         width: 220px;
-        margin-left: 250px;
     }
     
     .upper h1 {
         font-size: 22px;
     }
+    
+    th, td {
+        padding: 10px 5px;
+        font-size: 12px;
+    }
+    
+    th {
+        white-space: normal;
+        font-size: 12px;
+    }
 }
 
+/* 833px and below - Search repositioning */
+@media (max-width: 833px) {
+    .search-container {
+        position: relative;
+        width: 100%;
+        top: auto;
+        right: auto;
+        margin: 15px 0;
+        order: 3;
+    }
+    
+    .search-bar {
+        width: 100%;
+    }
+    
+    .tab-buttons {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+    }
+    
+    .create-ticket-btn {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
+    .upper {
+        padding: 15px 15px 15px 60px;
+        gap: 15px;
+    }
+    
+    .upper h1 {
+        font-size: 20px;
+        min-width: 150px;
+    }
+    
+    .user-profile {
+        gap: 10px;
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+}
+
+/* 768px and below - Mobile layout */
 @media (max-width: 768px) {
     .mobile-menu-toggle {
         display: block;
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1001;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 18px;
+        transition: all 0.3s ease;
+    }
+    
+    .mobile-menu-toggle:hover {
+        background: rgba(255, 255, 255, 0.3);
     }
     
     .sidebar {
         transform: translateX(-100%);
         width: 250px;
         transition: all 0.3s ease;
+        z-index: 1000;
     }
     
     .sidebar.active {
@@ -919,18 +1020,26 @@ th .filter-btn {
     }
     
     .upper {
-        flex-direction: row;
+        display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: 15px 15px 15px 60px;
+        flex-wrap: nowrap;
         gap: 10px;
         position: relative;
+        min-height: 70px;
     }
     
     .upper h1 {
         font-size: 18px;
-        text-align: left;
-        margin-left: 0;
         flex: 1;
+        min-width: 0;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 120px);
+        margin: 0;
     }
     
     .user-profile {
@@ -939,46 +1048,48 @@ th .filter-btn {
         align-items: center;
         gap: 10px;
         justify-content: flex-end;
+        min-width: fit-content;
+        flex-shrink: 0;
     }
     
     .user-details {
-        margin-left: 0;
         text-align: right;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px; /* ADDED: Gap between span and small */
     }
     
     .user-details span {
-        display: block;
         font-size: 14px;
-        margin-left: 0;
     }
     
     .user-details small {
-        display: block;
         font-size: 11px;
-        margin-left: 0;
     }
     
-    /* Search container positioning for mobile */
     .search-container {
-        position: static;
+        position: relative;
         width: 100%;
-        margin: 15px 0;
+        top: auto;
+        right: auto;
         order: 3;
+        margin-top: 10px;
     }
     
-    .tab-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-    
-    .create-ticket-btn {
-        margin-left: 0;
+    .search-bar {
         width: 100%;
+        padding: 10px 40px 10px 15px;
+        font-size: 16px;
     }
     
-    /* Table adjustments to show all data */
+    .search-icon {
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
     .table-box {
         padding: 20px;
         width: 100%;
@@ -988,15 +1099,24 @@ th .filter-btn {
     .table-wrapper {
         overflow-x: auto;
         width: 100%;
-    }
-    
-    table {
-        width: 100%;
-        min-width: 800px;
+        -webkit-overflow-scrolling: touch;
     }
     
     th, td {
-        padding: 12px 8px;
+        padding: 10px 5px;
+        font-size: 11px;
+    }
+    
+    .action-buttons {
+        gap: 3px;
+    }
+    
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
         font-size: 14px;
     }
     
@@ -1013,27 +1133,124 @@ th .filter-btn {
     }
 }
 
-@media (max-width: 651px) {
+/* FIXED: 600px and below - Proper spacing for mobile toggle */
+@media (max-width: 600px) {
     .container {
         padding: 12px;
     }
     
     .upper {
         padding: 12px 12px 12px 55px;
+        position: relative;
     }
     
     .upper h1 {
         font-size: 16px;
+        padding-right: 15px;
+        min-width: 100px;
+        max-width: calc(100% - 100px);
     }
     
-    .search-container {
-        margin: 12px 0;
+    .mobile-menu-toggle {
+        left: 12px;
+        padding: 8px 10px;
+        font-size: 16px;
     }
     
     .user-icon img,
     .user-icon i {
         width: 35px;
         height: 35px;
+    }
+    
+    .user-details {
+        text-align: right;
+        gap: 5px; /* ADDED: Gap between span and small */
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+    
+    .tab-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px;
+    }
+    
+    .table-box {
+        padding: 15px;
+    }
+    
+    th, td {
+        padding: 8px 4px;
+        font-size: 10px;
+    }
+    
+    th {
+        font-size: 10px;
+        white-space: normal;
+    }
+    
+    .action-buttons {
+        gap: 2px;
+        flex-wrap: nowrap;
+    }
+    
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+    }
+    
+    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
+        font-size: 13px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-bar {
+        padding: 10px 35px 10px 15px;
+        font-size: 13px;
+    }
+    
+    .search-icon {
+        right: 8px;
+        font-size: 14px;
+    }
+}
+
+/* FIXED: 477px - Fix Tixnet Pro overlap */
+@media (max-width: 477px) {
+    .sidebar {
+        width: 60%; /* CHANGED: Sidebar width 60% */
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
+    }
+    
+    .upper h1 {
+        font-size: 15px;
+        max-width: calc(100% - 100px);
+        padding-right: 5px;
+    }
+    
+    .user-profile {
+        gap: 8px;
     }
     
     .user-details span {
@@ -1043,49 +1260,23 @@ th .filter-btn {
     .user-details small {
         font-size: 10px;
     }
-    
-    .table-box {
-        padding: 15px;
-    }
-    
-    table {
-        min-width: 750px;
-    }
-    
-    th, td {
-        padding: 10px 6px;
-        font-size: 13px;
-    }
-    
-    .action-buttons {
-        gap: 3px;
-    }
-    
-    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
-        width: 28px;
-        height: 28px;
-    }
-    
-    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
-        font-size: 14px;
-    }
 }
 
-@media (max-width: 480px) {
-    .container {
-        padding: 10px;
-    }
-    
-    .upper {
-        padding: 10px 10px 10px 50px;
-    }
-    
+/* FIXED: 425px - Fix Tixnet Pro overlap */
+@media (max-width: 425px) {
     .upper h1 {
         font-size: 14px;
+        max-width: calc(100% - 90px);
     }
     
     .user-profile {
-        gap: 8px;
+        gap: 6px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 32px;
+        height: 32px;
     }
     
     .user-details span {
@@ -1095,32 +1286,95 @@ th .filter-btn {
     .user-details small {
         font-size: 9px;
     }
+}
+
+/* FIXED: 480px and below - Better header spacing */
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
     
-    .search-container {
-        margin: 10px 0;
+    .upper {
+        padding: 10px 10px 10px 50px;
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-height: 60px;
+    }
+    
+    .upper h1 {
+        font-size: 14px;
+        margin-right: 5px;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex-shrink: 1;
+        max-width: calc(100% - 90px);
+    }
+    
+    .mobile-menu-toggle {
+        left: 10px;
+        padding: 7px 9px;
+        font-size: 15px;
+    }
+    
+    .user-profile {
+        gap: 8px;
+        flex-shrink: 0;
+        min-width: fit-content;
+    }
+    
+    .user-details {
+        gap: 7px; /* ADDED: Gap between span and small */
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
     }
     
     .table-box {
         padding: 10px;
     }
     
-    table {
-        min-width: 700px;
+    th, td {
+        padding: 6px 3px;
+        font-size: 9px;
     }
     
-    th, td {
-        padding: 8px 4px;
-        font-size: 12px;
+    th {
+        font-size: 9px;
     }
     
     .tab-buttons {
         flex-direction: column;
-        gap: 8px;
+        gap: 5px;
     }
     
     .tab-btn, .create-ticket-btn {
         width: 100%;
         text-align: center;
+        flex-shrink: 0;
+        font-size: 13px;
+        padding: 8px 12px;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    .search-bar {
+        padding: 8px 30px 8px 12px;
+        font-size: 12px;
+    }
+    
+    .search-icon {
+        right: 6px;
+        font-size: 12px;
     }
     
     .modal-content {
@@ -1134,26 +1388,110 @@ th .filter-btn {
     }
 }
 
-@media (max-width: 400px) {
-    .sidebar {
-        width: 100%;
+/* FIXED: 380px and below - Critical fixes for small screens */
+@media (max-width: 380px) {
+    .container {
+        padding: 8px;
+    }
+    
+    .upper {
+        padding: 8px 8px 8px 45px;
+        gap: 5px;
+        min-height: 55px;
+    }
+    
+    .upper h1 {
+        font-size: 13px;
+        padding-right: 5px;
+        margin-right: 0;
+        max-width: calc(100% - 80px);
+    }
+    
+    .mobile-menu-toggle {
+        left: 8px;
+        padding: 6px 8px;
+        font-size: 14px;
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 30px;
+        height: 30px;
     }
     
     .user-details {
-        display: none;
+        gap: 7px; /* ADDED: Gap between span and small */
+    }
+    
+    .user-details span {
+        font-size: 14px;
+    }
+    
+    .user-details small {
+        font-size: 11px;
+    }
+    
+    /* Hide user details text if still overlapping */
+    @media (max-width: 350px) {
+        .user-details span:not(:first-child),
+        .user-details small {
+            display: none;
+        }
+        
+        .user-details {
+            min-width: auto;
+        }
+        
+        .upper h1 {
+            font-size: 12px;
+            padding-right: 5px;
+            max-width: calc(100% - 60px);
+        }
+    }
+    
+    .tab-buttons {
+        gap: 3px;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+}
+
+/* FIXED: 300px and below - Minimum viable screens with sidebar visibility */
+@media (max-width: 400px) {
+    .sidebar {
+        width: 60%; /* CHANGED: Make sidebar 60% width */
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4); /* ENHANCED: Better shadow for visibility */
     }
     
     .search-container {
-        margin: 8px 0;
+        width: 100%;
     }
     
-    table {
-        min-width: 650px;
+    .search-bar {
+        padding: 6px 25px 6px 10px;
+        font-size: 11px;
+    }
+    
+    .search-icon {
+        right: 5px;
+        font-size: 11px;
     }
     
     th, td {
-        padding: 6px 3px;
-        font-size: 11px;
+        padding: 5px 2px;
+        font-size: 8px;
+    }
+    
+    th {
+        font-size: 8px;
     }
     
     .pagination-link {
@@ -1168,7 +1506,57 @@ th .filter-btn {
     }
 }
 
-/* Mobile menu backdrop */
+/* FIXED: 300px and below - Specific adjustments */
+@media (max-width: 300px) {
+    .sidebar {
+        width: 60%; /* CHANGED: 60% width on very small screens */
+    }
+    
+    .container {
+        padding: 5px;
+    }
+    
+    .upper {
+        padding: 8px 8px 8px 40px; /* Adjusted for smaller toggle */
+        min-height: 50px;
+    }
+    
+    .mobile-menu-toggle {
+        left: 5px;
+        padding: 5px 7px;
+        font-size: 13px;
+    }
+    
+    .upper h1 {
+        font-size: 11px;
+        max-width: calc(100% - 70px);
+    }
+    
+    .user-profile {
+        gap: 5px;
+    }
+    
+    .user-details {
+        gap: 3px; /* ADDED: Smaller gap for very small screens */
+    }
+    
+    .user-icon img,
+    .user-icon i {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .user-details span {
+        font-size: 12px;
+    }
+    
+    .user-details small {
+        font-size: 9px;
+    }
+}
+
+
+/* FIXED: Mobile menu backdrop - Same as portal.css */
 @media (max-width: 768px) {
     .sidebar::before {
         content: '';
@@ -1177,7 +1565,7 @@ th .filter-btn {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
         z-index: -1;
         opacity: 0;
         transition: opacity 0.3s ease;

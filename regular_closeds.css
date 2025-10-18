@@ -1,3 +1,4 @@
+
 :root {
     --primary: #3d28e2;
     --secondary: #372fa7;
@@ -205,10 +206,11 @@ footer {
 
 .search-container {
     position: absolute;
-    top: 60px;
+    top: 61px;
     right: 20px;
     width: 300px;
     z-index: 10;
+
 }
 
 .search-bar {
@@ -232,7 +234,6 @@ footer {
     transform: translateY(-50%);
     color: #666;
 }
-
 
 .user-profile {
     display: flex;
@@ -289,7 +290,7 @@ footer {
     min-height: 600px;
     display: flex;
     flex-direction: column;
-    margin-top: -10px;
+    margin-top: -0.5px;
 }
 
 .table-box h2{
@@ -309,33 +310,6 @@ footer {
 .admin-icon {
     color: var(--warning);
     margin-left: 5px;
-}
-
-.add-user-btn {
-    position: absolute;
-    top: 45px;
-    right: 20px;
-    display: inline-flex;
-    align-items: center;
-    background: var(--primary);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    text-decoration: none;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none; /* Remove border */
-    outline: none; /* Remove outline on focus */
-}
-
-.add-user-btn:hover {
-    background: var(--secondary);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
-}
-
-.add-user-btn i {
-    margin-right: 8px;
 }
 
 /* Tabs */
@@ -546,11 +520,10 @@ button {
 .unarchive-btn:hover {
     background-color: #8e44ad;
 }
-
 .export-btn {
     position: absolute;
-    top: -55px;
-    left: 155px;
+    top: -53px;
+    margin-right: -125px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;
@@ -558,23 +531,17 @@ button {
     padding: 10px 20px;
     border-radius: 30px;
     text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    transition: all 0.3s;
     border: none;
     outline: none;
-    z-index: 5;
+    font-size: 14px;
 }
-
-
-
-.export-btn:hover {
-    background-color: #58a814;
-}
-
 .export-btn i {
     margin-right: 8px;
+}
+
+.export-btn:hover {
+    background-color: #7494ec;
 }
 
 /* Export Dropdown */
@@ -586,14 +553,16 @@ button {
 .export-dropdown {
     display: none;
     position: absolute;
-    top: -18px;
-    left: 235px;
+    top: 100%;
+    right: 0;
+    left: 940px;
     background: white;
     min-width: 120px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     border-radius: 5px;
     overflow: hidden;
+    margin-top: -45px;
 }
 
 .export-container:hover .export-dropdown {
@@ -758,20 +727,6 @@ button {
     margin-bottom: 15px;
 }
 
-.restore-all-btn {
-    padding: 8px 16px;
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: -65px;
-    margin-left: 17.5%;
-}
-
-.restore-all-btn:hover {
-    background: #45a049;
-}
 
 /* Alerts */
 .alert-container {
@@ -848,4 +803,87 @@ button {
     opacity: 0;
 }
 
+/* Media Queries for Smaller Screens */
+@media screen and (max-width: 1366px) {
+    .search-container {
+        right: 10px; /* Reduce right margin */
+        width: 250px; /* Slightly reduce width */
+    }
 
+    .export-btn {
+        right: -150px; /* Adjust to account for reduced search bar width */
+        padding: 8px 15px; /* Slightly smaller padding */
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .container {
+        margin-left: 200px; /* Respect sidebar width */
+        padding: 20px;
+    }
+
+    .search-container {
+        right: 10px;
+        width: 200px; /* Further reduce width */
+        top: 80px; /* Adjust vertical position */
+    }
+
+    .export-btn {
+        right: -430px; /* Adjust position */
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+
+    .upper {
+        left: 210px;
+        right: 20px;
+        padding: 8px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .sidebar {
+        width: 180px; /* Reduce sidebar width */
+    }
+
+    .container {
+        margin-left: 180px; /* Adjust for smaller sidebar */
+        padding: 15px;
+    }
+
+    .search-container {
+        width: 100%; /* Full width for small screens */
+        max-width: 300px;
+        right: 10px;
+        top: 70px;
+    }
+
+    .export-btn {
+        right: 10px; /* Move to the right edge */
+        top: 120px; /* Place below search bar */
+        width: 100%;
+        max-width: 150px; /* Limit button width */
+        text-align: center;
+    }
+
+    .export-dropdown {
+        right: 0; /* Ensure dropdown aligns with button */
+        left: auto; /* Override any left positioning */
+        min-width: 100px;
+    }
+
+    .upper {
+        left: 190px; /* Adjust header for smaller sidebar */
+        right: 10px;
+        height: 60px;
+    }
+
+    .user-details {
+        margin-left: 0; /* Reset margin */
+    }
+
+    .user-details span,
+    .user-details small {
+        margin-left: 0; /* Reset margins */
+    }
+}   
