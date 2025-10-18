@@ -211,7 +211,7 @@ $stmt->close();
                 </div>
                 <a href="settings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                
                 </a>
             </div>
         </div>

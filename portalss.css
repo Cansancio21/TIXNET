@@ -206,8 +206,9 @@ footer {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    margin-left: 50px;
 }
+
 
 .user-icon img,
 .user-icon i {
@@ -228,19 +229,22 @@ footer {
 }
 
 .user-details {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    text-align: right;
+    margin-right: 55px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
+    color: white;
+    margin-right: 25px;
 }
 
 .user-details small {
-    color: #ffffff;
+    color: #fdfdfd;
     font-size: 12px;
+    margin-right: 3px;
+   
 }
 
 /* Mobile Menu Toggle - Fixed in Header */

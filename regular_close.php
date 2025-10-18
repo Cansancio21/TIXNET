@@ -576,7 +576,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Closed Tickets</title>
-    <link rel="stylesheet" href="regular_close.css">
+    <link rel="stylesheet" href="regular_closed.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -722,7 +722,7 @@ try {
                 </div>
                 <a href="settings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                 
                 </a>
             </div>
         </div>

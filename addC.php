@@ -1,3 +1,4 @@
+
 <?php
 session_start(); // Start session for login management
 include 'db.php';
@@ -179,89 +180,105 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $stmtCheck->close();
 
-    // Insert into database if no errors
-    if (!$hasError) {
-        // Convert date to MySQL format (YYYY-MM-DD)
-        $mysqlDate = DateTime::createFromFormat('m/d/Y', $dob)->format('Y-m-d');
-        error_log("Database date set to: $mysqlDate"); // Debug log for database date
+   // Insert into database if no errors
+if (!$hasError) {
+    // Convert date to MySQL format (YYYY-MM-DD)
+    $mysqlDate = DateTime::createFromFormat('m/d/Y', $dob)->format('Y-m-d');
+    error_log("Database date set to: $mysqlDate"); // Debug log for database date
 
-        $sql = "INSERT INTO tbl_customer (c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO tbl_customer (c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_date, c_napname, c_napport, c_macaddress, c_status, c_plan, c_equipment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            $_SESSION['error'] = "Prepare failed: " . $conn->error;
-            error_log("SQL Prepare Error: " . $conn->error); // Log to server error log
-            header("Location: addC.php");
-            exit();
-        }
-
-        $stmt->bind_param("sssssssssssssss", $accountNo, $firstname, $lastname, $purok, $barangay, $contact, $email, $coordinates, $mysqlDate, $napname, $napport, $macaddress, $status, $plan, $equipment);
-
-        if ($stmt->execute()) {
-            // Send confirmation email using PHPMailer
-            try {
-                $mail = new PHPMailer(true); // Enable exceptions
-                // Server settings
-                $mail->isSMTP();
-                $mail->Host = 'smtp.gmail.com';
-                $mail->SMTPAuth = true;
-                $mail->Username = 'jonwilyammayormita@gmail.com'; // Your Gmail address
-                $mail->Password = 'mqkcqkytlwurwlks'; // Your Gmail App Password
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port = 587;
-
-                // Recipients
-                $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet Pro');
-                $mail->addAddress($email, "$firstname $lastname");
-
-                // Content
-                $mail->isHTML(true);
-                $mail->Subject = 'Welcome to TixNet Pro!';
-                $mail->Body = "
-                    <html>
-                    <head>
-                        <title>Welcome to TixNet Pro</title>
-                    </head>
-                    <body>
-                        <p>Dear $firstname $lastname,</p>
-                        <p>Thank you for registering with TixNet Pro. Your account details are:</p>
-                        <p><strong>Customer Account No.:</strong> $accountNo</p>
-                        <p><strong>Last Name:</strong> $lastname</p>
-                        <p><strong>Plan:</strong> $plan</p>
-                        <p><strong>Coordinates:</strong> $coordinates</p>
-                        <p>Please use these credentials to log in to our customer portal by clicking the link below:</p>
-                        <p><a href='http://localhost/TIMSSS/customerP.php'>Customer Portal</a></p>
-                        <p>Enter your Customer Account No. and Last Name to access your account.</p>
-                        <p>Best regards,<br>Team Jupiter</p>
-                    </body>
-                    </html>
-                ";
-                $mail->AltBody = "Dear $firstname $lastname,\n\nThank you for registering with TixNet Pro. Your account details are:\nCustomer Account No.: $accountNo\nLast Name: $lastname\nPlan: $plan\nCoordinates: $coordinates\n\nPlease use these credentials to log in to our customer portal at http://localhost/TIMSSS/customerP.php\n\nBest regards,\nTixNet Pro Team";
-
-                // Send the email
-                $mail->send();
-                $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent to $email.";
-            } catch (Exception $e) {
-                $_SESSION['error'] = "Customer registered, but failed to send confirmation email: " . $mail->ErrorInfo;
-                error_log("PHPMailer Error: " . $mail->ErrorInfo); // Log email error
-            }
-
-            // Clear form variables
-            $accountNo = sprintf("%08d", mt_rand(10000000, 99999999)); // Generate new account number
-            $firstname = $lastname = $contact = $email = $coordinates = $dob = "";
-            $napname = $napport = $macaddress = $status = "";
-            $purok = $barangay = $planType = $plan = $equipment = "";
-            header("Location: customersT.php");
-            exit();
-        } else {
-            $_SESSION['error'] = "Execution failed: " . $stmt->error;
-            error_log("SQL Execution Error: " . $stmt->error); // Log to server error log
-            header("Location: addC.php");
-            exit();
-        }
-        $stmt->close();
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        $_SESSION['error'] = "Prepare failed: " . $conn->error;
+        error_log("SQL Prepare Error: " . $conn->error);
+        header("Location: addC.php");
+        exit();
     }
+
+    $stmt->bind_param("sssssssssssssss", $accountNo, $firstname, $lastname, $purok, $barangay, $contact, $email, $coordinates, $mysqlDate, $napname, $napport, $macaddress, $status, $plan, $equipment);
+
+    if ($stmt->execute()) {
+        // Send confirmation email using PHPMailer
+        $emailSent = false;
+        $emailError = '';
+        
+        try {
+            $mail = new PHPMailer(true); // Enable exceptions
+            
+            // Server settings - Use the same settings as your working viewU.php
+            $mail->isSMTP();
+            $mail->Host = 'smtp.gmail.com';
+            $mail->SMTPAuth = true;
+            $mail->Username = 'jonwilyammayormita@gmail.com'; // Your Gmail address
+            $mail->Password = 'mqkcqkytlwurwlks'; // Your Gmail App Password
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = 587;
+            $mail->Timeout = 10; // 10 seconds timeout like your working file
+            $mail->SMTPDebug = 0; // No debug output
+
+            // Recipients
+            $mail->setFrom('jonwilyammayormita@gmail.com', 'TixNet Pro');
+            $mail->addAddress($email, "$firstname $lastname");
+
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = 'Welcome to TixNet Pro!';
+            $mail->Body = "
+                <html>
+                <head>
+                    <title>Welcome to TixNet Pro</title>
+                </head>
+                <body>
+                    <p>Dear $firstname $lastname,</p>
+                    <p>Thank you for registering with TixNet Pro. Your account details are:</p>
+                    <p><strong>Customer Account No.:</strong> $accountNo</p>
+                    <p><strong>Last Name:</strong> $lastname</p>
+                    <p><strong>Plan:</strong> $plan</p>
+                    <p><strong>Coordinates:</strong> $coordinates</p>
+                    <p>Please use these credentials to log in to our customer portal by clicking the link below:</p>
+                    <p><a href='http://localhost/TIXNET/customerP.php'>Customer Portal</a></p>
+                    <p>Enter your Customer Account No. and Last Name to access your account.</p>
+                    <p>Best regards,<br>Team Jupiter</p>
+                </body>
+                </html>
+            ";
+            $mail->AltBody = "Dear $firstname $lastname,\n\nThank you for registering with TixNet Pro. Your account details are:\nCustomer Account No.: $accountNo\nLast Name: $lastname\nPlan: $plan\nCoordinates: $coordinates\n\nPlease use these credentials to log in to our customer portal at http://localhost/TIXNET/customerP.php\n\nBest regards,\nTixNet Pro Team";
+
+            // Send the email
+            if ($mail->send()) {
+                $emailSent = true;
+            }
+        } catch (Exception $e) {
+            $emailError = "PHPMailer Error: " . $e->getMessage();
+            error_log("PHPMailer Error in addC.php: " . $emailError);
+        }
+
+        if ($emailSent) {
+            $_SESSION['message'] = "Customer has been registered successfully. A confirmation email has been sent to $email.";
+        } else {
+            $_SESSION['message'] = "Customer has been registered successfully, but confirmation email could not be sent.";
+            if (!empty($emailError)) {
+                error_log("Email sending failed: " . $emailError);
+            }
+        }
+
+        // Clear form variables
+        $accountNo = sprintf("%08d", mt_rand(10000000, 99999999)); // Generate new account number
+        $firstname = $lastname = $contact = $email = $coordinates = $dob = "";
+        $napname = $napport = $macaddress = $status = "";
+        $purok = $barangay = $planType = $plan = $equipment = "";
+        header("Location: customersT.php");
+        exit();
+    } else {
+        $_SESSION['error'] = "Execution failed: " . $stmt->error;
+        error_log("SQL Execution Error: " . $stmt->error);
+        header("Location: addC.php");
+        exit();
+    }
+    $stmt->close();
+}
 }
 ?>
 
@@ -271,7 +288,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Customer</title>
-    <link rel="stylesheet" href="addCC.css"> 
+    <link rel="stylesheet" href="addC.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -335,7 +352,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
                 <a href="settings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                 
                 </a>
             </div>
         </div>

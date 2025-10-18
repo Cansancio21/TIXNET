@@ -19,7 +19,6 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
-    min-height: 100vh;
 }
 
 .glass-container {
@@ -31,10 +30,13 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+.assets h2 {
+    margin-bottom: 20px;
+}
+
 .wrapper {
     display: flex;
     min-height: 100vh;
-    width: 100%;
 }
 
 /* Sidebar */
@@ -203,14 +205,12 @@ footer {
     font-weight: 600;
 }
 
-
 .search-container {
     position: absolute;
-    top: 60px;
-    right: 20px;
+    top: -20px;
+    right: 10px;
     width: 300px;
     z-index: 10;
-    
     
 }
 
@@ -236,12 +236,14 @@ footer {
     color: #666;
 }
 
+
 .user-profile {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 50px;
 }
+
 
 .user-icon img,
 .user-icon i {
@@ -262,115 +264,23 @@ footer {
 }
 
 .user-details {
-    margin-left: 300px;
+    text-align: right;
+    margin-right: 55px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    margin-left: -300px;
+    color: white;
 }
 
 .user-details small {
     color: #fdfdfd;
     font-size: 12px;
-    margin-left: -300px;
+    margin-right: 30px;
+   
 }
-
-.username {
-    position: absolute;
-    left: 20px;
-    top: 25px;
-    padding-bottom: 25px;
-    margin-bottom: 15px;
-    color: var(--primary);
-    font-size: 20px;
-    font-weight: 500;
-}
-
-.admin-icon {
-    color: var(--warning);
-    margin-left: 5px;
-}
-
-.add-user-btn {
-    position: absolute;
-    top: 60px;
-    right: 20px;
-    display: inline-flex;
-    align-items: center;
-    background: var(--primary);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    text-decoration: none;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none;
-    outline: none;
-}
-
-.add-user-btn:hover {
-    background-color: #7494ec;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
-}
-
-.add-user-btn i {
-    margin-right: 15px;
-}
-
-/* Tabs */
-.tab-buttons {
-    display: flex;
-    gap: 10px;
-    margin: 55px 0 15px;
-}
-
-.tab-btn {
-    padding: 8px 16px;
-    background-color: #f1f1f1;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    position: relative;
-}
-
-.tab-btn.active {
-    background-color: #4CAF50;
-    color: #fff;
-}
-
-.tab-btn:hover {
-    background-color: #e0e0e0;
-}
-
-.tab-btn.active:hover {
-    background-color: #45a049;
-}
-
-.tab-badge {
-    background-color: #ff5722;
-    color: #fff;
-    border-radius: 10px;
-    padding: 2px 8px;
-    font-size: 12px;
-    position: absolute;
-    top: -5px;
-    right: -5px;
-}
-
-.active-tickets, .archived-tickets {
-    display: none;
-}
-
-.active-tickets.active, .archived-tickets.active {
-    display: block;
-}
-
-/* Table */
+/* Table Box */
 .table-box {
     position: relative;
     width: 100%;
@@ -379,21 +289,101 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
-    min-height: 60vh;
-    overflow: visible;
-    margin-top: 16px;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
 }
 
 .table-box h2{
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
+
+
+.username {
+    position: absolute;
+    left: 25px;
+    top: 5px;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.admin-icon {
+    color: var(--warning);
+    margin-left: 5px;
+}
+
+/* Tab Buttons */
+.header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.tab-btn {
+    margin-top: 2px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    position: relative;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.tab-btn.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.tab-buttons{
+    margin-top: -15px;
+}
+
+/* Tab Badge */
+.tab-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff5722;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    transition: background-color 0.3s ease;
+}
+
+.tab-content {
+    margin-top: 15px;
+}
+
+.deploy .borrow-btn, .deploy .return-btn, .deploy .deploy-btn {
+    margin-top: -115px;
+}
+
+/* Table */
 table {
     width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    margin-top: 65px;
-    
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 23px;
+    table-layout: auto;
+    display: table;
 }
 
 thead {
@@ -409,8 +399,6 @@ th {
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
-    border: none;
-    
 }
 
 th:first-child {
@@ -439,41 +427,61 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-th:nth-child(1) { width: 150px; } /* Ticket ID */
-th:nth-child(2) { width: 150px; } /* Account Name */
-th:nth-child(3) { width: 100px; } /* Type */
-th:nth-child(4) { width: 150px; } /* Status */
-th:nth-child(5) { width: 150px; } /* Ticket Details */
-th:nth-child(6) { width: 100px; } /* Date */
-th:nth-child(7) { width: 100px; } /* Action */
-
-
-td:nth-child(2), td:nth-child(5) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 0;
+/* Status Badges */
+.status-active {
+    color: var(--success) !important;
 }
 
-tr:last-child td {
-    border-bottom: none;
+.status-inactive {
+    color: var(--danger) !important;
 }
 
-tr:hover td {
-    background: rgba(108, 92, 231, 0.05);
+.status-pending {
+    color: #ff9800;
+    font-weight: 500;
+}
+
+.borrow h2 {
+    margin-bottom: 20px;
+}
+
+.deploy h2 {
+    margin-bottom: 20px;
 }
 
 /* Action Buttons */
-.action-buttons {
-    display: flex;
-    justify-content: center;
+.delete-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 10px;
-    min-height: 50px;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #ff6200;
+    color: #fff;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
 }
 
-.view-btn, .edit-btn {
+.delete-btn:hover {
+    background-color: #e55a00;
+}
+
+#borrowed-assets-table td .view-btn {
+    margin-right: 5px;
+}
+
+#borrowed-assets-table td .borrowdelete-btn {
+    margin-right: 0;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .borrowdelete-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -481,7 +489,6 @@ tr:hover td {
     height: 30px;
     border-radius: 5px;
     text-decoration: none;
-    color: #fff;
     transition: background-color 0.3s ease;
 }
 
@@ -503,26 +510,31 @@ tr:hover td {
     background-color: #27ae60;
 }
 
-/* Status Badges */
-.status-open {
-    color: var(--success);
+.archive-btn {
+    background-color: #f1c40f;
+    color: #fff;
 }
 
-.status-closed {
-    color: var(--danger);
+.archive-btn:hover {
+    background-color: #d4ac0d;
 }
 
-.status-pending{
-  color: #ff9800;
-    font-weight: 500;
+.unarchive-btn {
+    background-color: #9b59b6;
+    color: #fff;
 }
 
-.status-clickable {
-    cursor: pointer;
+.unarchive-btn:hover {
+    background-color: #8e44ad;
 }
 
-.status-clickable:hover {
-    text-decoration: underline;
+.borrowdelete-btn {
+    background-color: #ff6200;
+    color: #fff;
+}
+
+.borrowdelete-btn:hover {
+    background-color: #b94b06;
 }
 
 /* Pagination */
@@ -530,21 +542,21 @@ tr:hover td {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
-    margin-top: 20px;
+    margin-top: auto;
+    padding-top: 20px;
 }
 
 .pagination-link {
-    text-decoration: none;
-    color: var(--primary);
-    font-size: 18px;
-    width: 40px;
-    height: 40px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: white;
+    color: var(--primary);
+    text-decoration: none;
+    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -552,6 +564,8 @@ tr:hover td {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -561,14 +575,16 @@ tr:hover td {
 }
 
 .current-page {
-    font-size: 14px;
-    color: #555;
+    margin: 0 15px;
+    font-weight: 500;
+    color: var(--dark);
 }
 
+/* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    top: 0px;
     left: 0;
     width: 100%;
     height: 100%;
@@ -580,7 +596,7 @@ tr:hover td {
 
 .modal-content {
     background: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -615,7 +631,7 @@ tr:hover td {
 
 .modal-btn.cancel {
     background: var(--primary);
-    color: white;
+    color: var(--light);
 }
 
 .modal-btn:hover {
@@ -632,67 +648,103 @@ tr:hover td {
     border-radius: 5px;
 }
 
-/* Modal Form Textarea (Ticket Details) */
-.modal-form textarea {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-    resize: vertical;
-    min-height: 100px;
-    outline: none;
-    transition: border-color 0.3s ease;
+#assetViewModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
 }
 
-.modal-form textarea:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
+#addAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
 }
 
-/* Error message styling */
-.modal-form .error {
-    color: var(--danger);
-    font-size: 12px;
-    display: block;
-    margin-top: -10px;
-    margin-bottom: 10px;
+#borrowAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
 }
 
-/* Close Ticket Modal Input */
-.close-ticket-input {
+#deployAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
+#returnAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
+#editAssetModal .modal-content {
+    margin: 8% auto;
+    max-width: 500px;
+}
+
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#archiveModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#unarchiveModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#borrowedDeleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: 20px;
+}
+
+#restoreModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#assetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#assetStatusFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#borrowedAssetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#borrowedTechNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+/* Archive Header */
+.archive-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
     margin-bottom: 15px;
 }
 
-.ticket-id-input input {
-    width: 100px;
-    padding: 6px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
+.restore-all-btn {
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: -65px;
+    margin-left: 17.5%;
 }
 
-.ticket-id-input input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
-}
-
-/* Responsive design for Close Ticket Modal */
-@media (max-width: 480px) {
-    .close-ticket-input {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .ticket-id-input input {
-        width: 100%;
-    }
+.restore-all-btn:hover {
+    background: #45a049;
 }
 
 /* Alerts */
@@ -706,7 +758,6 @@ tr:hover td {
     border-radius: 5px;
     position: absolute;
     top: 10px;
-    left: 15px;
     width: 100%;
     z-index: 1000;
 }
@@ -721,6 +772,16 @@ tr:hover td {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
+}
+
+/* Form Validation Errors */
+.error {
+    color: var(--danger);
+    font-size: 0.9em;
+    display: block;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-weight: 400;
 }
 
 .settings-link {
@@ -770,22 +831,201 @@ tr:hover td {
     opacity: 0;
 }
 
-.filter-btn {
-    background: transparent;
-    border: none;
+/* Header Buttons */
+.button-group {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-left: auto;
+    margin-right: 20px;
+}
+
+/* Action Button and Dropdown */
+.action-container {
+    position: relative;
+    display: inline-block;
+    margin-top: -20px;
+}
+
+.action-btn {
+    position: absolute;
+    top: 0px;
+    right: 290px;
+    display: inline-flex;
+    align-items: center;
+    background-color: #cf752b;
     color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    border: none;
+    outline: none;
+    font-size: 14px;
+}
+
+.action-btn:hover {
+    background-color: #7494ec;
+}
+
+.action-btn i {
+    margin-right: 8px;
+}
+
+.action-dropdown {
+    display: none;
+    position: absolute;
+    top: 35px;
+    right: 310px;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.action-container:hover .action-dropdown {
+    display: block;
+}
+
+.action-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
     cursor: pointer;
-    font-size: 1rem;
-    padding: 5px;
-    transition: color 0.3s ease;
-    display: inline-flex; /* Align inline with text */
-    align-items: center; /* Vertically center the icon with text */
+    transition: all 0.3s ease;
 }
 
-.filter-btn:hover {
-    color: var(--light);
+.action-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
 }
 
-.filter-btn i {
-    font-size: 1.2rem;
+/* Export Button and Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+    margin-top: -20px;
+}
+
+.export-btn {
+    position: absolute;
+    top: 0px;
+    right: 420px;
+    display: inline-flex;
+    align-items: center;
+    background-color: #63c216;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    border: none;
+    outline: none;
+    font-size: 14px;
+   
+}
+
+.export-btn:hover {
+    background-color: #7494ec;
+}
+
+.export-btn i {
+    margin-right: 8px;
+}
+
+.export-dropdown {
+    display: none;
+    position: absolute;
+    top: 35px;
+    right: 440px;
+    background: white;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.export-container:hover .export-dropdown {
+    display: block;
+}
+
+.export-dropdown button {
+    color: var(--dark);
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.export-dropdown button:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* Action Dropdown (kept for compatibility, but not used in this context) */
+.action-dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 5px;
+}
+
+.action-dropdown-content a {
+    color: var(--dark);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+.action-dropdown-content a:hover {
+    background-color: var(--primary);
+    color: white;
+    border-radius: 5px;
+}
+
+.action-dropdown:hover .action-dropdown-content {
+    display: block;
+}
+
+.action-dropdown-content i {
+    margin-right: 8px;
+    width: 18px;
+    text-align: center;
+}
+
+.generate-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.generate-btn:hover {
+    background-color: #45a049;
 }
