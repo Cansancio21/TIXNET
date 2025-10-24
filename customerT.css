@@ -16,10 +16,12 @@
     font-family: 'Poppins', sans-serif;
 }
 
+
 body {
     background-color: #f8f9fa;
     color: var(--dark);
     min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 .glass-container {
@@ -35,6 +37,7 @@ body {
     display: flex;
     min-height: 100vh;
     width: 100%;
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 /* Sidebar */
@@ -184,6 +187,9 @@ footer {
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
+    width: calc(100% - 200px); /* Calculate proper width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .upper {
@@ -195,6 +201,8 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -240,7 +248,6 @@ footer {
     margin-left: 50px;
 }
 
-
 .user-icon img,
 .user-icon i {
     width: 45px;
@@ -260,21 +267,20 @@ footer {
 }
 
 .user-details {
-    text-align: right;
-    margin-right: 55px;
+    margin-left: 300px;
+    margin-right: -195px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    color: white;
+    margin-left: -300px;
 }
 
 .user-details small {
-    color: #fdfdfd;
+    color: #ffffff;
     font-size: 12px;
-    margin-right: 30px;
-   
+    margin-left: -300px;
 }
 
 .table-box h2 {
@@ -293,11 +299,23 @@ footer {
     color: var(--warning);
     margin-left: 5px;
 }
+/* Customer Actions Container */
+.customer-actions {
+    position: absolute;
+    top: 60px;
+    right: 330px;
+    display: flex;
+    gap: 10px;
+    z-index: 11;
+}
+
+/* Export Button and Dropdown */
+.export-container {
+    position: relative;
+    display: inline-block;
+}
 
 .export-btn {
-    position: absolute;
-    top: -71px;
-    right: -560px;
     display: inline-flex;
     align-items: center;
     background-color: #63c216;
@@ -309,16 +327,15 @@ footer {
     border: none;
     outline: none;
     font-size: 14px;
+    white-space: nowrap;
 }
 
 .export-btn:hover {
     background-color: #7494ec;
 }
 
-/* Export Dropdown */
-.export-container {
-    position: relative;
-    display: inline-block;
+.export-btn i {
+    margin-right: 8px;
 }
 
 .export-dropdown {
@@ -326,14 +343,13 @@ footer {
     position: absolute;
     top: 100%;
     right: 0;
-    left: 940px;
     background: white;
     min-width: 120px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     border-radius: 5px;
     overflow: hidden;
-    margin-top: -45px;
+    margin-top: 5px;
 }
 
 .export-container:hover .export-dropdown {
@@ -360,10 +376,8 @@ footer {
     color: white;
 }
 
+/* Add Customer Button */
 .add-user-btn {
-    position: absolute;
-    top: 60px;
-    right: 330px;
     display: inline-flex;
     align-items: center;
     background-color: #cf752b;
@@ -375,6 +389,7 @@ footer {
     border: none;
     outline: none;
     font-size: 14px;
+    white-space: nowrap;
 }
 
 .add-user-btn:hover {
@@ -464,7 +479,7 @@ footer {
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: -12px;
+    margin-top: 25px;
     table-layout: fixed;
     min-width: 100%;
 }
@@ -1247,17 +1262,7 @@ tr:hover td {
         grid-template-columns: 1fr;
     }
 
-    .add-user-btn,
-    .export-btn {
-        padding: 8px 15px;
-        font-size: 0.9rem;
-    }
-
-    .export-dropdown {
-        left: auto;
-        right: 0;
-    }
-
+    
     .action-buttons {
         gap: 3px;
     }

@@ -58,6 +58,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
     <title>Avatar Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
+
+:root {
+    --primary: #3d28e2;
+    --secondary: #372fa7;
+    --dark: #2d3436;
+    --light: #f5f6fa;
+    --success: #00b894;
+    --danger: #d63031;
+    --warning: #fdcb6e;
+    --info: #0984e3;
+}
         * {
             margin: 0;
             padding: 0;
@@ -66,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         }
         
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -278,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
         
         <div class="button-container">
             <button class="btn btn-primary" onclick="document.getElementById('avatarInput').click()">
-                <i class="fas fa-upload"></i> CHOOSE IMAGE
+                <i class="fas fa-upload"></i> CHANGE PROFILE
             </button>
             
             <button class="btn btn-secondary" onclick="uploadAvatar()" id="uploadBtn">

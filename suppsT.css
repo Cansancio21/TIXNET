@@ -579,10 +579,8 @@ th .filter-btn {
     width: 90%;
     max-width: 500px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    max-height: 90vh;
-    overflow-y: auto;
+    /* Removed max-height and overflow-y to disable scrolling */
 }
-
 .modal-header {
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;

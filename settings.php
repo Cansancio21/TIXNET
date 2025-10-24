@@ -210,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="setting.css">
+    <link rel="stylesheet" href="settings.css">
     <style>
         .table-box {
             display: grid;
@@ -373,16 +373,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li> 
                      <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
                      <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
-                <?php elseif ($userType === 'technician'): ?>
-                     <li><a href="technicianD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
-                     <li><a href="techBorrowed.php" class="active"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
-                     <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-
-                <?php endif; ?>
+                     <?php elseif ($userType === 'technician'): ?>
+    <li><a href="technicianD.php"><i class="fas fa-tachometer-alt icon"></i> <span>Dashboard</span></a></li>
+    <li><a href="techBorrowed.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
+    <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
+<?php endif; ?>
             </ul>
             <footer>
-                <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
-            </footer>
+    <?php if ($userType === 'technician' || $userType === 'staff'): ?>
+        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    <?php else: ?>
+        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    <?php endif; ?>
+</footer>
         </div>
 
         <div class="container">

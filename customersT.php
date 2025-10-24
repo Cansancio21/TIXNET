@@ -546,7 +546,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customerssT.css">
+    <link rel="stylesheet" href="customerT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -626,17 +626,17 @@ if ($conn) {
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
             <div class="customer-actions">
-                <form action="addC.php" method="get" style="display: inline;">
-                    <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
-                </form>
-                <div class="export-container">
-                    <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                    <div class="export-dropdown">
-                        <button onclick="exportTable('excel')">Excel</button>
-                        <button onclick="exportTable('csv')">CSV</button>
-                    </div>
-                </div>
-            </div>
+    <div class="export-container">
+        <button class="export-btn"><i class="fas fa-download"></i> Export</button>
+        <div class="export-dropdown">
+            <button onclick="exportTable('excel')">Excel</button>
+            <button onclick="exportTable('csv')">CSV</button>
+        </div>
+    </div>
+    <form action="addC.php" method="get" style="display: inline;">
+        <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
+    </form>
+</div>
 
             <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
                 <table id="active-customers-table">

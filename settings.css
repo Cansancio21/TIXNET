@@ -19,6 +19,7 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 .glass-container {
@@ -33,6 +34,8 @@ body {
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 /* Sidebar */
@@ -47,6 +50,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    left: 0;
 }
 
 .sidebar h2 {
@@ -182,6 +186,9 @@ footer {
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
+    width: calc(100% - 200px); /* Calculate proper width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .upper {
@@ -193,6 +200,8 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -271,9 +280,6 @@ footer {
     margin-left: -300px;
 }
 
-
-
-
 .input-box {
     position: relative;
     margin-bottom: 25px;
@@ -347,6 +353,7 @@ footer {
     display: flex;
     flex-direction: column;
     margin-top: 20px;
+    box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .username {
@@ -400,3 +407,162 @@ footer {
     margin-top: 10px;
 }
 
+/* Account Settings Specific Styles */
+.account-settings {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.table-box {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.input-box {
+    position: relative;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.input-box label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark);
+    margin-bottom: 5px;
+}
+
+.input-box i {
+    position: absolute;
+    right: 10px;
+    top: 65%;
+    transform: translateY(-50%);
+    color: #777;
+    font-size: 18px;
+    z-index: 1;
+}
+
+.input-box input {
+    width: 100%;
+    padding: 10px 40px 10px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 14px;
+    background: var(--light);
+    outline: none;
+}
+
+.input-box input:focus {
+    border-color: var(--primary);
+}
+
+.input-box .toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 65%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 1;
+}
+
+.btn {
+    padding: 10px 20px;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 200px;
+    margin: 10px auto 0;
+    display: block;
+}
+
+.btn:hover {
+    background-color: var(--secondary);
+}
+
+.section-header {
+    grid-column: 1 / -1;
+    margin: 1px 0;
+    font-size: 18px;
+    color: var(--primary);
+    margin-left: 0;
+    text-align: center;
+}
+
+.avatar-container {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.avatar-container .user-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--primary);
+}
+
+.avatar-container .user-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-container .user-icon i {
+    font-size: 40px;
+    color: var(--primary);
+}
+
+.button-container {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 60px;
+    }
+    
+    .sidebar h2 span,
+    .sidebar ul li a span {
+        display: none;
+    }
+    
+    .container {
+        margin-left: 60px;
+        width: calc(100% - 60px);
+        padding: 15px;
+    }
+    
+    .table-box {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-details {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    
+    .user-details span,
+    .user-details small {
+        margin-left: 0;
+    }
+}

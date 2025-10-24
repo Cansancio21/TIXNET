@@ -202,13 +202,13 @@ footer {
     font-weight: 600;
 }
 
+
 .search-container {
     position: absolute;
-    top: 60px;
+    top: 61px;
     right: 20px;
     width: 300px;
     z-index: 10;
-    
 }
 
 .search-bar {
@@ -307,11 +307,10 @@ footer {
     color: var(--warning);
     margin-left: 5px;
 }
-
 .add-user-btn {
     position: absolute;
-    top: 60px;
-    right: 330px;
+    top: 61px;
+    right: 330px; /* Increased from 330px to create more space from search bar */
     display: inline-flex;
     align-items: center;
     background: var(--primary);
@@ -324,7 +323,9 @@ footer {
     border: none; 
     outline: none;
     font-size: 14px;
-
+    white-space: nowrap; /* Prevent text wrapping */
+    width: 140px; /* Same width as restore button */
+    justify-content: center; /* Center the content */
 }
 
 .add-user-btn:hover {
@@ -789,14 +790,12 @@ tr:hover td {
 /* Media Queries for Smaller Screens */
 @media screen and (max-width: 1366px) {
     .search-container {
-        right: 10px; /* Reduce right margin for smaller screens */
-        width: 250px; /* Slightly reduce width */
+        right: 20px; /* Reduce right margin for smaller screens */
+        width: 300px; /* Slightly reduce width */
+
     }
 
-    .add-user-btn {
-        right: 280px; /* Adjust to account for reduced search bar width */
-        padding: 8px 15px; /* Slightly smaller padding */
-    }
+  
 }
 
 @media screen and (max-width: 1024px) {
@@ -811,12 +810,7 @@ tr:hover td {
         top: 80px; /* Adjust vertical position */
     }
 
-    .add-user-btn {
-        right: 230px; /* Adjust position */
-        font-size: 14px; /* Smaller font size */
-        padding: 8px 12px;
-    }
-
+  
     .upper {
         left: 210px; /* Adjust header position */
         right: 20px;
@@ -841,14 +835,7 @@ tr:hover td {
         top: 70px;
     }
 
-    .add-user-btn {
-        right: 10px; /* Move to the right edge */
-        top: 120px; /* Place below search bar */
-        width: 100%;
-        max-width: 150px; /* Limit button width */
-        text-align: center;
-    }
-
+   
     .upper {
         left: 190px; /* Adjust header for smaller sidebar */
         right: 10px;

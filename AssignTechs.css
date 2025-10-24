@@ -1,4 +1,3 @@
-
 :root {
     --primary: #3d28e2;
     --secondary: #372fa7;
@@ -8,6 +7,7 @@
     --danger: #d63031;
     --warning: #fdcb6e;
     --info: #0984e3;
+    --toggle-btn: #ff7d50;
 }
 
 * {
@@ -20,6 +20,8 @@
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 .glass-container {
@@ -31,9 +33,12 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 /* Sidebar */
@@ -177,15 +182,18 @@ footer {
     margin-bottom: 5px;
 }
 
+
 /* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-    padding-top: 100px;
+    width: calc(100% - 200px); /* Calculate proper width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
-/* Header */
+
 .upper {
     display: flex;
     justify-content: space-between;
@@ -195,7 +203,8 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
-    margin-top: -70px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -206,11 +215,12 @@ footer {
 
 .search-container {
     position: absolute;
-    top: 61px;
+    top: 60px;
     right: 20px;
     width: 300px;
     z-index: 10;
-
+    
+    
 }
 
 .search-bar {
@@ -235,13 +245,13 @@ footer {
     color: #666;
 }
 
+
 .user-profile {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 50px;
 }
-
 
 .user-icon img,
 .user-icon i {
@@ -262,23 +272,66 @@ footer {
 }
 
 .user-details {
-    text-align: right;
-    margin-right: 55px;
+    margin-left: 300px;
+    margin-right: -195px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    color: white;
+    margin-left: -300px;
 }
 
 .user-details small {
-    color: #fdfdfd;
+    color: #ffffff;
     font-size: 12px;
-    margin-right: 5px;
-   
+    margin-left: -300px;
 }
-/* Table Box */
+
+.username {
+    position: absolute;
+    left: 20px;
+    top: 25px;
+    padding-bottom: 25px;
+    margin-bottom: 15px;
+    color: var(--primary);
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.admin-icon {
+    color: var(--warning);
+    margin-left: 5px;
+}
+
+.add-user-btn {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    border: none;
+    outline: none;
+}
+
+.add-user-btn:hover {
+    background-color: #7494ec;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.add-user-btn i {
+    margin-right: 15px;
+}
+
+/* Table */
 .table-box {
     position: relative;
     width: 100%;
@@ -288,100 +341,23 @@ footer {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
     min-height: 600px;
+    overflow: visible;
     display: flex;
     flex-direction: column;
-    margin-top: -0.5px;
+    margin-top: 15px;
 }
 
-.table-box h2{
-    margin-top: 2px;
-}
-
-.username {
-    position: absolute;
-    left: 25px;
-    top: 45px;
-    padding-bottom: 25px;
-    margin-bottom: 25px;
-    color: var(--primary);
-    
-}
-
-.admin-icon {
-    color: var(--warning);
-    margin-left: 5px;
-}
-
-/* Tabs */
-.tab-buttons {
-    display: flex;
-    margin-bottom: 15px;
+.table-box h2 {
     margin-top: 10px;
-    gap: 5px;
 }
 
-.tab-btn {
-    padding: 8px 16px;
-    background: #f1f1f1;
-    border: none;
-    cursor: pointer;
-    margin-right: 5px;
-    border-radius: 4px 4px 0 0;
-    position: relative;
-}
-
-.tab-btn.active {
-    background: #4CAF50;
-    color: white;
-}
-
-.tab-content {
-    display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
-}
-
-.tab-content.active {
-    display: flex;
-}
-
-.tab-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff5722;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#active-users-tab,
-#archived-users-tab {
-    display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
-}
-
-#active-users-tab.active,
-#archived-users-tab.active {
-    display: flex;
-}
-
-/* Table */
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: -5px;
+    margin-top: -7px;
     table-layout: auto;
-    margin-top: 10px;
+    margin-top: 62px;
 }
 
 thead {
@@ -408,7 +384,7 @@ th:last-child {
 }
 
 td {
-    padding: 10px;
+    padding: 5px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
     text-align: center;
@@ -425,27 +401,112 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
+/* Technician Table Column Widths */
+th:nth-child(1) { width: 150px; } /* First Name */
+th:nth-child(2) { width: 150px; } /* Last Name */
+th:nth-child(3) { width: 200px; } /* Email */
+th:nth-child(4) { width: 100px; } /* Type */
+th:nth-child(5) { width: 100px; } /* Status */
+th:nth-child(6) { width: 150px; } /* Tickets */
+th:nth-child(7) { width: 100px; } /* Action */
+
+
+/* Technicians Table */
+#technicians-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    margin-top: 62px;
+}
+
+#technicians-table td {
+    padding: 8px 10px 15px 5px; /* Adjust padding-bottom to 10px */
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+    text-align: center;
+    word-wrap: break-word;
+    white-space: normal;
+    font-size: 14px;
+}
+
+/* Tickets Table (Modal) */
+#tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+#tickets-table td {
+    padding: 12px 12px 20px 12px; /* Adjust padding-bottom to 15px */
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+}
+
+/* Adjust Tickets table tbody height to account for increased padding */
+#tickets-table tbody {
+    display: block;
+    max-height: 230px; /* Adjusted for increased padding-bottom */
+    overflow-y: auto;
+    width: 100%;
+}
+
+td:nth-child(3) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+td:nth-child(5) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+td:nth-child(6) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(108, 92, 231, 0.05);
+}
+
+/* Ticket Counts Styling */
+.ticket-counts {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    color: #030303;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+}
+
+.ticket-counts span {
+    white-space: nowrap;
+}
+
 /* Status Badges */
-.status-active {
-    color: var(--success) !important;
-}
-
-.status-inactive {
-    color: var(--danger) !important;
-}
-
-.status-pending {
-    color: #ff9800;
+.status-badge {
     font-weight: 500;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 12px;
+    width: fit-content;
+    display: inline-block;
+    margin: 0 auto;
 }
 
-button {
-    border: none;
-    outline: none;
-}
-
-
-/* Action Buttons */
 .delete-btn {
     display: inline-flex;
     align-items: center;
@@ -468,13 +529,16 @@ button {
     font-size: 16px;
 }
 
+/* Action Buttons */
 .action-buttons {
     display: flex;
-    gap: 5px;
     justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 16.5px;
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn, .assign-btn, .toggle-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -482,21 +546,36 @@ button {
     height: 30px;
     border-radius: 5px;
     text-decoration: none;
+    color: #fff;
     transition: background-color 0.3s ease;
 }
 
 .view-btn {
     background-color: #3498db;
-    color: #fff;
 }
 
 .view-btn:hover {
     background-color: #2980b9;
 }
 
+.assign-btn {
+    background-color: #3498db;
+}
+
+.assign-btn:hover {
+    background-color: #2980b9;
+}
+
+.toggle-btn {
+    background: var(--toggle-btn);
+}
+
+.toggle-btn:hover {
+    background: #e86a3c;
+}
+
 .edit-btn {
     background-color: #2ecc71;
-    color: #fff;
 }
 
 .edit-btn:hover {
@@ -505,111 +584,62 @@ button {
 
 .archive-btn {
     background-color: #f1c40f;
-    color: #fff;
 }
 
 .archive-btn:hover {
     background-color: #d4ac0d;
 }
 
-.unarchive-btn {
+.restore-btn {
     background-color: #9b59b6;
-    color: #fff;
 }
 
-.unarchive-btn:hover {
+.restore-btn:hover {
     background-color: #8e44ad;
 }
-.export-btn {
-    position: absolute;
-    top: -53px;
-    margin-right: -125px;
-    display: inline-flex;
-    align-items: center;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    text-decoration: none;
-    transition: all 0.3s;
-    border: none;
-    outline: none;
-    font-size: 14px;
-}
-.export-btn i {
-    margin-right: 8px;
+
+/* Status Badges */
+.status-open {
+    color: var(--success);
 }
 
-.export-btn:hover {
-    background-color: #7494ec;
+.status-closed {
+    color: var(--danger);
 }
 
-/* Export Dropdown */
-.export-container {
-    position: relative;
-    display: inline-block;
+.status-pending {
+    color: #ff9800;
+    font-weight: 500;
 }
 
-.export-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 940px;
-    background: white;
-    min-width: 120px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: -45px;
-}
-
-.export-container:hover .export-dropdown {
-    display: block;
-}
-
-.export-dropdown button {
-    color: var(--dark);
-    padding: 10px 15px;
-    text-decoration: none;
-    display: block;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-size: 14px;
-    font-weight: 400;
+.status-clickable {
     cursor: pointer;
-    transition: all 0.3s ease;
 }
 
-.export-dropdown button:hover {
-    background-color: var(--primary);
-    color: white;
+.status-clickable:hover {
+    text-decoration: underline;
 }
-
 
 /* Pagination */
 .pagination {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .pagination-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    text-decoration: none;
+    color: var(--primary);
+    font-size: 18px;
     width: 40px;
     height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     background: white;
-    color: var(--primary);
-    text-decoration: none;
-    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -617,8 +647,6 @@ button {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -628,16 +656,14 @@ button {
 }
 
 .current-page {
-    margin: 0 15px;
-    font-weight: 500;
-    color: var(--dark);
+    font-size: 14px;
+    color: #555;
 }
-
-/* Modal */
+/* Modal Styles */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
@@ -648,13 +674,17 @@ button {
 }
 
 .modal-content {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
     margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
-    max-width: 500px;
+    max-width: 475px; /* Better width for modal */
+    max-height: 85vh; /* Increased height */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 .modal-header {
@@ -666,6 +696,8 @@ button {
 .modal-footer {
     margin-top: 15px;
     text-align: right;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
 }
 
 .modal-btn {
@@ -675,6 +707,12 @@ button {
     cursor: pointer;
     margin-left: 10px;
     transition: all 0.3s;
+    font-size: 14px;
+    width: 100px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-btn.confirm {
@@ -683,7 +721,7 @@ button {
 }
 
 .modal-btn.cancel {
-    background: var(--primary);
+    background: var(--secondary);
     color: var(--light);
 }
 
@@ -692,53 +730,164 @@ button {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-.modal-form input,
-.modal-form select {
+.modal-btn.confirm:disabled {
+    background-color: #cccccc !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed;
+}
+
+.modal-search-container {
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.modal-search-container input {
     width: 100%;
-    padding: 8px;
-    margin: 5px 0 15px;
+    padding: 10px 40px 10px 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
+    font-size: 14px;
 }
 
-#viewTicketModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-    margin-top: 165px;
+.modal-search-container .search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
 }
 
-#editAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
-    margin-top: -10px;
-}
-
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-    margin-top: 170px;
-}
-
-/* Archive Header */
-.archive-header {
+/* Table Square (replaces table-box in modal) */
+.table-square {
+    width: 100%;
+    height: 350px; /* Increased height for better visibility */
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    overflow: hidden; /* Prevent double scrollbars */
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+    flex-direction: column;
 }
 
+#tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Ensures consistent column widths */
+}
+
+#tickets-table th, #tickets-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+/* Ticket Table Column Widths - Horizontal layout */
+#tickets-table th:nth-child(1) { 
+    width: 45%; /* Ticket No - Wider for horizontal text */
+    text-align: center; /* Center align Ticket No header */
+}
+
+#tickets-table th:nth-child(2) { 
+    width: 55%; /* Name */
+    text-align: center; /* Center align Name header */
+}
+
+#tickets-table td:nth-child(1) {
+    text-align: center; /* Center align Ticket No cells */
+}
+
+#tickets-table td:nth-child(2) {
+    text-align: center; /* Center align Name cells */
+}
+
+/* Ensure ticket reference numbers display horizontally and don't wrap */
+.ticket-ref {
+    white-space: nowrap;
+    overflow: hidden;
+ 
+    font-family: monospace; /* Makes reference numbers look better */
+    font-size: 17px;
+    text-align: center; /* Center align text in ticket ref cells */
+}
+
+#tickets-table thead {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    margin-top: -35px;
+}
+
+#tickets-table tbody {
+    display: block;
+    max-height: 250px; /* Increased height for scrolling */
+    overflow-y: auto;
+    width: 100%;
+}
+
+#tickets-table tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.ticket-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.ticket-row:hover {
+    background-color: #f5f5f5;
+}
+
+.ticket-row.selected {
+    background-color: #e0f7fa;
+    font-weight: 500;
+}
+
+
+/* Custom scrollbar for tickets table */
+#tickets-table tbody::-webkit-scrollbar {
+    width: 8px;
+}
+
+#tickets-table tbody::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#tickets-table tbody::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#tickets-table tbody::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Fix for user icon visibility */
+.user-icon {
+    position: relative;
+    z-index: 101;
+}
+
+.user-icon img,
+.user-icon i {
+    background: white;
+    z-index: 102;
+}
 
 /* Alerts */
 .alert-container {
     position: relative;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .alert {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: 15px;
+    top: 10px;
     left: 15px;
     width: 100%;
     z-index: 1000;
@@ -803,87 +952,3 @@ button {
     opacity: 0;
 }
 
-/* Media Queries for Smaller Screens */
-@media screen and (max-width: 1366px) {
-    .search-container {
-        right: 10px; /* Reduce right margin */
-        width: 250px; /* Slightly reduce width */
-    }
-
-    .export-btn {
-        right: -150px; /* Adjust to account for reduced search bar width */
-        padding: 8px 15px; /* Slightly smaller padding */
-    }
-}
-
-@media screen and (max-width: 1024px) {
-    .container {
-        margin-left: 200px; /* Respect sidebar width */
-        padding: 20px;
-    }
-
-    .search-container {
-        right: 10px;
-        width: 200px; /* Further reduce width */
-        top: 80px; /* Adjust vertical position */
-    }
-
-    .export-btn {
-        right: -430px; /* Adjust position */
-        font-size: 14px;
-        padding: 8px 12px;
-    }
-
-    .upper {
-        left: 210px;
-        right: 20px;
-        padding: 8px;
-    }
-}
-
-@media screen and (max-width: 768px) {
-    .sidebar {
-        width: 180px; /* Reduce sidebar width */
-    }
-
-    .container {
-        margin-left: 180px; /* Adjust for smaller sidebar */
-        padding: 15px;
-    }
-
-    .search-container {
-        width: 100%; /* Full width for small screens */
-        max-width: 300px;
-        right: 10px;
-        top: 70px;
-    }
-
-    .export-btn {
-        right: 10px; /* Move to the right edge */
-        top: 120px; /* Place below search bar */
-        width: 100%;
-        max-width: 150px; /* Limit button width */
-        text-align: center;
-    }
-
-    .export-dropdown {
-        right: 0; /* Ensure dropdown aligns with button */
-        left: auto; /* Override any left positioning */
-        min-width: 100px;
-    }
-
-    .upper {
-        left: 190px; /* Adjust header for smaller sidebar */
-        right: 10px;
-        height: 60px;
-    }
-
-    .user-details {
-        margin-left: 0; /* Reset margin */
-    }
-
-    .user-details span,
-    .user-details small {
-        margin-left: 0; /* Reset margins */
-    }
-}   
