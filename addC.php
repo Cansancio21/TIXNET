@@ -108,7 +108,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $firstnameErr = "This field is required.";
         $hasError = true;
     } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
-        $firstnameErr = "First Name should not contain numbers.";
+        $firstnameErr = "First Name should not contain numbers or special characters.";
         $hasError = true;
     }
 
@@ -116,15 +116,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $lastnameErr = "This field is required.";
         $hasError = true;
     } elseif (!preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {
-        $lastnameErr = "Last Name should not contain numbers.";
+        $lastnameErr = "Last Name should not contain numbers or special characters.";
         $hasError = true;
     }
 
     if (empty($contact)) {
         $contactErr = "This field is required.";
         $hasError = true;
-    } elseif (!preg_match("/^[0-9]+$/", $contact)) {
-        $contactErr = "Contact must contain numbers only.";
+    } elseif (!preg_match("/^[0-9]{10,11}$/", $contact)) {
+        $contactErr = "Contact must be a valid 10-11 digit phone number.";
         $hasError = true;
     }
 
@@ -136,6 +136,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $hasError = true;
     }
 
+    // COORDINATES VALIDATION REMOVED - Only check if empty
     if (empty($coordinates)) {
         $coordinatesErr = "This field is required.";
         $hasError = true;
@@ -153,7 +154,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $macaddressErr = "This field is required.";
         $hasError = true;
     } elseif (!preg_match("/^[a-zA-Z0-9:-]+$/", $macaddress)) {
-        $macaddressErr = "Mac Address should not contain special characters.";
+        $macaddressErr = "MAC Address should not contain special characters except colon or hyphen.";
         $hasError = true;
     }
 

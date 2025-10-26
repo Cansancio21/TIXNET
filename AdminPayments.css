@@ -773,21 +773,20 @@ tr:hover td {
 }
 
 .filter-btn {
-    background: transparent;
+    background: transparent !important;
     border: none;
-    color: white;
     cursor: pointer;
-    font-size: 1rem;
-    padding: 5px;
-    transition: color 0.3s ease;
-    display: inline-flex; /* Align inline with text */
-    align-items: center; /* Vertically center the icon with text */
+    font-size: 15px;
+    color: var(--light, #f5f8fc);
+    margin-left: 1px;
+    vertical-align: middle;
+    padding: 0;
+    outline: none;
 }
-
 .filter-btn:hover {
-    color: var(--light);
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+    background: transparent !important;
 }
-
-.filter-btn i {
-    font-size: 1.2rem;
+th .filter-btn {
+    background: transparent !important;
 }

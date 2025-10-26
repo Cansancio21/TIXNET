@@ -137,6 +137,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
 
         $totalPages = ceil($totalUsers / $limit);
 
+        // Fix page number if it exceeds total pages
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+            $offset = ($page - 1) * $limit;
+        }
+
         // Fetch users with filters
         $sql = "SELECT u_id, u_fname, u_lname, u_email, u_username, u_type, u_status FROM tbl_user 
                 WHERE $whereClause 
@@ -173,6 +179,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
 
         $response['html'] = $output;
         $response['totalPages'] = $totalPages;
+        $response['currentPage'] = $page;
     } else {
         // Archived users
         $whereClauses = ["u_status = 'archived'"];
@@ -206,6 +213,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
         $countStmt->close();
     
         $totalPages = ceil($totalUsers / $limit);
+
+        // Fix page number if it exceeds total pages
+        if ($page > $totalPages && $totalPages > 0) {
+            $page = $totalPages;
+            $offset = ($page - 1) * $limit;
+        }
     
         // Fetch archived users
         $sql = "SELECT u_id, u_fname, u_lname, u_email, u_username, u_type, u_status 
@@ -246,6 +259,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['searc
     
         $response['html'] = $output;
         $response['totalPages'] = $totalPages;
+        $response['currentPage'] = $page;
     }
 
     echo json_encode($response);
@@ -1335,14 +1349,19 @@ $stmt->close();
             xhr.send();
         }
 
-        const debouncedSearchUsers = debounce(function(page = 1) {
+        function searchUsers(page) {
             const searchTerm = document.getElementById('searchInput').value.trim();
+            
+            // Reset to page 1 if the requested page is invalid
+            if (page < 1) page = 1;
+            
             currentSearchPage = page;
             if (currentTab === 'active') {
                 activePage = page;
             } else {
                 archivedPage = page;
             }
+            
             const xhr = new XMLHttpRequest();
             const params = new URLSearchParams({
                 action: 'search',
@@ -1352,26 +1371,45 @@ $stmt->close();
                 status: currentStatusFilter,
                 type: currentTypeFilter
             });
+            
             xhr.open('GET', `viewU.php?${params.toString()}`, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
                         console.log('Search Response:', response);
+                        
+                        // Update current page to the actual page returned from server
+                        // This ensures we don't show "Page 3 of 2"
+                        currentSearchPage = response.currentPage;
+                        if (currentTab === 'active') {
+                            activePage = response.currentPage;
+                        } else {
+                            archivedPage = response.currentPage;
+                        }
+                        
                         const tbody = document.getElementById(currentTab === 'active' ? 'active-users-tbody' : 'archived-users-tbody');
                         const pagination = document.getElementById(currentTab === 'active' ? 'active-users-pagination' : 'archived-users-pagination');
+                        
                         if (tbody && pagination) {
                             tbody.innerHTML = response.html;
+                            
                             let paginationHtml = '';
                             if (response.totalPages > 0) {
+                                // Previous page button
                                 paginationHtml += response.currentPage > 1
                                     ? `<a href="javascript:searchUsers(${response.currentPage - 1})" class="pagination-link"><i class="fas fa-chevron-left"></i></a>`
                                     : `<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>`;
+                                
+                                // Current page info
                                 paginationHtml += `<span class="current-page">Page ${response.currentPage} of ${response.totalPages}</span>`;
+                                
+                                // Next page button
                                 paginationHtml += response.currentPage < response.totalPages
                                     ? `<a href="javascript:searchUsers(${response.currentPage + 1})" class="pagination-link"><i class="fas fa-chevron-right"></i></a>`
                                     : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
                             }
+                            
                             pagination.innerHTML = paginationHtml;
                             // Update tab counts after search
                             updateTabCounts();
@@ -1383,11 +1421,11 @@ $stmt->close();
                 }
             };
             xhr.send();
-        }, 300);
-
-        function searchUsers(page) {
-            debouncedSearchUsers(page);
         }
+
+        const debouncedSearchUsers = debounce(function(page = 1) {
+            searchUsers(page);
+        }, 300);
 
         document.addEventListener('DOMContentLoaded', () => {
             showTab(currentTab);
@@ -1503,92 +1541,98 @@ $stmt->close();
                     xhr.send(formData);
                 }
             });
-// Client-side validation for Edit User Form
-document.getElementById('editUserForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    let isValid = true;
-    const firstname = document.getElementById('edit_firstname').value.trim();
-    const lastname = document.getElementById('edit_lastname').value.trim();
-    const email = document.getElementById('edit_email').value.trim();
-    const username = document.getElementById('edit_username').value.trim();
-    const firstnameError = document.getElementById('edit_firstname_error');
-    const lastnameError = document.getElementById('edit_lastname_error');
-    const emailError = document.getElementById('edit_email_error');
-    const usernameError = document.getElementById('edit_username_error');
 
-    // Clear previous errors
-    firstnameError.textContent = '';
-    lastnameError.textContent = '';
-    emailError.textContent = '';
-    usernameError.textContent = '';
+            // Client-side validation for Edit User Form
+            document.getElementById('editUserForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                let isValid = true;
+                const firstname = document.getElementById('edit_firstname').value.trim();
+                const lastname = document.getElementById('edit_lastname').value.trim();
+                const email = document.getElementById('edit_email').value.trim();
+                const username = document.getElementById('edit_username').value.trim();
+                const firstnameError = document.getElementById('edit_firstname_error');
+                const lastnameError = document.getElementById('edit_lastname_error');
+                const emailError = document.getElementById('edit_email_error');
+                const usernameError = document.getElementById('edit_username_error');
 
-    // Validate firstname (no numbers)
-    if (!firstname.match(/^[a-zA-Z\s-]+$/)) {
-        firstnameError.textContent = 'Firstname must not contain numbers.';
-        isValid = false;
-    }
+                // Clear previous errors
+                firstnameError.textContent = '';
+                lastnameError.textContent = '';
+                emailError.textContent = '';
+                usernameError.textContent = '';
 
-    // Validate lastname (no numbers)
-    if (!lastname.match(/^[a-zA-Z\s-]+$/)) {
-        lastnameError.textContent = 'Lastname must not contain numbers.';
-        isValid = false;
-    }
-
-    // Validate email
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        emailError.textContent = 'A valid email is required.';
-        isValid = false;
-    }
-
-    // Validate username
-    if (!username) {
-        usernameError.textContent = 'Username is required.';
-        isValid = false;
-    }
-
-    if (isValid) {
-        const formData = new FormData(this);
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'viewU.php', true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        console.log('Edit User Response:', response);
-                        if (response.success) {
-                            closeModal('editUserModal');
-                            searchUsers(activePage);
-                            showAlert('success', response.message);
-                        } else if (response.errors) {
-                            Object.keys(response.errors).forEach(key => {
-                                document.getElementById(`edit_${key}_error`).textContent = response.errors[key];
-                            });
-                        } else {
-                            showAlert('error', response.message || 'An error occurred.');
-                        }
-                    } catch (e) {
-                        console.error('Error parsing JSON:', e, xhr.responseText);
-                        showAlert('error', 'Failed to process response.');
-                    }
-                } else {
-                    console.error('AJAX Error:', xhr.status, xhr.statusText);
-                    showAlert('error', 'Server error occurred.');
+                // Validate firstname (no numbers)
+                if (!firstname.match(/^[a-zA-Z\s-]+$/)) {
+                    firstnameError.textContent = 'Firstname must not contain numbers.';
+                    isValid = false;
                 }
-            }
-        };
-        xhr.send(formData);
-    }
-});
+
+                // Validate lastname (no numbers)
+                if (!lastname.match(/^[a-zA-Z\s-]+$/)) {
+                    lastnameError.textContent = 'Lastname must not contain numbers.';
+                    isValid = false;
+                }
+
+                // Validate email
+                if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                    emailError.textContent = 'A valid email is required.';
+                    isValid = false;
+                }
+
+                // Validate username
+                if (!username) {
+                    usernameError.textContent = 'Username is required.';
+                    isValid = false;
+                }
+
+                if (isValid) {
+                    const formData = new FormData(this);
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'viewU.php', true);
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                try {
+                                    const response = JSON.parse(xhr.responseText);
+                                    console.log('Edit User Response:', response);
+                                    if (response.success) {
+                                        closeModal('editUserModal');
+                                        searchUsers(activePage);
+                                        showAlert('success', response.message);
+                                    } else if (response.errors) {
+                                        Object.keys(response.errors).forEach(key => {
+                                            document.getElementById(`edit_${key}_error`).textContent = response.errors[key];
+                                        });
+                                    } else {
+                                        showAlert('error', response.message || 'An error occurred.');
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e, xhr.responseText);
+                                    showAlert('error', 'Failed to process response.');
+                                }
+                            } else {
+                                console.error('AJAX Error:', xhr.status, xhr.statusText);
+                                showAlert('error', 'Server error occurred.');
+                            }
+                        }
+                    };
+                    xhr.send(formData);
+                }
+            });
 
             // Handle Type Filter Form submission
             document.getElementById('typeFilterForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 currentTypeFilter = document.getElementById('filter_type').value;
                 currentTab = document.getElementById('typeFilterTab').value;
-                currentSearchPage = currentTab === 'active' ? activePage : archivedPage;
+                currentSearchPage = 1; // Reset to page 1 when applying new filter
+                if (currentTab === 'active') {
+                    activePage = 1;
+                } else {
+                    archivedPage = 1;
+                }
                 closeModal('typeFilterModal');
-                searchUsers(currentSearchPage);
+                searchUsers(1); // Always start from page 1 with new filters
             });
 
             // Handle Status Filter Form submission
@@ -1596,134 +1640,140 @@ document.getElementById('editUserForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 currentStatusFilter = document.getElementById('filter_status').value;
                 currentTab = document.getElementById('statusFilterTab').value;
-                currentSearchPage = currentTab === 'active' ? activePage : archivedPage;
+                currentSearchPage = 1; // Reset to page 1 when applying new filter
+                if (currentTab === 'active') {
+                    activePage = 1;
+                } else {
+                    archivedPage = 1;
+                }
                 closeModal('statusFilterModal');
-                searchUsers(currentSearchPage);
+                searchUsers(1); // Always start from page 1 with new filters
             });
 
-          // Handle Archive Form submission
-document.getElementById('archiveForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = e.target.querySelector('.modal-btn.confirm');
-    
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'viewU.php', true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('Archive Response:', response);
-                    if (response.success) {
-                        closeModal('archiveModal');
-                        debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                        showAlert('success', response.message);
-                    } else {
-                        showAlert('error', response.message || 'Failed to archive user.');
+            // Handle Archive Form submission
+            document.getElementById('archiveForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'viewU.php', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Archive Response:', response);
+                                if (response.success) {
+                                    closeModal('archiveModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to archive user.');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process archive response.');
+                            }
+                        }
                     }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e, xhr.responseText);
-                    showAlert('error', 'Failed to process archive response.');
-                }
-            }
-        }
-    };
-    xhr.send(formData);
-});
+                };
+                xhr.send(formData);
+            });
 
-// Handle Restore Form submission
-document.getElementById('restoreForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = e.target.querySelector('.modal-btn.confirm');
-    
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'viewU.php', true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('Restore Response:', response);
-                    if (response.success) {
-                        closeModal('restoreModal');
-                        debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                        showAlert('success', response.message);
-                    } else {
-                        showAlert('error', response.message || 'Failed to unarchive user.');
+            // Handle Restore Form submission
+            document.getElementById('restoreForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'viewU.php', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Restore Response:', response);
+                                if (response.success) {
+                                    closeModal('restoreModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to unarchive user.');
+                                    }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process unarchive response.');
+                            }
+                        }
                     }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e, xhr.responseText);
-                    showAlert('error', 'Failed to process unarchive response.');
-                }
-            }
-        }
-    };
-    xhr.send(formData);
-});
+                };
+                xhr.send(formData);
+            });
 
-// Handle Delete Form submission
-document.getElementById('deleteForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = e.target.querySelector('.modal-btn.confirm');
-    
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'viewU.php', true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('Delete Response:', response);
-                    if (response.success) {
-                        closeModal('deleteModal');
-                        debouncedSearchUsers(archivedPage);
-                        showAlert('success', response.message);
-                    } else {
-                        showAlert('error', response.message || 'Failed to delete user.');
+            // Handle Delete Form submission
+            document.getElementById('deleteForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'viewU.php', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Delete Response:', response);
+                                if (response.success) {
+                                    closeModal('deleteModal');
+                                    debouncedSearchUsers(archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to delete user.');
+                                    }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process delete response.');
+                            }
+                        }
                     }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e, xhr.responseText);
-                    showAlert('error', 'Failed to process delete response.');
-                }
-            }
-        }
-    };
-    xhr.send(formData);
-});
+                };
+                xhr.send(formData);
+            });
 
-// Handle Restore All Form submission
-document.getElementById('restoreAllForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = e.target.querySelector('.modal-btn.confirm');
-    
-    const formData = new FormData(this);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'viewU.php', true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('Restore All Response:', response);
-                    if (response.success) {
-                        closeModal('restoreAllModal');
-                        debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
-                        showAlert('success', response.message);
-                    } else {
-                        showAlert('error', response.message || 'Failed to restore all users.');
+            // Handle Restore All Form submission
+            document.getElementById('restoreAllForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = e.target.querySelector('.modal-btn.confirm');
+                
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'viewU.php', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Restore All Response:', response);
+                                if (response.success) {
+                                    closeModal('restoreAllModal');
+                                    debouncedSearchUsers(currentTab === 'active' ? activePage : archivedPage);
+                                    showAlert('success', response.message);
+                                } else {
+                                    showAlert('error', response.message || 'Failed to restore all users.');
+                                    }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, xhr.responseText);
+                                showAlert('error', 'Failed to process restore all response.');
+                            }
+                        }
                     }
-                } catch (e) {
-                    console.error('Error parsing JSON:', e, xhr.responseText);
-                    showAlert('error', 'Failed to process restore all response.');
-                }
-            }
-        }
-    };
-    xhr.send(formData);
-});
+                };
+                xhr.send(formData);
+            });
+
             // Initialize tab counts on page load
             updateTabCounts();
         });

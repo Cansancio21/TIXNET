@@ -31,18 +31,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username']) && !isset(
 
 // Handle logout
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    if (isset($_SESSION['username']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'technician') {
-        $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 0 WHERE u_username = ? AND u_type = 'technician'";
-        $stmtUpdate = $conn->prepare($sqlUpdateStatus);
-        if ($stmtUpdate) {
-            $stmtUpdate->bind_param("s", $_SESSION['username']);
-            $stmtUpdate->execute();
-            $stmtUpdate->close();
-            error_log("Technician {$_SESSION['username']} logged out, set is_online = 0");
-        } else {
-            error_log("Failed to prepare logout status update: " . $conn->error);
-        }
-    }
     session_unset();
     session_destroy();
     header("Location: index.php");
@@ -130,17 +118,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
     }
 
     if (!$hasError) {
-        $is_online = ($type === 'technician') ? 0 : null; // Set is_online to 0 for technicians
-        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status, is_online)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             $generalError = "Database prepare error: " . $conn->error;
             $hasError = true;
         } else {
-            $stmt->bind_param("sssssssi", $firstname, $lastname, $email, $username, $password, $type, $status, $is_online);
+            $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
             if ($stmt->execute()) {
-                error_log("User registered: $username, type: $type, is_online: " . ($is_online ?? 'NULL'));
+                error_log("User registered: $username, type: $type");
                 header("Location: index.php?success=Registration+successful");
                 exit();
             } else {
@@ -204,20 +191,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                     $_SESSION['userId'] = $row['u_id'];
                     $_SESSION['user_type'] = $row['u_type'];
                     $_SESSION['logged_in'] = true;
-
-                    // Update is_online for technicians
-                    if ($row['u_type'] === 'technician') {
-                        $sqlUpdateStatus = "UPDATE tbl_user SET is_online = 1 WHERE u_username = ? AND u_type = 'technician'";
-                        $stmtUpdate = $conn->prepare($sqlUpdateStatus);
-                        if ($stmtUpdate) {
-                            $stmtUpdate->bind_param("s", $username);
-                            $stmtUpdate->execute();
-                            $stmtUpdate->close();
-                            error_log("Technician $username logged in, set is_online = 1");
-                        } else {
-                            error_log("Failed to prepare login status update: " . $conn->error);
-                        }
-                    }
 
                     // Redirect based on user type - ONLY ADMIN
                     if ($row['u_type'] == 'admin') {

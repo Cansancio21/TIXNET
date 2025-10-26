@@ -259,13 +259,85 @@ footer {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
-    display: flex;
+    display: none;
     flex-direction: column;
     overflow: visible;
     box-sizing: border-box;
 }
 
-/* Search Container */
+.table-box.active {
+    display: flex;
+}
+
+#archivedTable {
+    background: #f9f9f9;
+}
+
+/* Tab Buttons - UPDATED POSITION */
+.tab-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.tab-btn {
+    position: relative;
+    padding: 8px 16px;
+    background: #f1f1f1;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    font-size: 14px;
+    transition: background-color 0.3s, color 0.3s;
+    flex-shrink: 0;
+}
+
+.tab-btn.active {
+    background: #4CAF50 !important;
+    color: white;
+}
+
+.tab-btn.disabled {
+    background: #d3d3d3;
+    color: #999;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.tab-badge {
+    background-color: #ff5722;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 12px;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+}
+
+.create-ticket-btn {
+    background-color: var(--primary);
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s, transform 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.create-ticket-btn:hover {
+    background-color: var(--secondary);
+    transform: translateY(-2px);
+}
+
+/* Search Container - UPDATED POSITION */
 .search-container {
     position: absolute;
     top: 60px;
@@ -354,12 +426,42 @@ td {
     font-size: 14px;
 }
 
+/* ADDED: Ellipsis for subject and message columns */
+td:nth-child(4), /* Subject column */
+td:nth-child(5) { /* Message column */
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 tr:last-child td {
     border-bottom: none;
 }
 
 tr:hover td {
     background: rgba(108, 92, 231, 0.05);
+}
+
+.filter-btn {
+    background: transparent !important;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--light, #f5f8fc);
+    margin-left: 5px;
+    vertical-align: middle;
+    padding: 0;
+    outline: none;
+}
+
+.filter-btn:hover {
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+    background: transparent !important;
+}
+
+th .filter-btn {
+    background: transparent !important;
 }
 
 .pagination {
@@ -486,10 +588,8 @@ tr:hover td {
     width: 90%;
     max-width: 500px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    max-height: 90vh;
-    overflow-y: auto;
+    /* Removed max-height and overflow-y to disable scrolling */
 }
-
 .modal-header {
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
@@ -566,7 +666,46 @@ tr:hover td {
     box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
 }
 
+#addTicketModal .modal-content {
+    margin: 5% auto;
+    max-width: 500px;
+}
+
+#editTicketModal .modal-content {
+    margin: 5% auto;
+    max-width: 500px;
+}
+
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#archiveModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+#unarchiveModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+}
+
+/* SIMPLE FIX - No scroll, auto height */
 #viewModal .modal-content {
+    max-width: 500px;
+    width: 90%;
+    margin: 5% auto;
+}
+
+#viewContent p {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    margin: 10px 0;
+}
+
+
+#statusFilterModal .modal-content {
     margin: 10% auto;
     max-width: 500px;
 }
@@ -623,7 +762,7 @@ tr:hover td {
     justify-content: center;
 }
 
-.view-btn {
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -642,7 +781,39 @@ tr:hover td {
     background-color: #2980b9;
 }
 
-.view-btn i {
+.edit-btn {
+    background-color: #2ecc71;
+    color: #fff;
+}
+.edit-btn:hover {
+    background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+    color: #fff;
+}
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.unarchive-btn {
+    background-color: #9b59b6;
+    color: #fff;
+}
+.unarchive-btn:hover {
+    background-color: #8e44ad;
+}
+
+.delete-btn {
+    background-color: #ff6200;
+    color: #fff;
+}
+.delete-btn:hover {
+    background-color: #e55a00;
+}
+
+.delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
     font-size: 16px;
 }
 
@@ -657,12 +828,16 @@ tr:hover td {
 }
 
 /* Status Badges */
-.status-declined {
+.status-open {
+    color: var(--success);
+}
+
+.status-closed {
     color: var(--danger);
 }
 
-.status-rejected {
-    color: var(--danger);
+.status-archived {
+    color: #6c757d;
 }
 
 .status-clickable {
@@ -769,6 +944,32 @@ tr:hover td {
         width: 100%;
     }
     
+    .tab-buttons {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+    }
+    
+    .create-ticket-btn {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
     .upper {
         padding: 15px 15px 15px 60px;
         gap: 15px;
@@ -817,14 +1018,14 @@ tr:hover td {
     
     .sidebar {
         transform: translateX(-100%);
-        width: 60%;
+        width: 250px;
         transition: all 0.3s ease;
         z-index: 1000;
     }
     
     .sidebar.active {
         transform: translateX(0);
-        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
     }
     
     .container {
@@ -873,7 +1074,7 @@ tr:hover td {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 5px;
+        gap: 5px; /* ADDED: Gap between span and small */
     }
     
     .user-details span {
@@ -926,12 +1127,12 @@ tr:hover td {
         gap: 3px;
     }
     
-    .view-btn {
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
         width: 28px;
         height: 28px;
     }
     
-    .view-btn i {
+    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
         font-size: 14px;
     }
     
@@ -980,7 +1181,7 @@ tr:hover td {
     
     .user-details {
         text-align: right;
-        gap: 5px;
+        gap: 5px; /* ADDED: Gap between span and small */
     }
     
     .user-details span {
@@ -989,6 +1190,17 @@ tr:hover td {
     
     .user-details small {
         font-size: 11px;
+    }
+    
+    .tab-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px;
     }
     
     .table-box {
@@ -1010,13 +1222,13 @@ tr:hover td {
         flex-wrap: nowrap;
     }
     
-    .view-btn {
+    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn {
         width: 26px;
         height: 26px;
         min-width: 26px;
     }
     
-    .view-btn i {
+    .delete-btn i, .view-btn i, .edit-btn i, .archive-btn i, .unarchive-btn i {
         font-size: 13px;
     }
     
@@ -1038,7 +1250,13 @@ tr:hover td {
 /* FIXED: 477px - Fix Tixnet Pro overlap */
 @media (max-width: 477px) {
     .sidebar {
-        width: 60%;
+        width: 60%; /* CHANGED: Sidebar width 60% */
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
     }
     
     .upper h1 {
@@ -1062,10 +1280,6 @@ tr:hover td {
 
 /* FIXED: 425px - Fix Tixnet Pro overlap */
 @media (max-width: 425px) {
-    .sidebar {
-        width: 60%;
-    }
-    
     .upper h1 {
         font-size: 14px;
         max-width: calc(100% - 90px);
@@ -1092,10 +1306,6 @@ tr:hover td {
 
 /* FIXED: 480px and below - Better header spacing */
 @media (max-width: 480px) {
-    .sidebar {
-        width: 60%;
-    }
-    
     .container {
         padding: 10px;
     }
@@ -1132,7 +1342,7 @@ tr:hover td {
     }
     
     .user-details {
-        gap: 7px;
+        gap: 7px; /* ADDED: Gap between span and small */
     }
     
     .user-details span {
@@ -1154,6 +1364,19 @@ tr:hover td {
     
     th {
         font-size: 9px;
+    }
+    
+    .tab-buttons {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        width: 100%;
+        text-align: center;
+        flex-shrink: 0;
+        font-size: 13px;
+        padding: 8px 12px;
     }
     
     .search-container {
@@ -1183,10 +1406,6 @@ tr:hover td {
 
 /* FIXED: 380px and below - Critical fixes for small screens */
 @media (max-width: 380px) {
-    .sidebar {
-        width: 60%;
-    }
-    
     .container {
         padding: 8px;
     }
@@ -1217,7 +1436,7 @@ tr:hover td {
     }
     
     .user-details {
-        gap: 7px;
+        gap: 7px; /* ADDED: Gap between span and small */
     }
     
     .user-details span {
@@ -1228,18 +1447,44 @@ tr:hover td {
         font-size: 11px;
     }
     
+    /* Hide user details text if still overlapping */
+    @media (max-width: 350px) {
+        .user-details span:not(:first-child),
+        .user-details small {
+            display: none;
+        }
+        
+        .user-details {
+            min-width: auto;
+        }
+        
+        .upper h1 {
+            font-size: 12px;
+            padding-right: 5px;
+            max-width: calc(100% - 60px);
+        }
+    }
+    
+    .tab-buttons {
+        gap: 3px;
+    }
+    
+    .tab-btn, .create-ticket-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
 }
 
 /* FIXED: 300px and below - Minimum viable screens with sidebar visibility */
 @media (max-width: 400px) {
     .sidebar {
-        width: 60%;
+        width: 60%; /* CHANGED: Make sidebar 60% width */
         transform: translateX(-100%);
     }
     
     .sidebar.active {
         transform: translateX(0);
-        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4);
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.4); /* ENHANCED: Better shadow for visibility */
     }
     
     .search-container {
@@ -1280,7 +1525,7 @@ tr:hover td {
 /* FIXED: 300px and below - Specific adjustments */
 @media (max-width: 300px) {
     .sidebar {
-        width: 60%;
+        width: 60%; /* CHANGED: 60% width on very small screens */
     }
     
     .container {
@@ -1288,7 +1533,7 @@ tr:hover td {
     }
     
     .upper {
-        padding: 8px 8px 8px 40px;
+        padding: 8px 8px 8px 40px; /* Adjusted for smaller toggle */
         min-height: 50px;
     }
     
@@ -1308,7 +1553,7 @@ tr:hover td {
     }
     
     .user-details {
-        gap: 3px;
+        gap: 3px; /* ADDED: Smaller gap for very small screens */
     }
     
     .user-icon img,
@@ -1326,7 +1571,8 @@ tr:hover td {
     }
 }
 
-/* FIXED: Mobile menu backdrop */
+
+/* FIXED: Mobile menu backdrop - Same as portal.css */
 @media (max-width: 768px) {
     .sidebar::before {
         content: '';
@@ -1369,7 +1615,7 @@ tr:hover td {
 
 /* Print styles */
 @media print {
-    .sidebar, .mobile-menu-toggle, .search-container, .action-buttons {
+    .sidebar, .mobile-menu-toggle, .search-container, .create-ticket-btn, .action-buttons {
         display: none !important;
     }
     

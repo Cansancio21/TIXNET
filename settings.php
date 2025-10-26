@@ -195,7 +195,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "<script>alert('" . addslashes(implode("\\n", $errors)) . "');</script>";
     }
     if ($success) {
-        header("Location: index.php");
+        // Redirect based on user type
+        if ($userType === 'staff' || $userType === 'technician') {
+            header("Location: technician_staff.php");
+        } else {
+            header("Location: index.php");
+        }
         exit();
     }
 }

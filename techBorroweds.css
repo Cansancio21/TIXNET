@@ -15,13 +15,13 @@
     box-sizing: border-box;
     font-family: 'Poppins', sans-serif;
 }
+
 body {
     background-color: #f8f9fa;
     color: var(--dark);
     min-height: 100vh;
     overflow-x: hidden; /* Prevent horizontal scrolling */
 }
-
 .glass-container {
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(10px);
@@ -37,6 +37,7 @@ body {
     width: 100%;
     overflow-x: hidden; /* Prevent horizontal overflow */
 }
+
 
 
 /* Sidebar */
@@ -192,6 +193,7 @@ footer {
     overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
+/* Header */
 .upper {
     display: flex;
     justify-content: space-between;
@@ -202,7 +204,6 @@ footer {
     border-radius: 10px;
     margin-bottom: 20px;
     width: 100%;
-    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -213,10 +214,11 @@ footer {
 
 .search-container {
     position: absolute;
-    top: 61px;
+    top: 60px;
     right: 20px;
     width: 300px;
     z-index: 10;
+    
 }
 
 .search-bar {
@@ -239,25 +241,6 @@ footer {
     top: 50%;
     transform: translateY(-50%);
     color: #666;
-}
-
-
-.tab-buttons{
-    margin-top: -15px;
-}
-
-/* Keep all existing .table-box styles exactly as they are */
-.table-box {
-    position: relative;
-    width: 100%;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
-    min-height: 60vh;
-    overflow: visible;
-    margin-top: 15px;
 }
 
 .user-profile {
@@ -302,27 +285,43 @@ footer {
     margin-left: -300px;
 }
 
+/* Table Box */
+.table-box {
+    width: 100%;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-box h2{
+    margin-top: 5px;
+}
+
 .username {
     position: absolute;
     left: 20px;
     top: 25px;
     padding-bottom: 25px;
-    margin-bottom: 5px;
+    margin-bottom: 15px;
     color: var(--primary);
     font-size: 20px;
     font-weight: 500;
+    
 }
-
 .admin-icon {
     color: var(--warning);
     margin-left: 5px;
 }
 
-/* Base Tab Style */
 .add-user-btn {
     position: absolute;
-    top: 43px;
-    right: 310px; /* Increased from 330px to create more space from search bar */
+    top: 65px;
+    right: 20px;
     display: inline-flex;
     align-items: center;
     background: var(--primary);
@@ -332,37 +331,74 @@ footer {
     text-decoration: none;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-    border: none; 
-    outline: none;
-    font-size: 14px;
-    white-space: nowrap; /* Prevent text wrapping */
-    width: 140px; /* Same width as restore button */
-    justify-content: center; /* Center the content */
 }
 
 .add-user-btn:hover {
     background: var(--secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
 }
 
 .add-user-btn i {
     margin-right: 8px;
 }
 
-
-.table-container {
-    overflow-x: auto;
-    margin-bottom: 20px;
-    margin-top: 5px;
+/* Tabs */
+.tab-buttons {
+    display: flex;
+    margin-bottom: 15px;
+    margin-top: 50px;
 }
 
-/* Table */
+.tab-btn {
+    padding: 8px 16px;
+    background: #f1f1f1;
+    border: none;
+    cursor: pointer;
+    margin-right: 5px;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+}
+
+.tab-btn.active {
+    background: #4CAF50;
+    color: white;
+}
+
+.tab-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff5722;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#active-users-tab,
+#archived-users-tab {
+    display: none;
+    width: 100%;
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+#active-users-tab.active,
+#archived-users-tab.active {
+    display: flex;
+}
+
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 8px;
+    margin-top: 65px;
     table-layout: auto;
-
 }
 
 thead {
@@ -378,7 +414,6 @@ th {
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
-    border: none;
 }
 
 th:first-child {
@@ -396,9 +431,6 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
-    border-left: none;
-    border-right: none;
-    border-top: none;
 }
 
 tr:last-child td {
@@ -409,85 +441,21 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-th:nth-child(1) { width: 200px; } /* Ticket ID */
-th:nth-child(2) { width: 180px; } /* Account Name */
-th:nth-child(3) { width: 100px; } /* Type */
-th:nth-child(4) { width: 100px; } /* Status */
-th:nth-child(5) { width: 200px; } /* Ticket Details */
-th:nth-child(6) { width: 120px; } /* Date */
-th:nth-child(7) { width: 150px; } /* Action */
-
-td {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
-    font-size: 14px;
-    vertical-align: middle;
-    line-height: 1.4;
-    min-height: 50px;
+/* Status Badges */
+.status-active {
+    color: var(--success) !important;
 }
 
-td:nth-child(2), td:nth-child(5) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 0;
+.status-inactive {
+    color: var(--danger) !important;
+}
+
+.status-pending {
+    color: #ff9800;
+    font-weight: 500;
 }
 
 /* Action Buttons */
-.action-buttons {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    padding: 10px;
-    min-height: 50px;
-}
-
-.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 5px;
-    text-decoration: none;
-    color: #fff;
-    transition: background-color 0.3s ease;
-}
-
-.view-btn {
-    background-color: #3498db;
-}
-
-.view-btn:hover {
-    background-color: #2980b9;
-}
-
-.edit-btn {
-    background-color: #2ecc71;
-}
-
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-}
-
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.restore-btn {
-    background-color: #9b59b6;
-}
-
-.restore-btn:hover {
-    background-color: #8e44ad;
-}
-
 .delete-btn {
     display: inline-flex;
     align-items: center;
@@ -510,25 +478,38 @@ td:nth-child(2), td:nth-child(5) {
     font-size: 16px;
 }
 
-/* Status Badges */
-.status-open {
-    color: var(--success);
+.action-buttons {
+    display: flex;
+    gap: 5px;
 }
 
-.status-closed {
-    color: var(--danger);
+.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
 }
 
-.status-archived {
-    color: #6c757d;
+.view-btn {
+    background-color: #3498db;
+    color: #fff;
 }
 
-.status-clickable {
-    cursor: pointer;
+.view-btn:hover {
+    background-color: #2980b9;
 }
 
-.status-clickable:hover {
-    text-decoration: underline;
+.edit-btn {
+    background-color: #2ecc71;
+    color: #fff;
+}
+
+.edit-btn:hover {
+    background-color: #27ae60;
 }
 
 /* Pagination */
@@ -536,21 +517,21 @@ td:nth-child(2), td:nth-child(5) {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
-    margin-top: 20px;
+    margin-top: auto;
+    padding-top: 20px;
 }
 
 .pagination-link {
-    text-decoration: none;
-    color: var(--primary);
-    font-size: 18px;
-    width: 40px;
-    height: 40px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: white;
+    color: var(--primary);
+    text-decoration: none;
+    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -558,6 +539,8 @@ td:nth-child(2), td:nth-child(5) {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -567,15 +550,18 @@ td:nth-child(2), td:nth-child(5) {
 }
 
 .current-page {
-    font-size: 14px;
-    color: #555;
+    margin: 0 15px;
+    font-weight: 500;
+    color: var(--dark);
 }
 
-/* Modal Styles */
+
+
+/* Modal */
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    top: 0px;
     left: 0;
     width: 100%;
     height: 100%;
@@ -587,7 +573,7 @@ td:nth-child(2), td:nth-child(5) {
 
 .modal-content {
     background: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -622,7 +608,7 @@ td:nth-child(2), td:nth-child(5) {
 
 .modal-btn.cancel {
     background: var(--primary);
-    color: white;
+    color: var(--light);
 }
 
 .modal-btn:hover {
@@ -630,91 +616,68 @@ td:nth-child(2), td:nth-child(5) {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Modal Forms */
 .modal-form input,
-.modal-form select,
-.modal-form textarea {
+.modal-form select {
     width: 100%;
     padding: 8px;
     margin: 5px 0 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    font-size: 14px;
 }
 
-.modal-form textarea {
-    height: 100px;
-    resize: vertical;
+#viewModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -65px;
 }
 
-.modal-form input:focus,
-.modal-form select:focus,
-.modal-form textarea:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
+#deleteModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -85px;
 }
 
-/* Error message styling */
-.modal-form .error {
-    color: var(--danger);
-    font-size: 12px;
-    display: block;
-    margin-top: -10px;
-    margin-bottom: 10px;
+#returnAssetModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: 15px;
+    
 }
 
-/* Filter button styles */
-.filter-btn {
-    background: transparent !important;
+#assetNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -65px;
+}
+
+#technicianNameFilterModal .modal-content {
+    margin: 10% auto;
+    max-width: 500px;
+    margin-top: -65px;
+}
+
+
+
+.archive-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.restore-all-btn {
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
     border: none;
-    cursor: pointer;
-    font-size: 15px;
-    color: var(--light, #f5f8fc);
-    margin-left: 5px;
-    vertical-align: middle;
-    padding: 0;
-    outline: none;
-}
-
-.filter-btn:hover {
-    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
-    background: transparent !important;
-}
-
-th .filter-btn {
-    background: transparent !important;
-}
-
-/* Autocomplete styles */
-.autocomplete-container {
-    position: relative;
-    width: 100%;
-}
-
-.autocomplete-suggestions {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #fff;
-    border: 1px solid #ccc;
     border-radius: 4px;
-    z-index: 1000;
-    display: none;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.autocomplete-suggestion {
-    padding: 8px 12px;
     cursor: pointer;
-    font-size: 14px;
-    color: #333;
+    margin-top: -65px;
+    margin-left: 17.5%;
 }
 
-.autocomplete-suggestion:hover {
-    background: #f0f0f0;
+.restore-all-btn:hover {
+    background: #45a049;
 }
 
 /* Alerts */
@@ -731,8 +694,6 @@ th .filter-btn {
     left: 15px;
     width: 100%;
     z-index: 1000;
-    opacity: 1;
-    transition: opacity 0.5s ease-in-out;
 }
 
 .alert-success {
@@ -745,10 +706,6 @@ th .filter-btn {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
-}
-
-.alert-hidden {
-    opacity: 0;
 }
 
 .settings-link {
@@ -764,13 +721,13 @@ th .filter-btn {
     transition: 0.3s ease-in-out;
 }
 
+
 .settings-link i {
     font-size: 24px;
     margin-right: 5px;
     transition: 0.3s ease-in-out;
     color: #dad9d9;
 }
-
 .settings-link:hover span {
     opacity: 1;
     transform: translateX(0);
@@ -789,75 +746,35 @@ th .filter-btn {
     margin-top: 10px;
 }
 
-.alert {
-    opacity: 1;
-    transition: opacity 0.5s ease-in-out;
+.button-container {
+    position: relative;
+    margin-bottom: 20px;
 }
 
-.alert-hidden {
-    opacity: 0;
+.return-btn {
+    display: inline-block;
+    background-color: #8ea722d3;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: lighter;
+    transition: 0.3s;
+    position: absolute;
+    right: 15px; /* Position in upper-right, similar to assetsT.php */
+    margin-top: -10px; /* Align vertically with assetsT.php buttons */
 }
 
-/* Media Queries for Smaller Screens */
-@media screen and (max-width: 1366px) {
-    .search-container {
-        right: 20px; /* Reduce right margin for smaller screens */
-        width: 300px; /* Slightly reduce width */
-    }
-
-  
+.return-btn:hover {
+    background-color: #7494ec;
 }
 
-@media screen and (max-width: 1024px) {
-    .container {
-        margin-left: 200px; /* Ensure container respects sidebar width */
-        padding: 20px; /* Reduce padding for smaller screens */
-    }
-
-    .search-container {
-        right: 10px;
-        width: 200px; /* Further reduce width */
-        top: 80px; /* Adjust vertical position */
-    }
-
-  
-    .upper {
-        left: 210px; /* Adjust header position */
-        right: 20px;
-        padding: 8px;
-    }
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: center; /* Center buttons horizontally */
+    width: 100%; /* Ensure container fills cell for proper centering */
 }
 
-@media screen and (max-width: 768px) {
-    .sidebar {
-        width: 180px; /* Slightly reduce sidebar width */
-    }
-
-    .container {
-        margin-left: 180px; /* Adjust for smaller sidebar */
-        padding: 15px;
-    }
-
-    .search-container {
-        width: 100%; /* Full width for very small screens */
-        max-width: 300px;
-        right: 10px;
-        top: 70px;
-    }
-
-  
-    .upper {
-        left: 190px; /* Adjust header for smaller sidebar */
-        right: 10px;
-        height: 60px;
-    }
-
-    .user-details {
-        margin-left: 0; /* Remove large margin */
-    }
-
-    .user-details span,
-    .user-details small {
-        margin-left: 0; /* Reset margins */
-    }
-}

@@ -17,15 +17,27 @@
     box-sizing: border-box;
     font-family: 'Poppins', sans-serif;
 }
-
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
+.glass-container {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
 
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 /* Sidebar */
@@ -175,6 +187,9 @@ footer {
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
+    width: calc(100% - 200px); /* Calculate proper width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .upper {
@@ -186,6 +201,8 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -200,7 +217,6 @@ footer {
     gap: 10px;
     margin-left: 50px;
 }
-
 
 .user-icon img,
 .user-icon i {
@@ -221,15 +237,20 @@ footer {
 }
 
 .user-details {
-    text-align: right;
-    margin-right: 55px;
+    margin-left: 300px;
+    margin-right: -195px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    color: white;
-    margin-right: 25px;
+    margin-left: -300px;
+}
+
+.user-details small {
+    color: #ffffff;
+    font-size: 12px;
+    margin-left: -300px;
 }
 
 .user-details small {
@@ -271,6 +292,18 @@ footer {
 }
 
 
+
+/* SIMPLE ELLIPSIS FIX - Subject & Message Only */
+.tickets-table {
+    table-layout: fixed;
+}
+
+td.ellipsis-subject,
+td.ellipsis-message {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
 
 /* Table Box */
 .table-box {

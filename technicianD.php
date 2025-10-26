@@ -74,7 +74,7 @@ if (!in_array($tab, $validTabs)) {
     $tab = 'regular';
 }
 
-// SIMPLIFIED Dashboard counts function
+// SIMPLIFIED Dashboard counts function - FIXED SUPPORT CLOSED COUNT
 function fetchDashboardCounts($conn, $username) {
     $counts = [
         'openTickets' => 0,
@@ -114,9 +114,10 @@ function fetchDashboardCounts($conn, $username) {
         $stmt->close();
     }
     
-    // Support closed tickets
-    $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username IS NULL AND s_status = 'Closed'";
+    // Support closed tickets - FIXED: Count technician's closed support tickets
+    $sqlSupportClosed = "SELECT COUNT(*) FROM tbl_supp_tickets WHERE technician_username = ? AND s_status = 'Closed'";
     if ($stmt = $conn->prepare($sqlSupportClosed)) {
+        $stmt->bind_param("s", $username);
         $stmt->execute();
         $stmt->bind_result($counts['supportClosed']);
         $stmt->fetch();
@@ -279,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmtInsert->close();
                 
                 // Now close the original support ticket
-                $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed', technician_username = NULL WHERE s_ref = ? AND technician_username = ? AND s_status = 'open'";
+                $sql = "UPDATE tbl_supp_tickets SET s_status = 'Closed' WHERE s_ref = ? AND technician_username = ? AND s_status = 'open'";
                 
                 // Send email notification to customer
                 if (!empty($ticketData['c_email'])) {
@@ -426,7 +427,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit();
 }
 
-// Handle search tickets
+// Handle search tickets - FIXED SEARCH FUNCTIONALITY
 if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
     header('Content-Type: application/json');
     $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -446,7 +447,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
                 $sql .= " AND (t_ref LIKE ? OR t_aname LIKE ? OR t_subject LIKE ? OR t_details LIKE ?)";
             }
             
-            $sql .= " LIMIT ?, ?";
+            $sql .= " ORDER BY t_ref DESC LIMIT ?, ?";
         } else {
             $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
             $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
@@ -459,7 +460,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
                 $sql .= " AND (st.s_ref LIKE ? OR c.c_fname LIKE ? OR c.c_lname LIKE ? OR st.s_subject LIKE ? OR st.s_message LIKE ?)";
             }
             
-            $sql .= " LIMIT ?, ?";
+            $sql .= " ORDER BY st.s_ref DESC LIMIT ?, ?";
         }
 
         // Count query
@@ -470,9 +471,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         
         if (!empty($searchTerm)) {
             if ($tab === 'regular') {
-                $stmtCount->bind_param("ssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch);
+                $stmtCount->bind_param("sssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch);
             } else {
-                $stmtCount->bind_param("sssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
+                $stmtCount->bind_param("ssssss", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch);
             }
         } else {
             $stmtCount->bind_param("s", $_SESSION['username']);
@@ -493,9 +494,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
         
         if (!empty($searchTerm)) {
             if ($tab === 'regular') {
-                $stmt->bind_param("ssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
+                $stmt->bind_param("sssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
             } else {
-                $stmt->bind_param("sssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
+                $stmt->bind_param("ssssssii", $_SESSION['username'], $likeSearch, $likeSearch, $likeSearch, $likeSearch, $likeSearch, $offset, $limit);
             }
         } else {
             $stmt->bind_param("sii", $_SESSION['username'], $offset, $limit);
@@ -522,8 +523,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_tickets') {
                     echo "<td>" . htmlspecialchars($row['c_id'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
                 }
                 echo "<td>" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "</td>";
-                echo "<td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
-                echo "<td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>";
+                echo "<td class='ellipsis-subject'>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>";
+                echo "<td class='ellipsis-message'>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>";
                 echo "<td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) .
                      ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"$tab\")'" : "'") .
                      ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>";
@@ -563,12 +564,12 @@ $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
 if ($tab === 'regular') {
-    $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' LIMIT ?, ?";
+    $sql = "SELECT t_ref, t_aname, t_subject, t_details, t_status FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open' ORDER BY t_ref DESC LIMIT ?, ?";
     $sqlCount = "SELECT COUNT(*) AS total FROM tbl_ticket WHERE technician_username = ? AND t_status = 'open'";
 } else {
     $sql = "SELECT st.s_ref AS t_ref, st.c_id, CONCAT(c.c_fname, ' ', c.c_lname) AS t_aname, st.s_subject AS t_subject, st.s_message AS t_details, st.s_status AS t_status
             FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id
-            WHERE st.technician_username = ? AND st.s_status = 'open' LIMIT ?, ?";
+            WHERE st.technician_username = ? AND st.s_status = 'open' ORDER BY st.s_ref DESC LIMIT ?, ?";
     $sqlCount = "SELECT COUNT(*) AS total FROM tbl_supp_tickets st JOIN tbl_customer c ON st.c_id = c.c_id WHERE st.technician_username = ? AND st.s_status = 'open'";
 }
 
@@ -601,10 +602,11 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Technician Dashboard</title>
-    <link rel="stylesheet" href="techniciansD.css">
+    <link rel="stylesheet" href="technicianD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+   
 </head>
 <body>
 <div class="wrapper">
@@ -642,7 +644,6 @@ $conn->close();
                 </div>
                 <a href="settings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                  
                 </a>
             </div>
         </div>
@@ -709,7 +710,7 @@ $conn->close();
                                     <th>Ticket Ref</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
-                                    <th>Message</th>
+                                    <th>Ticket Details</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -729,8 +730,8 @@ $conn->close();
                                         echo "<tr>
                                                 <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
-                                                <td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
-                                                <td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td class='ellipsis-subject'>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td class='ellipsis-message'>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . 
                                                 ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"regular\")'" : "'") . 
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>
@@ -771,7 +772,7 @@ $conn->close();
                                     <th>Customer ID</th>
                                     <th>Customer Name</th>
                                     <th>Subject</th>
-                                    <th>Message</th>
+                                    <th>Ticket Details</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -793,8 +794,8 @@ $conn->close();
                                                 <td>" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['c_id'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['t_aname'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
-                                                <td>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
-                                                <td>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td class='ellipsis-subject'>" . htmlspecialchars($row['t_subject'] ?? '', ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td class='ellipsis-message'>" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td class='status-" . strtolower(str_replace(' ', '-', $row['t_status'] ?? '')) . 
                                                 ($status === 'open' ? " clickable' onclick='openCloseModal(\"" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "\", \"support\")'" : "'") . 
                                                 ">" . ucfirst(strtolower($row['t_status'] ?? '')) . "</td>

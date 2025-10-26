@@ -302,7 +302,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
     $stmt->close();
 
 $paginationHTML = '';
-if ($totalPages > 1) {
+// Always show pagination, even for single page
 $paginationHTML .= $page > 1 
     ? '<a href="#" class="pagination-link" onclick="searchTickets(' . ($page - 1) . '); return false;"><i class="fas fa-chevron-left"></i></a>' 
     : '<span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>';
@@ -310,9 +310,7 @@ $paginationHTML .= '<span class="current-page">Page ' . htmlspecialchars($page, 
 $paginationHTML .= $page < $totalPages 
     ? '<a href="#" class="pagination-link" onclick="searchTickets(' . ($page + 1) . '); return false;"><i class="fas fa-chevron-right"></i></a>' 
     : '<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>';
-} else {
-$paginationHTML = '<span class="current-page">Page 1 of 1</span>';
-}
+
     echo json_encode([
         'success' => true,
         'html' => $output,
@@ -1082,7 +1080,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffsD.css">
+    <link rel="stylesheet" href="staffD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1796,11 +1794,12 @@ function showTab(tab) {
 }
 
 function showViewModal(ref, name, subject, status, details) {
+    const statusClass = 'status-' + status.toLowerCase();
     const content = `
         <p><strong>Ticket Reference:</strong> ${ref}</p>
         <p><strong>Account Name:</strong> ${name}</p>
         <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Status:</strong> ${status}</p>
+        <p><strong>Status:</strong> <span class="${statusClass}">${status}</span></p>
         <p><strong>Details:</strong> ${details}</p>
     `;
     document.getElementById('viewContent').innerHTML = content;

@@ -16,12 +16,11 @@
     font-family: 'Poppins', sans-serif;
 }
 
-
 body {
     background-color: #f8f9fa;
     color: var(--dark);
     min-height: 100vh;
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-x: hidden;
 }
 
 .glass-container {
@@ -37,7 +36,7 @@ body {
     display: flex;
     min-height: 100vh;
     width: 100%;
-    overflow-x: hidden; /* Prevent horizontal overflow */
+    overflow-x: hidden;
 }
 
 /* Sidebar */
@@ -54,7 +53,6 @@ body {
     align-items: flex-start;
 }
 
-
 .sidebar h2 {
     display: flex;
     align-items: center;
@@ -66,26 +64,25 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
-    font-size: 1.6rem; /* Slightly larger for impact */
-    font-weight: 650; /* Bold weight for emphasis */
-    letter-spacing: 1px; /* Slight spacing for readability */
-    text-transform: uppercase; /* Makes it more striking */
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px; /* Adjust size as needed */
+    width: 45px;
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px; /* Space between icon and text */
-    vertical-align: middle; /* Aligns icon with text */
+    margin-right: -10px;
+    vertical-align: middle;
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px); /* Slight lift effect */
+    transform: translateY(-2px);
 }
-    
 
 .sidebar ul {
     list-style: none;
@@ -183,16 +180,15 @@ footer {
     margin-bottom: 5px;
 }
 
-
 /* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-    width: calc(100% - 200px); /* Calculate proper width */
-    box-sizing: border-box; /* Include padding in width calculation */
-    overflow-x: hidden; /* Prevent horizontal overflow */
+    width: calc(100% - 200px);
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .upper {
@@ -302,6 +298,7 @@ footer {
     color: var(--warning);
     margin-left: 5px;
 }
+
 /* Customer Actions Container */
 .customer-actions {
     position: absolute;
@@ -469,7 +466,7 @@ footer {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
     min-height: 60vh;
-    overflow: visible; /* Remove scrolling */
+    overflow: visible;
     margin-top: 5px;
     display: block;
 }
@@ -487,7 +484,7 @@ table {
     min-width: 100%;
 }
 
-/* Ensure both tables have identical header structure - MATCHING viewU.css */
+/* Ensure both tables have identical header structure */
 #active-customers-table thead,
 #archived-customers-table thead {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -497,12 +494,12 @@ table {
     z-index: 10;
 }
 
-/* Fixed column widths for both tables - MATCHING viewU.css */
+/* Fixed column widths for both tables */
 #active-customers-table th,
 #archived-customers-table th {
     padding: 15px;
     text-align: center;
-    font-weight: 500; /* Changed from 250 to 500 to match viewU.css */
+    font-weight: 500;
     vertical-align: middle;
     font-size: 14px;
 }
@@ -561,16 +558,29 @@ th:last-child {
     border-top-right-radius: 10px;
 }
 
-/* Table body cells - MATCHING viewU.css */
+/* Table body cells */
 #active-customers-table td,
 #archived-customers-table td {
-    padding: 10px; /* Changed from 8px to 10px to match viewU.css */
+    padding: 10px;
     border-bottom: 1px solid #eee;
     text-align: center;
     font-size: 14px;
     word-break: break-word;
     line-height: 1.3;
     vertical-align: middle;
+}
+
+/* Add ellipsis for long text in specific columns */
+#active-customers-table td:nth-child(5), /* Barangay */
+#active-customers-table td:nth-child(7), /* Coordinates */
+#active-customers-table td:nth-child(8), /* Email */
+#archived-customers-table td:nth-child(5), /* Barangay */
+#archived-customers-table td:nth-child(7), /* Coordinates */
+#archived-customers-table td:nth-child(8) { /* Email */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
 }
 
 tr:last-child td {
