@@ -22,6 +22,7 @@ body {
     align-items: center;
     min-height: 100vh;
     background-image: url('cap.jpg');
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
 }
 
 .container {

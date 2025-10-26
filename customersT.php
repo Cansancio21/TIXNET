@@ -285,6 +285,76 @@ if (isset($_GET['action'])) {
         $conn->close();
         exit();
     }
+    // ADD EXPORT DATA ACTION HERE
+    elseif ($_GET['action'] === 'export_data') {
+        $tab = $_GET['tab'] ?? 'active';
+        $searchTerm = $_GET['search'] ?? '';
+        
+        if ($tab === 'active') {
+            $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_plan, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
+                    FROM tbl_customer 
+                    WHERE (c_status NOT LIKE 'ARCHIVED:%' OR c_status IS NULL)";
+        } else {
+            $sql = "SELECT c_account_no, c_fname, c_lname, c_purok, c_barangay, c_contact, c_email, c_coordinates, c_plan, c_balance, c_startdate, c_nextdue, c_lastdue, c_nextbill, c_billstatus 
+                    FROM tbl_customer 
+                    WHERE c_status LIKE 'ARCHIVED:%'";
+        }
+        
+        // Add search filter if provided
+        if (!empty($searchTerm)) {
+            $searchLike = '%' . $searchTerm . '%';
+            $sql .= " AND (c_account_no LIKE ? OR c_fname LIKE ? OR c_lname LIKE ? OR c_purok LIKE ? OR c_barangay LIKE ? OR c_contact LIKE ? OR c_email LIKE ? OR c_coordinates LIKE ? OR c_plan LIKE ?)";
+        }
+        
+        $sql .= " ORDER BY c_account_no ASC";
+        
+        $stmt = $conn->prepare($sql);
+        
+        if (!empty($searchTerm)) {
+            $stmt->bind_param("sssssssss", $searchLike, $searchLike, $searchLike, $searchLike, $searchLike, $searchLike, $searchLike, $searchLike, $searchLike);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $customers = [];
+        while ($row = $result->fetch_assoc()) {
+            // Update dates if needed for active customers
+            if ($tab === 'active' && !empty($row['c_nextdue'])) {
+                list($updated_next_due, $updated_last_due, $updated_next_bill) = updateDueAndBillDates($conn, $row['c_account_no'], $row['c_nextdue']);
+                $row['c_nextdue'] = $updated_next_due;
+                if ($updated_last_due) {
+                    $row['c_lastdue'] = $updated_last_due;
+                }
+                if ($updated_next_bill) {
+                    $row['c_nextbill'] = $updated_next_bill;
+                }
+            }
+            
+            $customers[] = [
+                'Account No.' => $row['c_account_no'],
+                'First Name' => $row['c_fname'],
+                'Last Name' => $row['c_lname'],
+                'Purok' => $row['c_purok'],
+                'Barangay' => $row['c_barangay'],
+                'Contact' => $row['c_contact'],
+                'Email' => $row['c_email'],
+                'Coordinates' => $row['c_coordinates'],
+                'Plan' => $row['c_plan'],
+                'Balance' => $row['c_balance'],
+                'Start Date' => formatDateDisplay($row['c_startdate']),
+                'Next Due Date' => formatDateDisplay($row['c_nextdue']),
+                'Last Due Date' => formatDateDisplay($row['c_lastdue']),
+                'Next Bill Date' => formatDateDisplay($row['c_nextbill']),
+                'Billing Status' => $row['c_billstatus']
+            ];
+        }
+        $stmt->close();
+        
+        header('Content-Type: application/json');
+        echo json_encode(['data' => $customers]);
+        exit;
+    }
 }
 
 // Check automatic notifications when page loads (NO NOTIFICATIONS SENT)
@@ -548,15 +618,17 @@ if ($conn) {
     <title>Registered Customers</title>
     <link rel="stylesheet" href="customerT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+   
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
 <div class="wrapper">
     <div class="sidebar">
-        <h2><img src="image/logo.png" alt="TixNet Icon" class="sidebar-icon">TixNet Pro</h2>
+         <h2><img src="image/logo.png" alt="Tix Net Icon" class="sidebar-icon">TixNet Pro</h2>
     <ul>
         <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
         <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
@@ -625,12 +697,12 @@ if ($conn) {
                 <input type="text" class="search-bar" id="searchInput" placeholder="Search customers..." onkeyup="debouncedSearchCustomers()">
                 <span class="search-icon"><i class="fas fa-search"></i></span>
             </div>
-            <div class="customer-actions">
+          <div class="customer-actions">
     <div class="export-container">
         <button class="export-btn"><i class="fas fa-download"></i> Export</button>
         <div class="export-dropdown">
-            <button onclick="exportTable('excel')">Excel</button>
-            <button onclick="exportTable('csv')">CSV</button>
+            <button type="button" onclick="exportTable('excel')">Excel</button>
+            <button type="button" onclick="exportTable('csv')">CSV</button>
         </div>
     </div>
     <form action="addC.php" method="get" style="display: inline;">
@@ -1228,44 +1300,52 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
+// EXPORT FUNCTION - FIXED VERSION
+// EXPORT FUNCTION - NO MOVEMENT VERSION
 function exportTable(format) {
     const activeTab = document.querySelector('.tab-btn.active').textContent.toLowerCase();
     const tab = activeTab.includes('active') ? 'active' : 'archived';
-    const xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            const customers = JSON.parse(xhr.responseText);
-            const data = customers.map(customer => ({
-                'Account No.': customer.c_account_no,
-                'First Name': customer.c_fname,
-                'Last Name': customer.c_lname,
-                'Purok': customer.c_purok,
-                'Barangay': customer.c_barangay,
-                'Contact': customer.c_contact,
-                'Email': customer.c_email,
-                'Coordinates': customer.c_coordinates,
-                'Plan': customer.c_plan,
-                'Balance': customer.c_balance,
-                'Start Date': customer.c_startdate,
-                'Next Due Date': customer.c_nextdue,
-                'Last Due Date': customer.c_lastdue,
-                'Next Bill Date': customer.c_nextbill,
-                'Billing Status': customer.c_billstatus
-            }));
+    const searchTerm = document.getElementById('searchInput').value;
+    
+    // Build the export URL
+    let url = `customersT.php?action=export_data&tab=${tab}&search=${encodeURIComponent(searchTerm)}`;
+    
+    // NO LOADING STATE - Direct download without any button changes
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                alert('Export error: ' + data.error);
+                return;
+            }
+            
+            if (!data.data || data.data.length === 0) {
+                alert('No data to export.');
+                return;
+            }
 
-            const ws = XLSX.utils.json_to_sheet(data);
+            const ws = XLSX.utils.json_to_sheet(data.data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+            const sheetName = tab === 'active' ? 'Active Customers' : 'Archived Customers';
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
             
             if (format === 'excel') {
-                XLSX.write_file(wb, 'customers.xlsx');
+                XLSX.writeFile(wb, `${tab}_customers.xlsx`);
             } else if (format === 'csv') {
-                XLSX.write_file(wb, 'customers.csv', { bookType: 'csv' });
+                XLSX.writeFile(wb, `${tab}_customers.csv`, { bookType: 'csv' });
             }
-        }
-    };
-    xhr.open('GET', `customersT.php?action=get_all_active_customers`, true);
-    xhr.send();
+            
+            console.log('Export completed successfully');
+        })
+        .catch(error => {
+            console.error('Export failed:', error);
+            alert('Export failed: ' + error.message);
+        });
 }
 
 function updateTable() {

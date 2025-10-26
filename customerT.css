@@ -54,6 +54,7 @@ body {
     align-items: flex-start;
 }
 
+
 .sidebar h2 {
     display: flex;
     align-items: center;
@@ -65,25 +66,26 @@ body {
     transition: all 0.3s;
     width: 100%;
     text-align: center;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 650;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    font-family: 'Orbitron', sans-serif; /* Modern, techy font */
+    font-size: 1.6rem; /* Slightly larger for impact */
+    font-weight: 650; /* Bold weight for emphasis */
+    letter-spacing: 1px; /* Slight spacing for readability */
+    text-transform: uppercase; /* Makes it more striking */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adds depth */
 }
 
 .sidebar h2 .sidebar-icon {
-    width: 45px;
+    width: 45px; /* Adjust size as needed */
     height: 45px;
     margin-left: -10px;
-    margin-right: -10px;
-    vertical-align: middle;
+    margin-right: -10px; /* Space between icon and text */
+    vertical-align: middle; /* Aligns icon with text */
 }
 
 .sidebar h2:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px); /* Slight lift effect */
 }
+    
 
 .sidebar ul {
     list-style: none;
@@ -180,6 +182,7 @@ footer {
     margin-right: 0;
     margin-bottom: 5px;
 }
+
 
 /* Main Content */
 .container {
@@ -349,7 +352,7 @@ footer {
     z-index: 1000;
     border-radius: 5px;
     overflow: hidden;
-    margin-top: 5px;
+    margin-top: -3px;
 }
 
 .export-container:hover .export-dropdown {
@@ -1213,113 +1216,4 @@ tr:hover td {
 }
 .payment-btn i {
     font-size: 16px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .sidebar {
-        width: 70px;
-    }
-
-    .sidebar h2 {
-        font-size: 1.2rem;
-        padding: 10px;
-    }
-
-    .sidebar ul li a span {
-        display: none;
-    }
-
-    .sidebar ul li a img {
-        margin-right: 0;
-    }
-
-    .container {
-        margin-left: 70px;
-        padding: 20px;
-        padding-top: 80px;
-    }
-
-    .upper {
-        left: 100px;
-        height: 60px;
-    }
-
-    .search-container {
-        width: 200px;
-    }
-
-    .user-details {
-        margin-left: 0;
-    }
-
-    .user-details span,
-    .user-details small {
-        margin-left: 0;
-    }
-
-    .customer-details-container {
-        grid-template-columns: 1fr;
-    }
-
-    
-    .action-buttons {
-        gap: 3px;
-    }
-
-    .action-buttons-container {
-        gap: 8px;
-    }
-
-    .view-btn, .edit-btn, .archive-btn, .unarchive-btn, .delete-btn, .activate-btn, .payment-btn {
-        width: 28px;
-        height: 28px;
-    }
-
-    table {
-        table-layout: auto;
-    }
-
-    th, td {
-        font-size: 0.8rem;
-        padding: 6px;
-    }
-}
-
-@media (max-width: 480px) {
-    .upper h1 {
-        font-size: 1.2rem;
-    }
-
-    .search-container {
-        width: 150px;
-    }
-
-    .user-icon img,
-    .user-icon i {
-        width: 35px;
-        height: 35px;
-    }
-
-    .pagination-link {
-        width: 35px;
-        height: 35px;
-    }
-
-    .current-page {
-        font-size: 0.9rem;
-    }
-
-    .modal-content {
-        width: 95%;
-        padding: 15px;
-    }
-
-    .modal-btn {
-        padding: 6px 15px;
-    }
-
-    .action-buttons-container {
-        gap: 6px;
-    }
 }

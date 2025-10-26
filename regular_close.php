@@ -576,7 +576,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Closed Tickets</title>
-    <link rel="stylesheet" href="regular_closed.css">
+    <link rel="stylesheet" href="regular_closeds.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -742,21 +742,7 @@ try {
                 </div>
             </div>
 
-            <!-- Delete Modal -->
-            <div id="deleteModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Delete Ticket</h2>
-                    </div>
-                    <div class="modal-body">
-                        <p>Are you sure you want to delete ticket Ref# <span id="deleteTicketRef"></span>?</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
-                        <button class="modal-btn confirm" id="confirmDeleteBtn" onclick="submitDeleteAction()">Confirm</button>
-                    </div>
-                </div>
-            </div>
+           
 
             <!-- Customer Filter Modal -->
             <div id="customerFilterModal" class="modal">
@@ -877,7 +863,7 @@ try {
                                         <td>" . htmlspecialchars($row['te_date'] ?? 'N/A') . "</td>
                                         <td class='action-buttons'>
                                             <span class='view-btn' onclick='showViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                            <span class='delete-btn' onclick=\"openDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', 'regular')\" title='Delete'><i class='fas fa-trash'></i></span>
+                                          
                                         </td>
                                       </tr>";
                             }
@@ -1070,7 +1056,7 @@ try {
                                         <td>" . htmlspecialchars($row['s_date'] ?? 'N/A') . "</td>
                                         <td class='action-buttons'>
                                             <span class='view-btn' onclick='showSupportViewModal($ticketData)' title='View'><i class='fas fa-eye'></i></span>
-                                            <span class='delete-btn' onclick=\"openSupportDeleteModal('" . htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></span>
+                                            
                                         </td>
                                       </tr>";
                             }

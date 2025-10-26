@@ -296,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['avatar'])) {
             </div>
         <?php endif; ?>
 
-        <h2><i class="fas fa-user-circle"></i> AVATAR MANAGEMENT</h2>
+        <h2><i class="fas fa-user-circle"></i> Upload Image</h2>
         
         <?php if (isset($error)): ?>
             <div class="error-message">

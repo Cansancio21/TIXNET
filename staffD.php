@@ -1356,19 +1356,19 @@ color: var(--dark);
                 <i class="fas fa-user-shield admin-icon"></i>
             </div>
 
-            <div class="header-controls">
-                <div class="tab-buttons">
-                    <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? '' : 'active'; ?>" onclick="showTab('active')">Active (<?php echo $totalActive; ?>)</button>
-                    <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? 'active' : ''; ?>" onclick="showTab('archived')">Archive 
-                        <?php if ($totalArchived > 0): ?>
-                            <span class="tab-badge"><?php echo $totalArchived; ?></span>
-                        <?php endif; ?>
-                    </button>
-                </div>
-                <button class="add-user-btn" onclick="showAddTicketModal()">
-                    <i class="fas fa-ticket-alt"></i> Add Ticket
-                </button>
-            </div>
+         <div class="header-controls">
+    <div class="tab-buttons">
+        <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? '' : 'active'; ?>" onclick="showTab('active')">Active (<?php echo $totalActive; ?>)</button>
+        <button class="tab-btn <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? 'active' : ''; ?>" onclick="showTab('archived')">Archive 
+            <?php if ($totalArchived > 0): ?>
+                <span class="tab-badge"><?php echo $totalArchived; ?></span>
+            <?php endif; ?>
+        </button>
+    </div>
+    <button class="add-user-btn" id="addTicketBtn" onclick="showAddTicketModal()" style="<?php echo (isset($_GET['tab']) && $_GET['tab'] === 'archived') ? 'display: none;' : ''; ?>">
+        <i class="fas fa-ticket-alt"></i> Add Ticket
+    </button>
+</div>
 
                 <div class="search-container">
                 <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." onkeyup="debouncedSearchTickets()">
@@ -1774,6 +1774,25 @@ function closeModal(modalId) {
             document.getElementById('ticket_ref').value = generateTicketRef();
         }
     }
+}
+
+function showTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById(tab + '-tickets').classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.tab-btn[onclick="showTab('${tab}')"]`).classList.add('active');
+    
+    // Show/hide Add Ticket button based on active tab
+    const addTicketBtn = document.getElementById('addTicketBtn');
+    if (tab === 'archived') {
+        addTicketBtn.style.display = 'none';
+    } else {
+        addTicketBtn.style.display = 'block';
+    }
+    
+    searchTickets(1);
+    updateURL();
 }
 
 function showViewModal(ref, name, subject, status, details) {

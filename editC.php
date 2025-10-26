@@ -203,7 +203,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Customer</title>
-    <link rel="stylesheet" href="editC.css">
+    <link rel="stylesheet" href="editCs.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -220,10 +220,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
         <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
         <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
-        <li><a href="borrowedStaff.php"><i class="fas fa-hand-holding icon"></i> <span>Borrowed Assets</span></a></li>
-        <li><a href="addC.php"><i class="fas fa-user-plus icon"></i> <span>Add Customer</span></a></li>
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
-        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Payment Transactions</span></a></li>
+        <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
     </ul>
     <footer>
         <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -252,7 +250,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
                 <a href="settings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                   
                 </a>
             </div>
         </div>

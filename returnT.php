@@ -344,7 +344,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Records</title>
-    <link rel="stylesheet" href="returnsT.css"> 
+    <link rel="stylesheet" href="returnT.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -606,10 +606,11 @@ if ($conn) {
                 <div class="action-buttons">
                     <div class="export-container">
                         <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                        <div class="export-dropdown">
-                            <button onclick="exportTable('excel')">Excel</button>
-                            <button onclick="exportTable('csv')">CSV</button>
-                        </div>
+                       <div class="export-dropdown">
+    <button onclick="exportTable('excel', 'returned')">Excel</button>
+    <button onclick="exportTable('csv', 'returned')">CSV</button>
+</div>
+
                     </div>
                 </div>
                 
@@ -769,10 +770,10 @@ if ($conn) {
                 <div class="action-buttons">
                     <div class="export-container">
                         <button class="action-btn export-btn"><i class="fas fa-download"></i> Export</button>
-                        <div class="export-dropdown">
-                            <button onclick="exportTable('excel')">Excel</button>
-                            <button onclick="exportTable('csv')">CSV</button>
-                        </div>
+                       <div class="export-dropdown">
+    <button onclick="exportTable('excel', 'deployed')">Excel</button>
+    <button onclick="exportTable('csv', 'deployed')">CSV</button>
+</div>
                     </div>
                 </div>
                 
@@ -1079,16 +1080,23 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
-function exportTable(format) {
-    const currentTab = '<?php echo $currentTab; ?>';
+function exportTable(format, tab = null) {
+    // Determine which tab we're exporting from
+    const currentTab = tab || '<?php echo $currentTab; ?>';
     let searchTerm = '';
+    
+    // Get the appropriate search term based on the tab
     if (currentTab === 'returned') {
-        searchTerm = document.getElementById('returned-search-input').value;
+        const searchInput = document.getElementById('searchInput');
+        searchTerm = searchInput ? searchInput.value : '';
     } else {
-        searchTerm = document.getElementById('deployed-search-input').value;
+        const searchInput = document.getElementById('searchInput');
+        searchTerm = searchInput ? searchInput.value : '';
     }
 
-    let url = `returnT.php?action=export_data&tab=${currentTab}&search=${encodeURIComponent(searchTerm)}`;
+    // Build the export URL with CSRF token
+    let url = `returnT.php?action=export_data&tab=${currentTab}&csrf_token=<?php echo $csrfToken; ?>&search=${encodeURIComponent(searchTerm)}`;
+    
     if (currentAssetFilter) {
         url += `&asset_name=${encodeURIComponent(currentAssetFilter)}`;
     }
@@ -1096,13 +1104,26 @@ function exportTable(format) {
         url += `&technician_name=${encodeURIComponent(currentTechnicianFilter)}`;
     }
 
+    console.log('Export URL:', url); // Debug line
+
     const xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 try {
                     const response = JSON.parse(xhr.responseText);
+                    
+                    if (response.error) {
+                        alert('Export error: ' + response.error);
+                        return;
+                    }
+                    
                     const data = response.data;
+                    
+                    if (!data || data.length === 0) {
+                        alert('No data to export.');
+                        return;
+                    }
 
                     if (format === 'excel') {
                         // Create Excel file
@@ -1119,6 +1140,9 @@ function exportTable(format) {
                         const fileName = currentTab === 'returned' ? 'returned_assets.csv' : 'deployed_assets.csv';
                         saveAs(blob, fileName);
                     }
+                    
+                    console.log('Export completed successfully');
+                    
                 } catch (e) {
                     console.error('Error parsing response:', e, xhr.responseText);
                     alert('Error processing export data. Please check your connection and try again.');
@@ -1129,6 +1153,7 @@ function exportTable(format) {
             }
         }
     };
+    
     xhr.open('GET', url, true);
     xhr.send();
 }
