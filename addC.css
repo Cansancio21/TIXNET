@@ -16,6 +16,7 @@
     font-family: 'Poppins', sans-serif;
 }
 
+
 body {
     background-color: #f8f9fa;
     color: var(--dark);
@@ -37,6 +38,8 @@ body {
     width: 100%;
     overflow-x: hidden; /* Prevent horizontal overflow */
 }
+
+
 /* Sidebar */
 .sidebar {
     width: 200px;
@@ -50,7 +53,6 @@ body {
     flex-direction: column;
     align-items: flex-start;
 }
-
 
 .sidebar h2 {
     display: flex;
@@ -82,7 +84,6 @@ body {
 .sidebar h2:hover {
     transform: translateY(-2px); /* Slight lift effect */
 }
-    
 
 .sidebar ul {
     list-style: none;
@@ -180,13 +181,69 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="staffD.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="staffD.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] span {
+    margin-left: 1.5px;
+    
+}
+
+.sidebar ul li a[href="AllCustomersT.php"] i {
+    margin-left: 10.5px;
+}
+
+
+.sidebar ul li a[href="AllCustomersT.php"] span {
+    margin-left: 5.5px;
+}
+
+.sidebar ul li a[href="customersT.php"] i {
+    margin-left: 6px;
+}
+
+.sidebar ul li a[href="customersT.php"] span {
+    margin-left: 2px;
+    
+}
+
+.sidebar ul li a[href="AssignTech.php"] i {
+    margin-left: 8.5px;
+}
+
+.sidebar ul li a[href="AssignTech.php"] span {
+    margin-left: 3px;
+    
+}
+
+.sidebar ul li a[href="Payments.php"] i {
+    margin-left: 8px;
+}
+
+.sidebar ul li a[href="Payments.php"] span {
+    margin-left: 1px;
+    
+}
+
+
 /* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-     margin-top: -15px;
     width: calc(100% - 200px); /* Calculate proper width */
     box-sizing: border-box; /* Include padding in width calculation */
     overflow-x: hidden; /* Prevent horizontal overflow */
@@ -205,7 +262,7 @@ footer {
     position: sticky;
     top: 0;
     z-index: 10;
-      width: 100%;
+    width: 100%;
     box-sizing: border-box;
 }
 
@@ -283,6 +340,7 @@ footer {
     font-size: 12px;
     margin-left: -300px;
 }
+
 .username {
     position: absolute;
     left: 25px;
@@ -586,6 +644,7 @@ thead {
 .form-group {
     margin-bottom: 5px;
     margin-top: -2px;
+
 }
 
 .form-group label {
@@ -614,7 +673,7 @@ thead {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.form-group select#planType {
+.form-group select#plan {
     width: 25%; /* Specific width for Product Plan dropdown */
 }
 

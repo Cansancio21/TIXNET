@@ -129,7 +129,23 @@ function updateDueAndBillDates($conn, $account_no, $next_due) {
         }
         return [$new_next_due, $last_due_date, $new_next_bill];
     }
-    return [$next_due, null, $next_due];
+    // If not updating due dates, still ensure next bill is calculated correctly
+    else {
+        $sql = "SELECT c_advancedays FROM tbl_customer WHERE c_account_no = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $account_no);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $advance_days_str = $row['c_advancedays'] ?? '7 days';
+        $stmt->close();
+        
+        $advance_days = (int)$advance_days_str;
+        $next_bill = (clone $next_due_date)->modify("-{$advance_days} days");
+        $current_next_bill = $next_bill->format('Y-m-d');
+        
+        return [$next_due, null, $current_next_bill];
+    }
 }
 
 $firstName = '';
@@ -616,7 +632,7 @@ if ($conn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Customers</title>
-    <link rel="stylesheet" href="customerT.css">
+    <link rel="stylesheet" href="customersT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -632,7 +648,7 @@ if ($conn) {
     <ul>
         <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
         <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
-        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
+        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customer Ticket</span></a></li>
         <li><a href="customersT.php" class="active"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
         <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
@@ -662,7 +678,7 @@ if ($conn) {
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <a href="settings.php" class="settings-link">
+                <a href="staffsettings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
                   
                 </a>
@@ -1165,8 +1181,24 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
         return `${year}/${month}/${day}`;
     };
 
+    // Calculate the correct next bill date by subtracting advance days from next due date
+    const calculateNextBillDate = (nextDueDate, advanceDays) => {
+        if (!nextDueDate || !advanceDays) return nextbill; // Fallback to the passed value
+        
+        const dueDate = new Date(nextDueDate);
+        const nextBillDate = new Date(dueDate);
+        nextBillDate.setDate(dueDate.getDate() - parseInt(advanceDays));
+        
+        return formatDate(nextBillDate.toISOString().split('T')[0]);
+    };
+
     const formattedStartDate = formatDate(startdate);
     const formattedLastDue = formatDate(lastdue);
+    const formattedNextDue = formatDate(nextdue);
+    
+    // Get advance days from the database and calculate the correct next bill date
+    // For now, we'll use the passed nextbill value, but you might want to fetch advance days
+    const formattedNextBill = formatDate(nextbill); // This should already be calculated correctly in PHP
 
     const isActivated = nextdue !== '' || nextbill !== '' || billstatus === 'Active';
 
@@ -1205,9 +1237,9 @@ function showViewDetails(account_no, fname, lname, purok, barangay, contact, ema
                 <h3><i class="fas fa-cogs"></i> Service Details</h3>
                 <h4 class="balance-header">Balance: <span class="balance-value">${balance ? parseFloat(balance).toFixed(2) : '0.00'}</span></h4>
                 <p><strong>Start Date:</strong> ${formattedStartDate || ''}</p>
-                <p><strong>Next Due Date:</strong> ${nextdue || ''}</p>
+                <p><strong>Next Due Date:</strong> ${formattedNextDue || ''}</p>
                 <p><strong>Last Due Date:</strong> ${formattedLastDue || ''}</p>
-                <p><strong>Next Bill Date:</strong> ${nextbill || ''}</p>
+                <p><strong>Next Bill Date:</strong> ${formattedNextBill || ''}</p>
                 <p><strong>Billing Status:</strong> ${billstatus || 'Inactive'}</p>
                 <div class="action-buttons-container">
                     ${activateButtonHtml}
@@ -1368,3 +1400,4 @@ function toggleCustomDescription() {
 </script>
 </body>
 </html>
+

@@ -181,6 +181,35 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="technicianD.php"] i {
+    margin-left: 10px;
+}
+
+
+.sidebar ul li a[href="technicianD.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="techBorrowed.php"] i {
+    margin-left: 5.5px;
+    margin-top: -10px;
+}
+
+
+.sidebar ul li a[href="techBorrowed.php"] span {
+    margin-left: 2px;
+    
+}
+
+.sidebar ul li a[href="TechCustomers.php"] i {
+    margin-left: 5.5px;
+}
+
+
+.sidebar ul li a[href="TechCustomers.php"] span {
+    margin-left: 1px;
+}
 
 /* Main Content */
 .container {
@@ -247,7 +276,7 @@ footer {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-left: 50px;
+    margin-left: 45px;
 }
 
 .user-icon img,
@@ -270,7 +299,7 @@ footer {
 
 .user-details {
     margin-left: 300px;
-    margin-right: -195px;
+    margin-right: -187px;
 }
 
 .user-details span {

@@ -1,4 +1,3 @@
-
 :root {
     --primary: #3d28e2;
     --secondary: #372fa7;
@@ -16,10 +15,11 @@
     box-sizing: border-box;
     font-family: 'Poppins', sans-serif;
 }
-
 body {
     background-color: #f8f9fa;
     color: var(--dark);
+    min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 .glass-container {
@@ -34,7 +34,10 @@ body {
 .wrapper {
     display: flex;
     min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
+
 
 /* Sidebar */
 .sidebar {
@@ -108,6 +111,15 @@ body {
     width: 100%;
 }
 
+/* Add ellipsis for subject column only */
+#active-tickets td:nth-child(3), /* Subject column in active tab */
+#archived-tickets td:nth-child(3) { /* Subject column in archived tab */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
+}
+
 .sidebar ul li a:hover,
 .sidebar ul li a.active {
     background: rgba(255, 255, 255, 0.2);
@@ -177,15 +189,73 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="staffD.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="staffD.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] span {
+    margin-left: 1.5px;
+    
+}
+
+.sidebar ul li a[href="AllCustomersT.php"] i {
+    margin-left: 10.5px;
+}
+
+
+.sidebar ul li a[href="AllCustomersT.php"] span {
+    margin-left: 5.5px;
+}
+
+.sidebar ul li a[href="customersT.php"] i {
+    margin-left: 6px;
+}
+
+.sidebar ul li a[href="customersT.php"] span {
+    margin-left: 2px;
+    
+}
+
+.sidebar ul li a[href="AssignTech.php"] i {
+    margin-left: 8.5px;
+}
+
+.sidebar ul li a[href="AssignTech.php"] span {
+    margin-left: 3px;
+    
+}
+
+.sidebar ul li a[href="Payments.php"] i {
+    margin-left: 8px;
+}
+
+.sidebar ul li a[href="Payments.php"] span {
+    margin-left: 1px;
+    
+}
+
 /* Main Content */
 .container {
     flex: 1;
     margin-left: 200px;
     padding: 30px;
     margin-top: -15px;
-    padding-top: 100px;
+    width: calc(100% - 200px); /* Calculate proper width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent horizontal overflow */
 }
-/* Header */
+
 .upper {
     display: flex;
     justify-content: space-between;
@@ -195,7 +265,8 @@ footer {
     color: white;
     border-radius: 10px;
     margin-bottom: 20px;
-    margin-top: -70px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .upper h1 {
@@ -210,7 +281,6 @@ footer {
     right: 20px;
     width: 300px;
     z-index: 10;
-
 }
 
 .search-bar {
@@ -235,13 +305,31 @@ footer {
     color: #666;
 }
 
+
+.tab-buttons{
+    margin-top: -15px;
+}
+
+/* Keep all existing .table-box styles exactly as they are */
+.table-box {
+    position: relative;
+    width: 100%;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    min-height: 60vh;
+    overflow: visible;
+    margin-top: 15px;
+}
+
 .user-profile {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 50px;
 }
-
 
 .user-icon img,
 .user-icon i {
@@ -262,49 +350,31 @@ footer {
 }
 
 .user-details {
-    text-align: right;
-    margin-right: 55px;
+    margin-left: 300px;
+    margin-right: -195px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    color: white;
+    margin-left: -300px;
 }
 
 .user-details small {
-    color: #fdfdfd;
+    color: #ffffff;
     font-size: 12px;
-    margin-right: 5px;
-   
-}
-/* Table Box */
-.table-box {
-    position: relative;
-    width: 100%;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
-    min-height: 600px;
-    display: flex;
-    flex-direction: column;
-    margin-top: -0.5px;
-}
-
-.table-box h2{
-    margin-top: 2px;
+    margin-left: -300px;
 }
 
 .username {
     position: absolute;
-    left: 25px;
-    top: 45px;
+    left: 20px;
+    top: 25px;
     padding-bottom: 25px;
-    margin-bottom: 25px;
+    margin-bottom: 5px;
     color: var(--primary);
-    
+    font-size: 20px;
+    font-weight: 500;
 }
 
 .admin-icon {
@@ -312,66 +382,41 @@ footer {
     margin-left: 5px;
 }
 
-/* Tabs */
-.tab-buttons {
-    display: flex;
-    margin-bottom: 15px;
-    margin-top: 10px;
-    gap: 5px;
-}
-
-.tab-btn {
-    padding: 8px 16px;
-    background: #f1f1f1;
-    border: none;
-    cursor: pointer;
-    margin-right: 5px;
-    border-radius: 4px 4px 0 0;
-    position: relative;
-}
-
-.tab-btn.active {
-    background: #4CAF50;
-    color: white;
-}
-
-.tab-content {
-    display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
-}
-
-.tab-content.active {
-    display: flex;
-}
-
-.tab-badge {
+/* Base Tab Style */
+.add-user-btn {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff5722;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-    display: flex;
+    top: 43px;
+    right: 310px; /* Increased from 330px to create more space from search bar */
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    border: none; 
+    outline: none;
+    font-size: 14px;
+    white-space: nowrap; /* Prevent text wrapping */
+    width: 140px; /* Same width as restore button */
+    justify-content: center; /* Center the content */
 }
 
-#active-users-tab,
-#archived-users-tab {
-    display: none;
-    width: 100%;
-    flex-grow: 1;
-    flex-direction: column;
+.add-user-btn:hover {
+    background: var(--secondary);
 }
 
-#active-users-tab.active,
-#archived-users-tab.active {
-    display: flex;
+.add-user-btn i {
+    margin-right: 8px;
+}
+
+
+.table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    margin-top: 5px;
 }
 
 /* Table */
@@ -379,9 +424,9 @@ table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: -5px;
+    margin-top: 8px;
     table-layout: auto;
-    margin-top: 10px;
+
 }
 
 thead {
@@ -389,7 +434,7 @@ thead {
     color: white;
     position: sticky;
     top: 0;
-    z-index: 1000;
+    z-index: 10;
 }
 
 th {
@@ -397,6 +442,7 @@ th {
     text-align: center;
     font-weight: 500;
     vertical-align: middle;
+    border: none;
 }
 
 th:first-child {
@@ -414,7 +460,9 @@ td {
     text-align: center;
     word-wrap: break-word;
     white-space: normal;
-    font-size: 14px;
+    border-left: none;
+    border-right: none;
+    border-top: none;
 }
 
 tr:last-child td {
@@ -425,27 +473,85 @@ tr:hover td {
     background: rgba(108, 92, 231, 0.05);
 }
 
-/* Status Badges */
-.status-active {
-    color: var(--success) !important;
+th:nth-child(1) { width: 200px; } /* Ticket ID */
+th:nth-child(2) { width: 180px; } /* Account Name */
+th:nth-child(3) { width: 100px; } /* Type */
+th:nth-child(4) { width: 100px; } /* Status */
+th:nth-child(5) { width: 200px; } /* Ticket Details */
+th:nth-child(6) { width: 120px; } /* Date */
+th:nth-child(7) { width: 150px; } /* Action */
+
+td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    font-size: 14px;
+    vertical-align: middle;
+    line-height: 1.4;
+    min-height: 50px;
 }
 
-.status-inactive {
-    color: var(--danger) !important;
+td:nth-child(2), td:nth-child(5) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
 }
-
-.status-pending {
-    color: #ff9800;
-    font-weight: 500;
-}
-
-button {
-    border: none;
-    outline: none;
-}
-
 
 /* Action Buttons */
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 10px;
+    min-height: 50px;
+}
+
+.view-btn, .edit-btn, .archive-btn, .restore-btn, .ticket-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    text-decoration: none;
+    color: #fff;
+    transition: background-color 0.3s ease;
+}
+
+.view-btn {
+    background-color: #3498db;
+}
+
+.view-btn:hover {
+    background-color: #2980b9;
+}
+
+.edit-btn {
+    background-color: #2ecc71;
+}
+
+.edit-btn:hover {
+    background-color: #27ae60;
+}
+
+.archive-btn {
+    background-color: #f1c40f;
+}
+
+.archive-btn:hover {
+    background-color: #d4ac0d;
+}
+
+.restore-btn {
+    background-color: #9b59b6;
+}
+
+.restore-btn:hover {
+    background-color: #8e44ad;
+}
+
 .delete-btn {
     display: inline-flex;
     align-items: center;
@@ -468,130 +574,25 @@ button {
     font-size: 16px;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 5px;
-    justify-content: center;
+/* Status Badges */
+.status-open {
+    color: var(--success);
 }
 
-.view-btn, .edit-btn, .archive-btn, .unarchive-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 5px;
-    text-decoration: none;
-    transition: background-color 0.3s ease;
+.status-closed {
+    color: var(--danger);
 }
 
-.view-btn {
-    background-color: #3498db;
-    color: #fff;
+.status-archived {
+    color: #6c757d;
 }
 
-.view-btn:hover {
-    background-color: #2980b9;
-}
-
-.edit-btn {
-    background-color: #2ecc71;
-    color: #fff;
-}
-
-.edit-btn:hover {
-    background-color: #27ae60;
-}
-
-.archive-btn {
-    background-color: #f1c40f;
-    color: #fff;
-}
-
-.archive-btn:hover {
-    background-color: #d4ac0d;
-}
-
-.unarchive-btn {
-    background-color: #9b59b6;
-    color: #fff;
-}
-
-.unarchive-btn:hover {
-    background-color: #8e44ad;
-}
-/* Export Button - Fixed Position */
-.export-container {
-    position: absolute;
-    top: 65px;
-    right: 330px;
-    display: inline-block;
-    z-index: 1002;
-}
-
-.export-btn {
-    display: inline-flex;
-    align-items: center;
-    background-color: #63c216;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    text-decoration: none;
-    transition: all 0.3s;
-    border: none;
-    outline: none;
-    font-size: 14px;
+.status-clickable {
     cursor: pointer;
-    white-space: nowrap;
 }
 
-.export-btn i {
-    margin-right: 8px;
-}
-
-.export-btn:hover {
-    background-color: #7494ec;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Export Dropdown */
-.export-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    min-width: 120px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1001; /* Increase z-index to be higher than table header */
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: -3px;
-}
-
-.export-container:hover .export-dropdown {
-    display: block;
-}
-
-.export-dropdown button {
-    color: var(--dark);
-    padding: 10px 15px;
-    text-decoration: none;
-    display: block;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.export-dropdown button:hover {
-    background-color: var(--primary);
-    color: white;
+.status-clickable:hover {
+    text-decoration: underline;
 }
 
 /* Pagination */
@@ -599,21 +600,21 @@ button {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: auto;
-    padding-top: 20px;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .pagination-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    text-decoration: none;
+    color: var(--primary);
+    font-size: 18px;
     width: 40px;
     height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     background: white;
-    color: var(--primary);
-    text-decoration: none;
-    margin: 0 5px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     transition: all 0.3s;
 }
@@ -621,8 +622,6 @@ button {
 .pagination-link:hover {
     background: var(--primary);
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.3);
 }
 
 .pagination-link.disabled {
@@ -632,16 +631,15 @@ button {
 }
 
 .current-page {
-    margin: 0 15px;
-    font-weight: 500;
-    color: var(--dark);
+    font-size: 14px;
+    color: #555;
 }
 
-/* Modal */
+/* Modal Styles */
 .modal {
     display: none;
     position: fixed;
-    top: 0px;
+    top: 0;
     left: 0;
     width: 100%;
     height: 100%;
@@ -653,7 +651,7 @@ button {
 
 .modal-content {
     background: white;
-    margin: 5% auto;
+    margin: 10% auto;
     padding: 20px;
     border-radius: 15px;
     width: 90%;
@@ -688,7 +686,7 @@ button {
 
 .modal-btn.cancel {
     background: var(--primary);
-    color: var(--light);
+    color: white;
 }
 
 .modal-btn:hover {
@@ -696,56 +694,109 @@ button {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Modal Forms */
 .modal-form input,
-.modal-form select {
+.modal-form select,
+.modal-form textarea {
     width: 100%;
     padding: 8px;
     margin: 5px 0 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
+    font-size: 14px;
 }
 
-#viewTicketModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-    margin-top: 165px;
+.modal-form textarea {
+    height: 100px;
+    resize: vertical;
 }
 
-#editAssetModal .modal-content {
-    margin: 8% auto;
-    max-width: 500px;
+.modal-form input:focus,
+.modal-form select:focus,
+.modal-form textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.3);
+}
+
+/* Error message styling */
+.modal-form .error {
+    color: var(--danger);
+    font-size: 12px;
+    display: block;
     margin-top: -10px;
+    margin-bottom: 10px;
 }
 
-#deleteModal .modal-content {
-    margin: 10% auto;
-    max-width: 500px;
-    margin-top: 170px;
+/* Filter button styles */
+.filter-btn {
+    background: transparent !important;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--light, #f5f8fc);
+    margin-left: 5px;
+    vertical-align: middle;
+    padding: 0;
+    outline: none;
 }
 
-/* Archive Header */
-.archive-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+.filter-btn:hover {
+    color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
+    background: transparent !important;
 }
 
+th .filter-btn {
+    background: transparent !important;
+}
+
+/* Autocomplete styles */
+.autocomplete-container {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    z-index: 1000;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.autocomplete-suggestion {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.autocomplete-suggestion:hover {
+    background: #f0f0f0;
+}
 
 /* Alerts */
 .alert-container {
     position: relative;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .alert {
     padding: 10px;
     border-radius: 5px;
     position: absolute;
-    top: 15px;
+    top: -5px;
     left: 15px;
     width: 100%;
     z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
 }
 
 .alert-success {
@@ -758,6 +809,10 @@ button {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
+}
+
+.alert-hidden {
+    opacity: 0;
 }
 
 .settings-link {
@@ -810,20 +865,17 @@ button {
 /* Media Queries for Smaller Screens */
 @media screen and (max-width: 1366px) {
     .search-container {
-        right: 10px; /* Reduce right margin */
-        width: 250px; /* Slightly reduce width */
+        right: 20px; /* Reduce right margin for smaller screens */
+        width: 300px; /* Slightly reduce width */
     }
 
-    .export-btn {
-        right: -150px; /* Adjust to account for reduced search bar width */
-        padding: 8px 15px; /* Slightly smaller padding */
-    }
+  
 }
 
 @media screen and (max-width: 1024px) {
     .container {
-        margin-left: 200px; /* Respect sidebar width */
-        padding: 20px;
+        margin-left: 200px; /* Ensure container respects sidebar width */
+        padding: 20px; /* Reduce padding for smaller screens */
     }
 
     .search-container {
@@ -832,14 +884,9 @@ button {
         top: 80px; /* Adjust vertical position */
     }
 
-    .export-btn {
-        right: -430px; /* Adjust position */
-        font-size: 14px;
-        padding: 8px 12px;
-    }
-
+  
     .upper {
-        left: 210px;
+        left: 210px; /* Adjust header position */
         right: 20px;
         padding: 8px;
     }
@@ -847,7 +894,7 @@ button {
 
 @media screen and (max-width: 768px) {
     .sidebar {
-        width: 180px; /* Reduce sidebar width */
+        width: 180px; /* Slightly reduce sidebar width */
     }
 
     .container {
@@ -856,26 +903,13 @@ button {
     }
 
     .search-container {
-        width: 100%; /* Full width for small screens */
+        width: 100%; /* Full width for very small screens */
         max-width: 300px;
         right: 10px;
         top: 70px;
     }
 
-    .export-btn {
-        right: 10px; /* Move to the right edge */
-        top: 120px; /* Place below search bar */
-        width: 100%;
-        max-width: 150px; /* Limit button width */
-        text-align: center;
-    }
-
-    .export-dropdown {
-        right: 0; /* Ensure dropdown aligns with button */
-        left: auto; /* Override any left positioning */
-        min-width: 100px;
-    }
-
+  
     .upper {
         left: 190px; /* Adjust header for smaller sidebar */
         right: 10px;
@@ -883,11 +917,11 @@ button {
     }
 
     .user-details {
-        margin-left: 0; /* Reset margin */
+        margin-left: 0; /* Remove large margin */
     }
 
     .user-details span,
     .user-details small {
         margin-left: 0; /* Reset margins */
     }
-}   
+}

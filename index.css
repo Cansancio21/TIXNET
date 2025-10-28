@@ -22,7 +22,7 @@ body {
     align-items: center;
     min-height: 100vh;
     background-image: url('cap.jpg');
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
+    
 }
 
 .container {
@@ -71,7 +71,7 @@ form {
 }
 
 .container h1 {
-    font-size: 36px;
+    font-size: 46px;
     margin: 20px 0;
     align-self: flex-end;
     text-align: right;
@@ -81,7 +81,9 @@ form {
 
 /* Adjust margin-top for the h1 in .form-box.register */
 .form-box.register h1 {
-    margin-top: 20px; /* Adjust this value as needed */
+    margin-top: 30px;
+    margin-left: 90px; /* Adjust this value as needed */
+    margin-bottom: 3px;
 }
 
 /* Adjust margin-top for the Register button in .form-box.register */
@@ -195,7 +197,7 @@ form {
 }
 
 .button:hover {
-    background-color: var(--primary);
+    background-color: rgb(180, 71, 20);
     transform: translateY(-2px);
 }
 
@@ -289,7 +291,7 @@ form {
 }
 
 .toggle-panel h1 {
-    margin-right: 20%;
+    margin-right: 22%;
 }
 
 .toggle-panel p {
@@ -334,6 +336,18 @@ form {
 .settings-link:hover span {
     opacity: 1;
     transform: translateX(0);
+}
+
+.form-box.login .btn{
+margin-top: -5px;
+}
+
+.additional-info {
+    text-align: center;
+    margin-top: 24px;
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .input-box select {

@@ -276,7 +276,7 @@ $resultBorrowed = $stmt->get_result();
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <a href="settings.php" class="settings-link">
+                <a href="techsettings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
                 
                 </a>

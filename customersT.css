@@ -180,6 +180,62 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="staffD.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="staffD.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] i {
+    margin-left: 8px;
+}
+
+
+.sidebar ul li a[href="assetsT.php"] span {
+    margin-left: 1.5px;
+    
+}
+
+.sidebar ul li a[href="AllCustomersT.php"] i {
+    margin-left: 10.5px;
+}
+
+
+.sidebar ul li a[href="AllCustomersT.php"] span {
+    margin-left: 5.5px;
+}
+
+.sidebar ul li a[href="customersT.php"] i {
+    margin-left: 6px;
+}
+
+.sidebar ul li a[href="customersT.php"] span {
+    margin-left: 2px;
+    
+}
+
+.sidebar ul li a[href="AssignTech.php"] i {
+    margin-left: 8.5px;
+}
+
+.sidebar ul li a[href="AssignTech.php"] span {
+    margin-left: 3px;
+    
+}
+
+.sidebar ul li a[href="Payments.php"] i {
+    margin-left: 8px;
+}
+
+.sidebar ul li a[href="Payments.php"] span {
+    margin-left: 1px;
+    
+}
+
 /* Main Content */
 .container {
     flex: 1;

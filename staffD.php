@@ -1080,7 +1080,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Ticket Reports</title>
-    <link rel="stylesheet" href="staffD.css">
+    <link rel="stylesheet" href="staffsD.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1302,7 +1302,7 @@ color: var(--dark);
          <ul>
            <li><a href="staffD.php" class="active"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
            <li><a href="assetsT.php"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
-           <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
+           <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customer Ticket</span></a></li>
            <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li> 
            <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
            <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
@@ -1332,7 +1332,7 @@ color: var(--dark);
                     <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                     <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <a href="settings.php" class="settings-link">
+                <a href="staffsettings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
                   
                 </a>

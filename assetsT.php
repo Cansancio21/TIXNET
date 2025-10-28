@@ -620,22 +620,7 @@ if (isset($_POST['deploy_asset'])) {
         }
     }
 
-    if (empty($errors)) {
-        $sqlCheckDeployed = "SELECT COUNT(*) AS total_deployed FROM tbl_asset_status WHERE tech_id = ? AND a_status = 'Deployed'";
-        $stmtCheckDeployed = $conn->prepare($sqlCheckDeployed);
-        if (!$stmtCheckDeployed) {
-            $errors['general'] = "Database error: Failed to prepare deployed assets query: " . $conn->error;
-        } else {
-            $stmtCheckDeployed->bind_param("s", $deploy_techid);
-            $stmtCheckDeployed->execute();
-            $resultCheckDeployed = $stmtCheckDeployed->get_result();
-            $row = $resultCheckDeployed->fetch_assoc();
-            if ($row['total_deployed'] > 0) {
-                $errors['tech_id'] = "Technician must return deployed assets before deploying again.";
-            }
-            $stmtCheckDeployed->close();
-        }
-    }
+  
 
     $asset_details = [];
     if (empty($errors)) {
@@ -787,18 +772,11 @@ if (isset($_POST['return_asset'])) {
     if (empty($errors)) {
         $conn->begin_transaction();
         try {
-            // Insert 'Returned' status into tbl_asset_status
-            $sqlInsertStatus = "INSERT INTO tbl_asset_status (a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date, a_status) VALUES (?, ?, ?, ?, ?, ?, 'Returned')";
-            $stmtInsertStatus = $conn->prepare($sqlInsertStatus);
-            if (!$stmtInsertStatus) {
-                throw new Exception("Failed to prepare insert query for tbl_asset_status: " . $conn->error);
-            }
-
-            // Delete existing 'Borrowed' status
-            $sqlDeleteStatus = "DELETE FROM tbl_asset_status WHERE a_ref_no = ? AND a_status = 'Borrowed'";
-            $stmtDeleteStatus = $conn->prepare($sqlDeleteStatus);
-            if (!$stmtDeleteStatus) {
-                throw new Exception("Failed to prepare delete query for tbl_asset_status: " . $conn->error);
+            // Update existing 'Borrowed' record to 'Returned' with return date
+            $sqlUpdateStatus = "UPDATE tbl_asset_status SET a_status = 'Returned', a_return_date = ? WHERE a_ref_no = ? AND a_status = 'Borrowed'";
+            $stmtUpdateStatus = $conn->prepare($sqlUpdateStatus);
+            if (!$stmtUpdateStatus) {
+                throw new Exception("Failed to prepare update query for tbl_asset_status: " . $conn->error);
             }
 
             // Update tbl_assets to 'Available'
@@ -809,21 +787,10 @@ if (isset($_POST['return_asset'])) {
             }
 
             foreach ($asset_ref_nos as $ref_no) {
-                $asset_name = $asset_details[$ref_no]['name'];
-                $serial_no = $asset_details[$ref_no]['serial_no'] ?? null;
-                $tech_name = $asset_details[$ref_no]['tech_name'];
-                $tech_id = $asset_details[$ref_no]['tech_id'];
-
-                // Insert 'Returned' record
-                $stmtInsertStatus->bind_param("ssssss", $ref_no, $asset_name, $tech_name, $tech_id, $serial_no, $returndate);
-                if (!$stmtInsertStatus->execute()) {
-                    throw new Exception("Failed to insert into tbl_asset_status: " . $stmtInsertStatus->error);
-                }
-
-                // Delete 'Borrowed' record
-                $stmtDeleteStatus->bind_param("s", $ref_no);
-                if (!$stmtDeleteStatus->execute()) {
-                    throw new Exception("Failed to delete from tbl_asset_status: " . $stmtDeleteStatus->error);
+                // Update status to Returned with return date
+                $stmtUpdateStatus->bind_param("ss", $returndate, $ref_no);
+                if (!$stmtUpdateStatus->execute()) {
+                    throw new Exception("Failed to update tbl_asset_status: " . $stmtUpdateStatus->error);
                 }
 
                 // Update tbl_assets
@@ -833,8 +800,7 @@ if (isset($_POST['return_asset'])) {
                 }
             }
 
-            $stmtInsertStatus->close();
-            $stmtDeleteStatus->close();
+            $stmtUpdateStatus->close();
             $stmtUpdate->close();
 
             $conn->commit();
@@ -1308,7 +1274,7 @@ unset($_SESSION['open_modal']);
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Asset Management</title>
-        <link rel="stylesheet" href="assetsT.css"> 
+        <link rel="stylesheet" href="assetsTT.css"> 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1345,7 +1311,7 @@ unset($_SESSION['open_modal']);
     <ul>
         <li><a href="staffD.php"><i class="fas fa-ticket-alt icon"></i> <span>Regular Tickets</span></a></li>
         <li><a href="assetsT.php" class="active"><i class="fas fa-boxes icon"></i> <span>Assets</span></a></li>
-        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customers Ticket</span></a></li>
+        <li><a href="AllCustomersT.php"><i class="fas fa-clipboard-check icon"></i> <span>Customer Ticket</span></a></li>
         <li><a href="customersT.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         <li><a href="AssignTech.php"><i class="fas fa-tools icon"></i> <span>Technicians</span></a></li>
         <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
@@ -1375,7 +1341,7 @@ unset($_SESSION['open_modal']);
                         <span><?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?></span>
                         <small><?php echo htmlspecialchars(ucfirst($userType), ENT_QUOTES, 'UTF-8'); ?></small>
                     </div>
-                    <a href="settings.php" class="settings-link">
+                    <a href="staffsettings.php" class="settings-link">
                         <i class="fas fa-cog"></i>
                      
                     </a>
@@ -2125,6 +2091,8 @@ function clearModalErrors(formId) {
     const errorSpans = document.querySelectorAll(`#${formId} .error`);
     errorSpans.forEach(span => span.textContent = '');
 }
+
+
 
 // Validate Add Asset Form
 document.getElementById('addAssetForm').addEventListener('submit', function(e) {
@@ -2895,3 +2863,4 @@ document.getElementById('searchInput').addEventListener('input', debouncedSearch
     </script>
     </body>
     </html>
+

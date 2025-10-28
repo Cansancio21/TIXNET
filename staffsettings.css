@@ -387,7 +387,6 @@ footer {
     margin-left: 50px;
 }
 
-
 .user-icon img,
 .user-icon i {
     width: 45px;
@@ -407,24 +406,22 @@ footer {
 }
 
 .user-details {
-    text-align: right;
-    margin-right: 65px;
+    margin-left: 300px;
+    margin-right: -195px;
 }
 
 .user-details span {
     font-weight: 500;
     display: block;
-    color: white;
-    margin-right: 3px;
+    margin-left: -300px;
 }
 
 .user-details small {
-    color: #fdfdfd;
+    color: #ffffff;
     font-size: 12px;
-    margin-right: 3px;
-
-   
+    margin-left: -300px;
 }
+
 
 
 .input-box {

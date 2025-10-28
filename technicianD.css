@@ -181,6 +181,36 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="technicianD.php"] i {
+    margin-left: 10px;
+}
+
+
+.sidebar ul li a[href="technicianD.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="techBorrowed.php"] i {
+    margin-left: 5.5px;
+    margin-top: -10px;
+}
+
+
+.sidebar ul li a[href="techBorrowed.php"] span {
+    margin-left: 2px;
+    
+}
+
+.sidebar ul li a[href="TechCustomers.php"] i {
+    margin-left: 5.5px;
+}
+
+
+.sidebar ul li a[href="TechCustomers.php"] span {
+    margin-left: 1px;
+}
+
 /* Main Content */
 .container {
     flex: 1;
@@ -211,11 +241,12 @@ footer {
     font-weight: 600;
 }
 
+
 .user-profile {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-left: 50px;
+    margin-left: 45px;
 }
 
 .user-icon img,
@@ -238,7 +269,7 @@ footer {
 
 .user-details {
     margin-left: 300px;
-    margin-right: -195px;
+    margin-right: -187px;
 }
 
 .user-details span {
@@ -253,12 +284,6 @@ footer {
     margin-left: -300px;
 }
 
-.user-details small {
-    color: #fdfdfd;
-    font-size: 12px;
-    margin-right: -5px;
-   
-}
 .dashboard-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

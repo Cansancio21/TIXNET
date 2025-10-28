@@ -260,6 +260,7 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                     <?php } ?>
                 </div> 
                 <button type="submit" name="login" class="btn">Login</button>
+                <p class="additional-info">Welcome to TixNet Pro Admin Portal!</p>
             </form>
         </div>
 
@@ -330,12 +331,12 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
         <!-- Toggle Panels -->
         <div class="toggle-box">
             <div class="toggle-panel toggle-left">
-                <h1>Hello Welcome!</h1>
+                <h1>TIXNET PRO</h1>
                 <p>Don't have an account?</p>
                 <button class="btn register-btn">Register</button>
             </div>
             <div class="toggle-panel toggle-right">
-                <h1>Welcome Back!</h1>
+                <h1>TIXNET PRO</h1>
                 <p>Already have an account?</p>
                 <button class="btn login-btn">Login</button>
             </div>
