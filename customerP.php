@@ -9,12 +9,12 @@ error_reporting(E_ALL);
 
 // Initialize error variables
 $accountNoError = "";
-$lastNameError = "";
+$passwordError = "";
 
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $accountNo = trim($_POST['accountNo']);
-    $lastName = trim($_POST['lastName']);
+    $password = trim($_POST['password']);
     
     // Basic validation
     $isValid = true;
@@ -24,8 +24,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $isValid = false;
     }
     
-    if (empty($lastName)) {
-        $lastNameError = "Last name is required.";
+    if (empty($password)) {
+        $passwordError = "Password is required.";
         $isValid = false;
     }
     
@@ -39,7 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             die("Database error. Please try again later.");
         }
 
-        $stmt->bind_param("ss", $accountNo, $lastName);
+        $stmt->bind_param("ss", $accountNo, $password);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -83,29 +83,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $checkAccountStmt->execute();
             $accountResult = $checkAccountStmt->get_result();
             
-            $checkLastNameSql = "SELECT * FROM tbl_customer WHERE c_lname = ?";
-            $checkLastNameStmt = $conn->prepare($checkLastNameSql);
-            $checkLastNameStmt->bind_param("s", $lastName);
-            $checkLastNameStmt->execute();
-            $lastNameResult = $checkLastNameStmt->get_result();
+            $checkPasswordSql = "SELECT * FROM tbl_customer WHERE c_lname = ?";
+            $checkPasswordStmt = $conn->prepare($checkPasswordSql);
+            $checkPasswordStmt->bind_param("s", $password);
+            $checkPasswordStmt->execute();
+            $passwordResult = $checkPasswordStmt->get_result();
             
             $accountExists = $accountResult->num_rows > 0;
-            $lastNameExists = $lastNameResult->num_rows > 0;
+            $passwordExists = $passwordResult->num_rows > 0;
             
-            if (!$accountExists && !$lastNameExists) {
+            if (!$accountExists && !$passwordExists) {
                 // Both are incorrect
                 $accountNoError = "Incorrect account number. Please try again.";
-                $lastNameError = "Incorrect last name. Please try again.";
+                $passwordError = "Incorrect password. Please try again.";
             } elseif (!$accountExists) {
                 // Only account number is incorrect
                 $accountNoError = "Incorrect account number. Please try again.";
             } else {
-                // Only last name is incorrect
-                $lastNameError = "Incorrect last name. Please try again.";
+                // Only password is incorrect
+                $passwordError = "Incorrect password. Please try again.";
             }
             
             $checkAccountStmt->close();
-            $checkLastNameStmt->close();
+            $checkPasswordStmt->close();
         }
 
         $stmt->close();
@@ -137,31 +137,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="form-content">
             <h1 class="login-title">Customer Portal</h1>
             <form action="" method="POST">
-         <div class="form-group">
-    <label for="accountNo">Account No:</label>
-    <div class="input-box">
-        <input type="text" id="accountNo" name="accountNo" placeholder="Enter Account No." value="<?php echo isset($_POST['accountNo']) ? htmlspecialchars($_POST['accountNo']) : ''; ?>" required>
-        <i class="bx bxs-id-card account-icon"></i>
-    </div>
-    <?php if (!empty($accountNoError)): ?>
-        <p class="error-message"><?php echo $accountNoError; ?></p>
-    <?php endif; ?>
-</div>
-<div class="form-group">
-    <label for="lastName">Last Name:</label>
-    <div class="input-box">
-        <input type="text" id="lastName" name="lastName" placeholder="Enter last name" value="<?php echo isset($_POST['lastName']) ? htmlspecialchars($_POST['lastName']) : ''; ?>" required>
-        <i class="bx bxs-user user-icon"></i>
-    </div>
-    <?php if (!empty($lastNameError)): ?>
-        <p class="error-message"><?php echo $lastNameError; ?></p>
-    <?php endif; ?>
-</div>
+                <div class="form-group">
+                    <label for="accountNo">Account No:</label>
+                    <div class="input-box">
+                        <input type="text" id="accountNo" name="accountNo" placeholder="Enter Account No." value="<?php echo isset($_POST['accountNo']) ? htmlspecialchars($_POST['accountNo']) : ''; ?>" required>
+                        <i class="bx bxs-id-card account-icon"></i>
+                    </div>
+                    <?php if (!empty($accountNoError)): ?>
+                        <p class="error-message"><?php echo $accountNoError; ?></p>
+                    <?php endif; ?>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <div class="input-box">
+                        <input type="password" id="password" name="password" placeholder="Enter password" required>
+                        <i class="bx bxs-lock-alt password-icon" id="passwordToggle"></i>
+                    </div>
+                    <?php if (!empty($passwordError)): ?>
+                        <p class="error-message"><?php echo $passwordError; ?></p>
+                    <?php endif; ?>
+                </div>
                 <button type="submit">Login</button>
                 <p class="additional-info">Welcome to Tixnet Pro Customer Portal!</p>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordInput = document.getElementById('password');
+    
+    passwordToggle.addEventListener('click', function() {
+        // Toggle password visibility
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            passwordToggle.classList.remove('bxs-lock-alt');
+            passwordToggle.classList.add('bxs-lock-open-alt');
+        } else {
+            passwordInput.type = 'password';
+            passwordToggle.classList.remove('bxs-lock-open-alt');
+            passwordToggle.classList.add('bxs-lock-alt');
+        }
+    });
+    
+    // Make the lock icon clickable with cursor pointer
+    passwordToggle.style.cursor = 'pointer';
+});
+</script>
 </body>
 </html>

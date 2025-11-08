@@ -1,3 +1,5 @@
+
+
 <?php
 session_start(); // Start session for login management
 include 'db.php';
@@ -192,12 +194,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                     $_SESSION['user_type'] = $row['u_type'];
                     $_SESSION['logged_in'] = true;
 
-                    // Redirect based on user type - ONLY ADMIN
+                    // Redirect based on user type
                     if ($row['u_type'] == 'admin') {
                         header("Location: adminD.php");
                         exit();
+                    } elseif ($row['u_type'] == 'staff') {
+                        header("Location: staffD.php");
+                        exit();
+                    } elseif ($row['u_type'] == 'technician') {
+                        header("Location: technicianD.php");
+                        exit();
                     }
-                    // Removed staff and technician redirects
                 } else {
                     $passwordError = "Incorrect password. Try again.";
                 }
@@ -306,7 +313,10 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 </div>
                 <div class="input-box">
                     <select name="type" required>
+                        <option value="" disabled selected>Select User Type</option>
                         <option value="admin" <?php if ($type == 'admin') echo 'selected'; ?>>Admin</option>
+                        <option value="staff" <?php if ($type == 'staff') echo 'selected'; ?>>Staff</option>
+                        <option value="technician" <?php if ($type == 'technician') echo 'selected'; ?>>Technician</option>
                     </select>
                     <i class='bx bxs-user type-icon'></i>
                     <?php if (!empty($typeErr)) { ?>
