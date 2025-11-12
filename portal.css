@@ -177,6 +177,36 @@ footer {
     margin-bottom: 5px;
 }
 
+.sidebar ul li a[href="portal.php"] i {
+    margin-left: 9.5px;
+}
+
+
+.sidebar ul li a[href="portal.php"] span {
+    margin-left: 1px;
+}
+
+
+.sidebar ul li a[href="suppT.php"] i {
+    margin-left: 8.5px;
+}
+
+
+.sidebar ul li a[href="suppT.php"] span {
+    margin-left: 1px;
+    
+}
+
+.sidebar ul li a[href="reject_ticket.php"] i {
+    margin-left: 9.5px;
+}
+
+
+.sidebar ul li a[href="reject_ticket.php"] span {
+    margin-left: 1px;
+}
+
+
 /* Main Content */
 .container {
     flex: 1;
