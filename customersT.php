@@ -654,11 +654,10 @@ if ($conn) {
         <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
     </ul>
     <footer>
-        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </footer>
     </div>
-
-    <div class="container">
+     <div class="container">
         <div class="upper"> 
             <h1>Customers Info</h1>
             <div class="user-profile">
@@ -680,11 +679,9 @@ if ($conn) {
                 </div>
                 <a href="staffsettings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                  
                 </a>
             </div>
-        </div>
-          
+         </div>
         <div class="alert-container">
             <?php if (isset($_SESSION['message'])): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['message']); ?></div>
@@ -692,10 +689,8 @@ if ($conn) {
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert alert-error"><?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); unset($_SESSION['error']); ?></div>
             <?php endif; ?>
-            
             <!-- BILL NOTIFICATION ALERT REMOVED -->
         </div>
-
         <div class="table-box glass-container">
             <h2>Connected Customers</h2>
             <div class="tab-buttons">
@@ -723,9 +718,8 @@ if ($conn) {
     </div>
     <form action="addC.php" method="get" style="display: inline;">
         <button type="submit" class="add-user-btn"><i class="fas fa-user-plus"></i> Add Customer</button>
-    </form>
-</div>
-
+           </form>
+           </div>
             <div class="active-customers" id="customers_active" <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'customers_archived') ? 'style="display: none;"' : ''; ?>>
                 <table id="active-customers-table">
                     <thead>
@@ -755,7 +749,6 @@ if ($conn) {
                                         $row['c_nextbill'] = $updated_next_bill;
                                     }
                                 }
-
                                 $displayStatus = ($row['c_status'] ?? '');
                                 echo "<tr> 
                                         <td>" . htmlspecialchars($row['c_account_no'], ENT_QUOTES, 'UTF-8') . "</td> 

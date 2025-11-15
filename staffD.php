@@ -281,16 +281,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['tab']
                 <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                 <td class='$statusClass' style='cursor: pointer;' onclick=\"showCloseTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "')\">" . ucfirst(strtolower($row['t_status'])) . "</td>
                 <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
-                <td>" . $technicianDisplay . "</td>  <!-- Added technician_username display -->
                 <td class='action-buttons'>";
             if ($tab === 'active') {
                 $output .= "
-                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "','" . ($row['technician_username'] ? htmlspecialchars($row['technician_username'], ENT_QUOTES, 'UTF-8') : '') . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='edit-btn' href='#' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                     <a class='archive-btn' href='#' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>";
             } else {
                 $output .= "
-                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "','" . ($row['technician_username'] ? htmlspecialchars($row['technician_username'], ENT_QUOTES, 'UTF-8') : '') . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='restore-btn' href='#' onclick=\"showRestoreModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                     <a class='delete-btn' href='#' onclick=\"showDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>";
             }
@@ -1308,7 +1307,7 @@ color: var(--dark);
            <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
          </ul>
 <footer>
-    <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
 </footer>
     </div>
 
@@ -1383,7 +1382,6 @@ color: var(--dark);
                         <th>Subject</th>
                         <th>Status <button class="filter-btn" onclick="showTypeFilterModal('active')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
                         <th>Ticket Details</th>
-                        <th>Technician</th> <!-- Added column for technician_username -->
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -1399,15 +1397,14 @@ color: var(--dark);
                                     <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                                     <td class='$statusClass' style='cursor: pointer;' onclick=\"showCloseTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "')\">" . ucfirst(strtolower($row['t_status'])) . "</td>
                                     <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . $technicianDisplay . "</td> <!-- Display technician -->
                                     <td class='action-buttons'>
-                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "','" . ($row['technician_username'] ? htmlspecialchars($row['technician_username'], ENT_QUOTES, 'UTF-8') : '') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                         <a class='edit-btn' href='#' onclick=\"showEditTicketModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_details'], ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                         <a class='archive-btn' href='#' onclick=\"showArchiveModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                     </td></tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='7' class='no-tickets'>No active tickets found.</td></tr>";
+                        echo "<tr><td colspan='6' class='no-tickets'>No active tickets found.</td></tr>";
                     }
                     ?>
                 </tbody>
@@ -1439,7 +1436,6 @@ color: var(--dark);
                         <th>Subject</th>
                         <th>Status <button class="filter-btn" onclick="showTypeFilterModal('archived')" title="Filter by Type"><i class='bx bx-filter'></i></button></th>
                         <th>Ticket Details</th>
-                        <th>Technician</th> <!-- Added column for technician_username -->
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -1454,16 +1450,15 @@ color: var(--dark);
                                     <td>" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "</td> 
                                     <td class='status-" . strtolower($row['t_status']) . "'>" . ucfirst(strtolower($row['t_status'])) . "</td>
                                     <td>" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "</td>
-                                    <td>" . $technicianDisplay . "</td> <!-- Display technician -->
                                     <td class='action-buttons'>
-                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                        <a class='view-btn' href='#' onclick=\"showViewModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_subject'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars($row['t_status'], ENT_QUOTES, 'UTF-8') . "','" . htmlspecialchars(preg_replace('/^ARCHIVED:/', '', $row['t_details']), ENT_QUOTES, 'UTF-8') . "','" . ($row['technician_username'] ? htmlspecialchars($row['technician_username'], ENT_QUOTES, 'UTF-8') : '') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                         <a class='restore-btn' href='#' onclick=\"showRestoreModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                         <a class='delete-btn' href='#' onclick=\"showDeleteModal('" . htmlspecialchars($row['t_ref'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['t_aname'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                     </td>
                                 </tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='7' class='no-tickets'>No archived tickets found.</td></tr>";
+                        echo "<tr><td colspan='6' class='no-tickets'>No archived tickets found.</td></tr>";
                     }
                     ?>
                 </tbody>
@@ -1793,13 +1788,15 @@ function showTab(tab) {
     updateURL();
 }
 
-function showViewModal(ref, name, subject, status, details) {
+function showViewModal(ref, name, subject, status, details, technician = 'Unassigned') {
     const statusClass = 'status-' + status.toLowerCase();
+    const technicianDisplay = technician ? technician : 'Unassigned';
     const content = `
         <p><strong>Ticket Reference:</strong> ${ref}</p>
         <p><strong>Account Name:</strong> ${name}</p>
         <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Status:</strong> <span class="${statusClass}">${status}</span></p>
+        <p><strong>Technician:</strong> ${technicianDisplay}</p>
         <p><strong>Details:</strong> ${details}</p>
     `;
     document.getElementById('viewContent').innerHTML = content;

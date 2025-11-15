@@ -424,7 +424,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_status') {
             <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
         </ul>
         <footer>
-            <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 

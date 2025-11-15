@@ -620,7 +620,6 @@ if (isset($_POST['deploy_asset'])) {
         }
     }
 
-  
 
     $asset_details = [];
     if (empty($errors)) {
@@ -1031,7 +1030,7 @@ if (isset($_POST['return_asset'])) {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    $sql = "SELECT a_ref_no, a_name, a_serial_no, a_date, a_status, a_current_status 
+    $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no 
             FROM tbl_assets 
             WHERE $whereClause 
             ORDER BY a_ref_no ASC 
@@ -1051,8 +1050,8 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
-                <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
                     <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
@@ -1106,7 +1105,7 @@ if (isset($_POST['return_asset'])) {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    $sql = "SELECT a_ref_no, a_name, a_serial_no, a_date, a_status, a_current_status 
+    $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no 
             FROM tbl_assets 
             WHERE $whereClause 
             ORDER BY a_ref_no ASC 
@@ -1126,8 +1125,8 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
-                <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
                     <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
@@ -1183,10 +1182,10 @@ if (isset($_POST['return_asset'])) {
         $whereClause = implode(' AND ', $whereClauses);
 
         // Fetch all assets for export
-        $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_serial_no 
-            FROM tbl_assets 
-            WHERE $whereClause 
-            ORDER BY a_ref_no ASC";
+        $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no 
+                FROM tbl_assets 
+                WHERE $whereClause 
+                ORDER BY a_ref_no ASC";
         $stmt = $conn->prepare($sql);
         if (!empty($params)) {
             $stmt->bind_param($types, ...$params);
@@ -1200,6 +1199,7 @@ if (isset($_POST['return_asset'])) {
         'Asset Ref No' => $row['a_ref_no'],
         'Asset Name' => $row['a_name'],
         'Category' => $row['a_status'],
+        'Quantity' => $row['a_quantity'],
         'Current Status' => $row['a_current_status'],
         'Serial No' => $row['a_serial_no'] ?? '',
         'Date Registered' => $row['a_date'],
@@ -1237,7 +1237,7 @@ if (isset($_POST['return_asset'])) {
         $totalActive = $activeCountResult ? $activeCountResult->fetch_assoc()['total'] : 0;
         $totalActivePages = ceil($totalActive / $limit);
 
-        $sqlActive = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_serial_no FROM tbl_assets WHERE a_current_status != 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
+        $sqlActive = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no FROM tbl_assets WHERE a_current_status != 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
         $stmtActive = $conn->prepare($sqlActive);
         $stmtActive->bind_param("ii", $activeOffset, $limit);
         $stmtActive->execute();
@@ -1249,7 +1249,7 @@ if (isset($_POST['return_asset'])) {
         $totalArchived = $archivedCountResult ? $archivedCountResult->fetch_assoc()['total'] : 0;
         $totalArchivedPages = ceil($totalArchived / $limit);
 
-        $sqlArchived = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_serial_no FROM tbl_assets WHERE a_current_status = 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
+        $sqlArchived = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no FROM tbl_assets WHERE a_current_status = 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
         $stmtArchived = $conn->prepare($sqlArchived);
         $stmtArchived->bind_param("ii", $archivedOffset, $limit);
         $stmtArchived->execute();
@@ -1317,7 +1317,7 @@ unset($_SESSION['open_modal']);
         <li><a href="Payments.php"><i class="fas fa-credit-card icon"></i> <span>Transactions</span></a></li>
     </ul>
     <footer>
-        <a href="technician_staff.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <a href="index.php" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </footer>
 </div>
 
@@ -1425,8 +1425,8 @@ unset($_SESSION['open_modal']);
                                     <i class='bx bx-filter'></i>
                                     </button>
                             </th>
+                            <th>Quantity</th>
                             <th>Current Status</th>
-                            <th>Serial No</th>
                             <th>Date Registered</th>
                             <th>Actions</th>
                             </tr>
@@ -1439,8 +1439,8 @@ unset($_SESSION['open_modal']);
                                                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
                                                 <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td> 
-                                                <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
@@ -1485,8 +1485,8 @@ unset($_SESSION['open_modal']);
                                             <i class='bx bx-filter'></i>
                                         </button>
                                     </th>
+                                    <th>Quantity</th>
                                     <th>Current Status</th>
-                                    <th>Serial No</th>
                                     <th>Date Registered</th>
                                     <th>Actions</th>
                                 </tr>
@@ -1499,8 +1499,8 @@ unset($_SESSION['open_modal']);
                                                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
                                                 <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
-                                                <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
                                                     <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
@@ -2863,4 +2863,3 @@ document.getElementById('searchInput').addEventListener('input', debouncedSearch
     </script>
     </body>
     </html>
-

@@ -618,7 +618,7 @@ $conn->close();
             <li><a href="TechCustomers.php"><i class="fas fa-user-friends icon"></i> <span>Customers</span></a></li>
         </ul>
         <footer>
-            <a href="technician_staff.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="index.php?action=logout" class="back-home"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </footer>
     </div>
 
