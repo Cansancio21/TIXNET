@@ -1,8 +1,29 @@
-
-
 <?php
-session_start(); // Start session for login management
+session_start();
 include 'db.php';
+
+// Define access code
+define('REGISTRATION_ACCESS_CODE', 'ADMIN1234!');
+
+// Initialize variables
+$firstname = $lastname = $email = $username = $access_code = "";
+$type = $status = "";
+$firstnameErr = $lastnameErr = $loginError = $passwordError = $usernameError = "";
+$emailErr = $typeErr = $statusErr = $generalError = $accessCodeError = "";
+$hasError = false;
+$statusMessage = "";
+$statusClass = "";
+
+// Handle access code verification
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['access_code'])) {
+    $access_code = trim($_POST['access_code']);
+    
+    if ($access_code === REGISTRATION_ACCESS_CODE) {
+        $_SESSION['access_verified'] = true;
+    } else {
+        $accessCodeError = "Invalid access code. Please try again.";
+    }
+}
 
 // Handle AJAX status check
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['username']) && !isset($_POST['login']) && !isset($_POST['firstname'])) {
@@ -39,122 +60,119 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit;
 }
 
-// Initialize variables as empty
-$firstname = $lastname = $email = $username = "";
-$type = $status = ""; 
-
-$firstnameErr = $lastnameErr = $loginError = $passwordError = $usernameError = "";
-$emailErr = $typeErr = $statusErr = $generalError = "";
-$hasError = false;
-
 // User Registration
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['firstname'])) {
-    $firstname = trim($_POST['firstname'] ?? '');
-    $lastname = trim($_POST['lastname'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
-    $type = trim($_POST['type'] ?? '');
-    $status = trim($_POST['status'] ?? '');
-
-    // Validate firstname (should not contain numbers)
-    if (empty($firstname) || !preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
-        $firstnameErr = "Firstname should not contain numbers and is required.";
-        $hasError = true;
-    }
-
-    // Validate lastname (should not contain numbers)
-    if (empty($lastname) || !preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {   
-        $lastnameErr = "Lastname should not contain numbers and is required.";
-        $hasError = true;
-    }
-
-    // Validate email
-    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $emailErr = "Valid email is required.";
-        $hasError = true;
-    }
-
-    // Check if username already exists
-    if (empty($username)) {
-        $usernameError = "Username is required.";
-        $hasError = true;
+    // Verify access code first
+    if (!isset($_SESSION['access_verified']) || $_SESSION['access_verified'] !== true) {
+        $accessCodeError = "Access verification required. Please enter the access code first.";
     } else {
-        $sql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            $generalError = "Database prepare error: " . $conn->error;
-            $hasError = true;
-        } else {
-            $stmt->bind_param("s", $username);
-            $stmt->execute();
-            $result = $stmt->get_result();
+        $firstname = trim($_POST['firstname'] ?? '');
+        $lastname = trim($_POST['lastname'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $username = trim($_POST['username'] ?? '');
+        $password = trim($_POST['password'] ?? '');
+        $type = trim($_POST['type'] ?? '');
+        $status = trim($_POST['status'] ?? '');
 
-            if ($result->num_rows > 0) {
-                $usernameError = "Username already exists.";
-                $hasError = true;
-            }
-            $stmt->close();
+        // Validate firstname (should not contain numbers)
+        if (empty($firstname) || !preg_match("/^[a-zA-Z\s-]+$/", $firstname)) {
+            $firstnameErr = "Firstname should not contain numbers and is required.";
+            $hasError = true;
         }
-    }
 
-    // Validate password (must contain letters, numbers, and special characters)
-    if (empty($password) || !preg_match("/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
-        $passwordError = "Password is weak.";
-        $hasError = true;
-    } else {
-        // Hash the password if validation passes
-        $password = password_hash($password, PASSWORD_BCRYPT);
-    }
+        // Validate lastname (should not contain numbers)
+        if (empty($lastname) || !preg_match("/^[a-zA-Z\s-]+$/", $lastname)) {   
+            $lastnameErr = "Lastname should not contain numbers and is required.";
+            $hasError = true;
+        }
 
-    // Validate type
-    if (empty($type) || !in_array($type, ['admin', 'staff', 'technician'])) {
-        $typeErr = "Please select a valid user type.";
-        $hasError = true;
-    }
+        // Validate email
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $emailErr = "Valid email is required.";
+            $hasError = true;
+        }
 
-    // Validate status
-    if (empty($status) || !in_array($status, ['pending', 'active'])) {
-        $statusErr = "Please select a valid status.";
-        $hasError = true;
-    }
-
-    if (!$hasError) {
-        $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            $generalError = "Database prepare error: " . $conn->error;
+        // Check if username already exists
+        if (empty($username)) {
+            $usernameError = "Username is required.";
             $hasError = true;
         } else {
-            $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
-            if ($stmt->execute()) {
-                error_log("User registered: $username, type: $type");
-                header("Location: index.php?success=Registration+successful");
-                exit();
+            $sql = "SELECT u_id FROM tbl_user WHERE u_username = ?";
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                $generalError = "Database prepare error: " . $conn->error;
+                $hasError = true;
             } else {
-                $generalError = "Database execution error: " . $stmt->error;
-                $hasError = true;
-                error_log("Registration failed: " . $stmt->error);
+                $stmt->bind_param("s", $username);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                if ($result->num_rows > 0) {
+                    $usernameError = "Username already exists.";
+                    $hasError = true;
+                }
+                $stmt->close();
             }
-            $stmt->close();
         }
-    } else {
-        error_log("Registration failed due to validation errors: " . json_encode([
-            'firstnameErr' => $firstnameErr,
-            'lastnameErr' => $lastnameErr,
-            'emailErr' => $emailErr,
-            'usernameError' => $usernameError,
-            'passwordError' => $passwordError,
-            'typeErr' => $typeErr,
-            'statusErr' => $statusErr
-        ]));
+
+        // Validate password (must contain letters, numbers, and special characters)
+        if (empty($password) || !preg_match("/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
+            $passwordError = "Password is weak.";
+            $hasError = true;
+        } else {
+            // Hash the password if validation passes
+            $password = password_hash($password, PASSWORD_BCRYPT);
+        }
+
+        // Validate type
+        if (empty($type) || !in_array($type, ['admin', 'staff', 'technician'])) {
+            $typeErr = "Please select a valid user type.";
+            $hasError = true;
+        }
+
+        // Validate status
+        if (empty($status) || !in_array($status, ['pending', 'active'])) {
+            $statusErr = "Please select a valid status.";
+            $hasError = true;
+        }
+
+        if (!$hasError) {
+            $sql = "INSERT INTO tbl_user (u_fname, u_lname, u_email, u_username, u_password, u_type, u_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                $generalError = "Database prepare error: " . $conn->error;
+                $hasError = true;
+            } else {
+                $stmt->bind_param("sssssss", $firstname, $lastname, $email, $username, $password, $type, $status);
+                if ($stmt->execute()) {
+                    error_log("User registered: $username, type: $type");
+                    // Clear the access verification after successful registration
+                    unset($_SESSION['access_verified']);
+                    header("Location: index.php?success=Registration+successful");
+                    exit();
+                } else {
+                    $generalError = "Database execution error: " . $stmt->error;
+                    $hasError = true;
+                    error_log("Registration failed: " . $stmt->error);
+                }
+                $stmt->close();
+            }
+        } else {
+            error_log("Registration failed due to validation errors: " . json_encode([
+                'firstnameErr' => $firstnameErr,
+                'lastnameErr' => $lastnameErr,
+                'emailErr' => $emailErr,
+                'usernameError' => $usernameError,
+                'passwordError' => $passwordError,
+                'typeErr' => $typeErr,
+                'statusErr' => $statusErr
+            ]));
+        }
     }
 }
 
-// Initialize status message variable
-$statusMessage = "";
-$statusClass = "";
+// Handle login
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
@@ -226,6 +244,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
 // Check for success message
 $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) : '';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,10 +253,56 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
     <title>User Registration & Login</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="index.css">
+    <style>
+        .access-code-container {
+            position: absolute;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            z-index: 100;
+        }
+        .access-code-input {
+            position: relative;
+            margin-bottom: 0;
+        }
+        .access-code-input input {
+            width: 100%;
+            padding: 12px 45px 12px 15px;
+            border: 2px solid #ccc;
+            border-radius: 25px;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+            color: #fff;
+        }
+        .access-code-input input:focus {
+            border-color: #00bcd4;
+        }
+        .access-code-input i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .error-message {
+            color: #ff6b6b;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 8px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container <?php echo ($hasError) ? 'active' : ''; ?>">
-        <!-- Login Form -->
+    <!-- Wagtangon ang PHP active class sa container -->
+    <div class="container">
+        <!-- Login Form (wala hilabti) -->
         <div class="form-box login">
             <form action="" method="POST">
                 <h1>Login</h1>
@@ -271,7 +336,7 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             </form>
         </div>
 
-        <!-- Registration Form -->
+        <!-- Registration Form (wala hilabti) -->
         <div class="form-box register">
             <form action="" method="POST">
                 <h1>Registration</h1>
@@ -343,7 +408,20 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             <div class="toggle-panel toggle-left">
                 <h1>TIXNET PRO</h1>
                 <p>Don't have an account?</p>
-                <button class="btn register-btn">Register</button>
+                <button class="btn register-btn" id="registerToggleBtn">Register</button>
+                
+                <!-- Access Code Input dapit sa ubos sa toggle button -->
+                <div class="access-code-container" id="accessCodeContainer">
+                    <form action="" method="POST" id="accessCodeForm">
+                        <div class="access-code-input">
+                            <input type="password" name="access_code" placeholder="Enter Admin Code" required value="<?php echo htmlspecialchars($access_code); ?>" id="accessCodeInput">
+                            <i class="bx bxs-key" id="toggleAccessCode"></i>
+                        </div>
+                        <?php if (!empty($accessCodeError)) { ?>
+                            <div class="error-message"><?php echo htmlspecialchars($accessCodeError); ?></div>
+                        <?php } ?>
+                    </form>
+                </div>
             </div>
             <div class="toggle-panel toggle-right">
                 <h1>TIXNET PRO</h1>
@@ -370,9 +448,8 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
             }
         }
 
-        // Toggle password visibility
         document.addEventListener('DOMContentLoaded', function () {
-            // Password visibility toggles
+            // Password visibility toggles (wala hilabti)
             const togglePassword = document.getElementById('togglePassword');
             const passwordInput = document.getElementById('password');
             const loginPasswordInput = document.getElementById('loginPassword');
@@ -396,6 +473,86 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 });
             }
 
+            // Show access code when register button is clicked (PREVENT SLIDE)
+            const registerToggleBtn = document.getElementById('registerToggleBtn');
+            const accessCodeContainer = document.getElementById('accessCodeContainer');
+            const accessCodeInput = document.getElementById('accessCodeInput');
+            const container = document.querySelector(".container");
+            
+            if (registerToggleBtn && accessCodeContainer) {
+                registerToggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Show access code container but DON'T slide to registration
+                    if (accessCodeContainer.style.display === 'block') {
+                        accessCodeContainer.style.display = 'none';
+                    } else {
+                        accessCodeContainer.style.display = 'block';
+                        // Focus on the input field
+                        setTimeout(() => {
+                            if (accessCodeInput) accessCodeInput.focus();
+                        }, 100);
+                    }
+                });
+            }
+
+            // Toggle access code visibility
+            const toggleAccessCode = document.getElementById('toggleAccessCode');
+            if (toggleAccessCode && accessCodeInput) {
+                toggleAccessCode.addEventListener('click', function() {
+                    const type = accessCodeInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    accessCodeInput.setAttribute('type', type);
+                    this.classList.remove('bxs-key', 'bx-show');
+                    this.classList.add(type === 'password' ? 'bxs-key' : 'bx-show');
+                });
+            }
+
+            // Submit form when Enter key is pressed (after typing ADMIN1234!)
+            if (accessCodeInput) {
+                accessCodeInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (this.value === 'ADMIN1234!') {
+                            // Hide access code container first
+                            accessCodeContainer.style.display = 'none';
+                            
+                            // Add active class to trigger slide animation
+                            container.classList.add("active");
+                            
+                            // Set session in PHP via form submission (but don't redirect)
+                            const formData = new FormData();
+                            formData.append('access_code', 'ADMIN1234!');
+                            
+                            fetch('', {
+                                method: 'POST',
+                                body: formData
+                            }).then(response => {
+                                console.log('Access code verified');
+                            });
+                        } else {
+                            // Submit form for error handling
+                            document.getElementById('accessCodeForm').submit();
+                        }
+                    }
+                });
+            }
+
+            // Hide access code when login button is clicked
+            const loginBtn = document.querySelector('.login-btn');
+            if (loginBtn && accessCodeContainer) {
+                loginBtn.addEventListener('click', function() {
+                    accessCodeContainer.style.display = 'none';
+                });
+            }
+
+            // Prevent container slide when clicking on access code container
+            if (accessCodeContainer) {
+                accessCodeContainer.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+
             // Fade out status messages for active and success
             const statusMessages = document.querySelectorAll('.status-message.active, .status-message.success');
             statusMessages.forEach(statusMessage => {
@@ -407,30 +564,43 @@ $successMessage = isset($_GET['success']) ? htmlspecialchars($_GET['success']) :
                 }, 3000);
             });
 
-            // Ensure login view on success message
-            if (window.location.search.includes('success')) {
-                const container = document.querySelector('.container');
-                if (container) {
-                    container.classList.remove('active');
-                }
-            }
+            // Toggle between Login & Register (modified to check access first)
+            const registerBtns = document.querySelectorAll(".register-btn");
+            const loginBtns = document.querySelectorAll(".login-btn");
 
-            // Toggle between Login & Register
-            const container = document.querySelector(".container");
-            const registerBtn = document.querySelector(".register-btn");
-            const loginBtn = document.querySelector(".login-btn");
-
-            if (container && registerBtn && loginBtn) {
-                registerBtn.addEventListener("click", () => {
-                    container.classList.add("active");
+            if (container && registerBtns && loginBtns) {
+                registerBtns.forEach(btn => {
+                    if (btn.id !== 'registerToggleBtn') {
+                        btn.addEventListener("click", (e) => {
+                            e.preventDefault();
+                            // Only slide if access is verified
+                            <?php if (isset($_SESSION['access_verified']) && $_SESSION['access_verified'] === true): ?>
+                                container.classList.add("active");
+                            <?php else: ?>
+                                // Show access code container instead
+                                if (accessCodeContainer) {
+                                    accessCodeContainer.style.display = 'block';
+                                    setTimeout(() => {
+                                        if (accessCodeInput) accessCodeInput.focus();
+                                    }, 100);
+                                }
+                            <?php endif; ?>
+                        });
+                    }
                 });
 
-                loginBtn.addEventListener("click", () => {
-                    container.classList.remove("active");
+                loginBtns.forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        container.classList.remove("active");
+                        // Hide access code container
+                        if (accessCodeContainer) {
+                            accessCodeContainer.style.display = 'none';
+                        }
+                    });
                 });
             }
 
-            // Poll for status updates
+            // Poll for status updates (wala hilabti)
             function checkStatus() {
                 const usernameInput = document.querySelector('input[name="username"]');
                 if (usernameInput && usernameInput.value) {

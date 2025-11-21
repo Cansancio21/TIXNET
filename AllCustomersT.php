@@ -1,6 +1,11 @@
 <?php
+// FIX TIMEZONE FOR PHILIPPINES
+date_default_timezone_set('Asia/Manila');
 session_start();
 include 'db.php';
+
+// Set MySQL timezone
+$conn->query("SET time_zone = '+08:00'");
 
 // Check if the user is logged in
 if (!isset($_SESSION['username'])) {
@@ -13,6 +18,9 @@ if (!isset($_SESSION['username'])) {
 $firstName = '';
 $lastName = '';
 $userType = '';
+$staff_id = 0;
+
+// USE YOUR EXISTING AVATAR LOGIC
 $avatarPath = 'default-avatar.png';
 $avatarFolder = 'Uploads/avatars/';
 $userAvatar = $avatarFolder . $_SESSION['username'] . '.png';
@@ -24,8 +32,8 @@ if (file_exists($userAvatar)) {
 }
 $avatarPath = $_SESSION['avatarPath'];
 
-// Fetch user data
-$sqlUser = "SELECT u_fname, u_lname, u_type FROM tbl_user WHERE u_username = ?";
+// Fetch user data - INCLUDING STAFF ID
+$sqlUser = "SELECT u_fname, u_lname, u_type, u_id FROM tbl_user WHERE u_username = ?";
 $stmt = $conn->prepare($sqlUser);
 if (!$stmt) {
     error_log("Prepare failed for user query: " . $conn->error);
@@ -41,7 +49,8 @@ if ($resultUser->num_rows > 0) {
     $firstName = $row['u_fname'] ?: 'Unknown';
     $lastName = $row['u_lname'] ?: '';
     $userType = strtolower($row['u_type']) ?: 'staff';
-    error_log("User fetched: username={$_SESSION['username']}, userType=$userType");
+    $staff_id = $row['u_id']; // GET STAFF ID
+    error_log("User fetched: username={$_SESSION['username']}, userType=$userType, staff_id=$staff_id");
 } else {
     error_log("User not found for username: {$_SESSION['username']}");
     $_SESSION['error'] = "User not found.";
@@ -49,6 +58,293 @@ if ($resultUser->num_rows > 0) {
     exit();
 }
 $stmt->close();
+
+// Real-time check for new messages - FILTERED BY CURRENT STAFF
+if (isset($_GET['action']) && $_GET['action'] === 'check_new_messages') {
+    header('Content-Type: application/json');
+    
+    $sqlCheckMessages = "SELECT DISTINCT ct.s_ref, ct.c_fname, ct.c_lname, ct.s_subject, ct.s_status, ct.c_id,
+                        (SELECT COUNT(*) FROM tbl_ticket_conversations 
+                         WHERE ticket_ref = ct.s_ref 
+                         AND sender_type = 'customer' 
+                         AND (is_read IS NULL OR is_read = 0)) as unread_count
+                        FROM tbl_customer_ticket ct
+                        INNER JOIN tbl_ticket_conversations tc ON ct.s_ref = tc.ticket_ref
+                        WHERE ct.s_status IN ('Pending', 'Declined')
+                        AND tc.sender_type = 'customer'
+                        AND EXISTS (
+                            SELECT 1 FROM tbl_ticket_conversations tc2 
+                            WHERE tc2.ticket_ref = ct.s_ref 
+                            AND tc2.sender_type = 'staff' 
+                            AND tc2.sender_id = ?
+                        )
+                        GROUP BY ct.s_ref
+                        ORDER BY tc.timestamp DESC";
+    
+    $stmtCheck = $conn->prepare($sqlCheckMessages);
+    $stmtCheck->bind_param("i", $staff_id);
+    $stmtCheck->execute();
+    $resultCheck = $stmtCheck->get_result();
+    
+    $tickets = [];
+    $totalUnread = 0;
+    
+    while ($row = $resultCheck->fetch_assoc()) {
+        $tickets[] = $row;
+        $totalUnread += $row['unread_count'];
+    }
+    $stmtCheck->close();
+    
+    echo json_encode([
+        'tickets' => $tickets,
+        'totalUnread' => $totalUnread
+    ]);
+    exit();
+}
+
+// Handle mark as read AJAX
+if (isset($_GET['action']) && $_GET['action'] === 'mark_as_read') {
+    $ticket_ref = $_GET['ticket_ref'] ?? '';
+    if (!empty($ticket_ref)) {
+        // Verify staff has access to this conversation
+        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
+                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
+        $verifyStmt = $conn->prepare($verifySql);
+        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
+        $verifyStmt->execute();
+        $verifyResult = $verifyStmt->get_result();
+        
+        if ($verifyResult->num_rows > 0) {
+            // Mark all customer messages as read for this ticket
+            $updateSql = "UPDATE tbl_ticket_conversations SET is_read = 1 
+                          WHERE ticket_ref = ? AND sender_type = 'customer'";
+            $updateStmt = $conn->prepare($updateSql);
+            $updateStmt->bind_param("s", $ticket_ref);
+            
+            if ($updateStmt->execute()) {
+                echo json_encode(['status' => 'success']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Failed to mark as read']);
+            }
+            $updateStmt->close();
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+        }
+        $verifyStmt->close();
+    }
+    exit();
+}
+
+// Handle conversation actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
+    $ticket_ref = $_POST['ticket_ref'] ?? '';
+    $message = trim($_POST['message'] ?? '');
+    $sender_type = $_POST['sender_type'] ?? 'staff';
+    
+    if (!empty($ticket_ref) && !empty($message)) {
+        // Verify staff has access to this conversation
+        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
+                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
+        $verifyStmt = $conn->prepare($verifySql);
+        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
+        $verifyStmt->execute();
+        $verifyResult = $verifyStmt->get_result();
+        
+        if ($verifyResult->num_rows > 0) {
+            // Store timestamp in Philippines time
+            $current_timestamp = date('Y-m-d H:i:s');
+            
+            $convSql = "INSERT INTO tbl_ticket_conversations (ticket_ref, sender_type, sender_id, message, timestamp) VALUES (?, ?, ?, ?, ?)";
+            $convStmt = $conn->prepare($convSql);
+            $convStmt->bind_param("ssiss", $ticket_ref, $sender_type, $staff_id, $message, $current_timestamp);
+            
+            if ($convStmt->execute()) {
+                // Return success with Philippines timestamp
+                echo json_encode(['status' => 'success', 'timestamp' => $current_timestamp]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Failed to send message.']);
+            }
+            $convStmt->close();
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'You don\'t have permission to access this ticket.']);
+        }
+        $verifyStmt->close();
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Ticket reference and message are required.']);
+    }
+    exit();
+}
+
+// Handle get conversation AJAX - WITH STAFF VERIFICATION
+if (isset($_GET['action']) && $_GET['action'] === 'get_conversation') {
+    $ticket_ref = $_GET['ticket_ref'] ?? '';
+    if (!empty($ticket_ref)) {
+        // First verify that this staff member is part of this conversation
+        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
+                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
+        $verifyStmt = $conn->prepare($verifySql);
+        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
+        $verifyStmt->execute();
+        $verifyResult = $verifyStmt->get_result();
+        
+        if ($verifyResult->num_rows === 0) {
+            echo "<div style='text-align: center; color: red; padding: 20px;'>You don't have permission to view this conversation.</div>";
+            $verifyStmt->close();
+            exit();
+        }
+        $verifyStmt->close();
+        
+        // Then mark all customer messages as read
+        $updateSql = "UPDATE tbl_ticket_conversations SET is_read = 1 
+                      WHERE ticket_ref = ? AND sender_type = 'customer'";
+        $updateStmt = $conn->prepare($updateSql);
+        $updateStmt->bind_param("s", $ticket_ref);
+        $updateStmt->execute();
+        $updateStmt->close();
+        
+        // Then fetch the conversation
+        $convSql = "SELECT tc.*, 
+                   CASE 
+                       WHEN tc.sender_type = 'staff' THEN CONCAT(u.u_fname, ' ', u.u_lname)
+                       ELSE CONCAT(c.c_fname, ' ', c.c_lname)
+                   END as sender_name,
+                   tc.sender_type,
+                   u.u_fname as staff_fname,
+                   u.u_lname as staff_lname,
+                   u.u_username as staff_username,
+                   c.c_fname as customer_fname,
+                   c.c_lname as customer_lname,
+                   c.c_id as customer_id
+                   FROM tbl_ticket_conversations tc
+                   LEFT JOIN tbl_user u ON tc.sender_id = u.u_id AND tc.sender_type = 'staff'
+                   LEFT JOIN tbl_customer c ON tc.sender_id = c.c_id AND tc.sender_type = 'customer'
+                   WHERE tc.ticket_ref = ? 
+                   ORDER BY CAST(tc.timestamp AS DATETIME) ASC";
+       
+        $convStmt = $conn->prepare($convSql);
+        $convStmt->bind_param("s", $ticket_ref);
+        $convStmt->execute();
+        $convResult = $convStmt->get_result();
+        
+        $conversation = '';
+        while ($row = $convResult->fetch_assoc()) {
+            // Proper timestamp handling with Philippines timezone
+            $timestamp = $row['timestamp'];
+            
+            // Always show actual timestamp in Philippines time
+            $displayTime = date('M j, Y g:i A'); // Current Philippines time
+            
+            if (!empty($timestamp) && $timestamp != '0000-00-00 00:00:00') {
+                $parsedTime = strtotime($timestamp);
+                if ($parsedTime !== false && $parsedTime > 0) {
+                    // Convert to Philippines time format
+                    $displayTime = date('M j, Y g:i A', $parsedTime);
+                }
+            }
+            
+            if ($row['sender_type'] === 'staff') {
+                // Staff message - LEFT side
+                $senderName = $row['sender_name'] ?: 'Staff';
+                
+                // FIXED: PROPER STAFF AVATAR LOGIC WITH VISIBLE DEFAULT
+                $staffAvatarPath = 'Uploads/avatars/' . $row['staff_username'] . '.png';
+                $cleanStaffAvatarPath = preg_replace('/\?\d+$/', '', $staffAvatarPath);
+                $hasStaffAvatar = file_exists($cleanStaffAvatarPath) && is_file($cleanStaffAvatarPath);
+                
+                $staffAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #28a745;"></i>';
+                if ($hasStaffAvatar) {
+                    $staffAvatarHtml = "<img src='$staffAvatarPath?" . time() . "' alt='Staff Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
+                }
+                
+                $conversation .= "
+                <div class='message staff-message'>
+                    <div class='message-avatar staff-avatar'>
+                        $staffAvatarHtml
+                    </div>
+                    <div class='message-content-wrapper'>
+                        <div class='message-header'>
+                            <strong>$senderName</strong>
+                        </div>
+                        <div class='message-content'>
+                            " . nl2br(htmlspecialchars($row['message'])) . "
+                        </div>
+                        <div class='message-time'>$displayTime</div>
+                    </div>
+                </div>";
+            } else {
+                // Customer message - RIGHT side
+                $senderName = $row['sender_name'] ?: 'Customer';
+                $customerId = $row['customer_id'];
+                
+                // FIXED: PROPER CUSTOMER AVATAR LOGIC WITH VISIBLE DEFAULT
+                $customerAvatarPath = 'Uploads/avatars/' . $customerId . '.png';
+                $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
+                $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
+                
+                $customerAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #6c757d;"></i>';
+                if ($hasCustomerAvatar) {
+                    $customerAvatarHtml = "<img src='$customerAvatarPath?" . time() . "' alt='Customer Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
+                }
+                
+                $conversation .= "
+                <div class='message customer-message'>
+                    <div class='message-avatar customer-avatar'>
+                        $customerAvatarHtml
+                    </div>
+                    <div class='message-content-wrapper'>
+                        <div class='message-header'>
+                            <strong>$senderName</strong>
+                        </div>
+                        <div class='message-content'>
+                            " . nl2br(htmlspecialchars($row['message'])) . "
+                        </div>
+                        <div class='message-time'>$displayTime</div>
+                    </div>
+                </div>";
+            }
+        }
+        
+        if (empty($conversation)) {
+            $conversation = "<div style='text-align: center; color: #666; padding: 20px;'>No messages yet. Start the conversation!</div>";
+        }
+        
+        echo $conversation;
+        $convStmt->close();
+        exit();
+    }
+}
+
+// Fetch tickets with conversations for message badges - FILTERED BY CURRENT STAFF
+$sqlTicketsWithMessages = "SELECT DISTINCT ct.s_ref, ct.c_fname, ct.c_lname, ct.s_subject, ct.s_status, ct.c_id,
+                          (SELECT COUNT(*) FROM tbl_ticket_conversations 
+                           WHERE ticket_ref = ct.s_ref 
+                           AND sender_type = 'customer' 
+                           AND (is_read IS NULL OR is_read = 0)) as unread_count
+                          FROM tbl_customer_ticket ct
+                          INNER JOIN tbl_ticket_conversations tc ON ct.s_ref = tc.ticket_ref
+                          WHERE ct.s_status IN ('Pending', 'Declined')
+                          AND tc.sender_type = 'customer'
+                          AND EXISTS (
+                              SELECT 1 FROM tbl_ticket_conversations tc2 
+                              WHERE tc2.ticket_ref = ct.s_ref 
+                              AND tc2.sender_type = 'staff' 
+                              AND tc2.sender_id = ?
+                          )
+                          GROUP BY ct.s_ref
+                          ORDER BY tc.timestamp DESC";
+
+$stmtActiveChats = $conn->prepare($sqlTicketsWithMessages);
+$stmtActiveChats->bind_param("i", $staff_id);
+$stmtActiveChats->execute();
+$resultActiveChats = $stmtActiveChats->get_result();
+$ticketsWithMessages = [];
+$totalUnread = 0;
+
+while ($row = $resultActiveChats->fetch_assoc()) {
+    $ticketsWithMessages[] = $row;
+    $totalUnread += $row['unread_count'];
+}
+$stmtActiveChats->close();
 
 // Fetch customers who have pending tickets
 $sqlCustomers = "SELECT DISTINCT c.c_id, c.c_fname, c.c_lname 
@@ -140,7 +436,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search') {
             $statusClass = 'status-' . strtolower($row['s_status']);
             $customerName = htmlspecialchars(($row['c_fname'] . ' ' . $row['c_lname']) ?: 'Unknown', ENT_QUOTES, 'UTF-8');
             $fullRef = htmlspecialchars($row['s_ref'], ENT_QUOTES, 'UTF-8');
-            error_log("Fetched ticket for AJAX: s_ref=$fullRef"); // Log for debugging
+            error_log("Fetched ticket for AJAX: s_ref=$fullRef");
             $output .= "<tr> 
                 <td>$fullRef</td> 
                 <td>$customerName</td> 
@@ -275,7 +571,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->begin_transaction();
 
         try {
-            // Fetch ticket details for logging
+            // Fetch ticket details for logging and conversation
             $sqlFetch = "SELECT s_ref, c_id, c_fname, c_lname, s_subject, s_message 
                          FROM tbl_customer_ticket 
                          WHERE s_ref = ? AND s_status = 'Pending'";
@@ -290,9 +586,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Ticket not found or not pending.");
             }
             $ticket = $resultFetch->fetch_assoc();
+            $customerId = $ticket['c_id'];
             $stmtFetch->close();
 
-            // Update tbl_customer_ticket with Rejected status and remarks
+            // Update tbl_customer_ticket with Declined status and remarks
             $rejectedStatus = 'Declined';
             $sqlUpdate = "UPDATE tbl_customer_ticket SET s_status = ?, s_remarks = ? WHERE s_ref = ?";
             $stmtUpdate = $conn->prepare($sqlUpdate);
@@ -308,6 +605,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             error_log("Ticket updated in tbl_customer_ticket with s_ref: $ticket_ref, status: $rejectedStatus");
             $stmtUpdate->close();
+
+            // AUTO-SEND REMARKS AS MESSAGE TO CUSTOMER
+            if (!empty($remarks)) {
+                $current_timestamp = date('Y-m-d H:i:s');
+                $systemMessage = "Your ticket has been declined. Remarks: " . $remarks;
+                $sender_type = 'staff';
+                
+                $convSql = "INSERT INTO tbl_ticket_conversations (ticket_ref, sender_type, sender_id, message, timestamp) VALUES (?, ?, ?, ?, ?)";
+                $convStmt = $conn->prepare($convSql);
+                $convStmt->bind_param("ssiss", $ticket_ref, $sender_type, $staff_id, $systemMessage, $current_timestamp);
+                
+                if (!$convStmt->execute()) {
+                    throw new Exception("Failed to send decline message to customer: " . $convStmt->error);
+                }
+                error_log("Decline message sent to customer for ticket: $ticket_ref");
+                $convStmt->close();
+            }
 
             // Log the action
             $logDescription = "Staff {$firstName} {$lastName} rejected customer ticket {$ticket['s_ref']} for customer {$ticket['c_fname']} {$ticket['c_lname']} with remarks: $remarks";
@@ -325,7 +639,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Commit the transaction
             $conn->commit();
-            $_SESSION['message'] = "Ticket Declined successfully!";
+            $_SESSION['message'] = "Ticket Declined successfully and customer notified!";
         } catch (Exception $e) {
             // Rollback the transaction on error
             $conn->rollback();
@@ -413,7 +727,6 @@ $stmtCustomer->close();
 
 $conn->close();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -428,77 +741,6 @@ $conn->close();
    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-    <style>
-        .filter-btn {
-            background: transparent !important;
-            border: none;
-            cursor: pointer;
-            font-size: 15px;
-            color: var(--light, #f5f8fc);
-            margin-left: 5px;   
-            vertical-align: middle;
-            padding: 0;
-            outline: none;
-        }
-        .filter-btn:hover {
-            color: var(--primary-dark, hsl(211, 45.70%, 84.10%));
-            background: transparent !important;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-        }
-        .action-btn {
-            padding: 6px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 500;
-            transition: background-color 0.2s;
-            text-align: center;
-            color: white;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-        }
-        .action-btn.check {
-            background-color: #28a745;
-        }
-        .action-btn.x {
-            background-color: #dc3545;
-        }
-        .action-btn:hover:not(:disabled) {
-            opacity: 0.8;
-        }
-        .modal-form textarea {
-            width: 100%;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            height: 100px;
-            resize: vertical;
-        }
-        @media (max-width: 600px) {
-            .action-buttons {
-                flex-direction: column;
-                gap: 5px;
-            }
-            .action-btn {
-                width: 25px;
-                height: 25px;
-                font-size: 12px;
-            }
-            .alert {
-                font-size: 12px;
-                padding: 8px 12px;
-            }
-        }
-    </style>
 </head>
 <body>
 <div class="wrapper">
@@ -539,7 +781,6 @@ $conn->close();
                 </div>
                 <a href="staffsettings.php" class="settings-link">
                     <i class="fas fa-cog"></i>
-                 
                 </a>
             </div>
         </div>
@@ -547,15 +788,36 @@ $conn->close();
         <div class="alert-container" id="alertContainer"></div>
 
         <div class="table-box glass-container">
-            <h2>Ticket Approval</h2>
-            <div class="search-container">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." 
-                       value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>"
-                       onkeyup="debouncedSearchTickets()">
-                <span class="search-icon"><i class="fas fa-search"></i></span>
-            </div>
-            <div class="username"></div>
-            <div class="customer-tickets active">
+    <h2>Ticket Approval</h2>
+    
+    <!-- Active Chats Button - LEFT SIDE BELOW HEADING -->
+    <div class="active-chats-btn-container">
+        <button class="active-chats-btn" onclick="showActiveChatsModal()">
+            <i class="fas fa-comments"></i>
+            Active Chats
+            <?php 
+            $totalUnread = 0;
+            foreach ($ticketsWithMessages as $ticket) {
+                $totalUnread += $ticket['unread_count'];
+            }
+            if ($totalUnread > 0): ?>
+                <span class="chat-badge" id="globalChatBadge"><?php echo $totalUnread; ?></span>
+            <?php endif; ?>
+        </button>
+    </div>
+    
+    <!-- Search Container - KEEP AS IS -->
+    <div class="search-container">
+        <input type="text" class="search-bar" id="searchInput" placeholder="Search tickets..." 
+               value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>"
+               onkeyup="debouncedSearchTickets()">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+    </div>
+    
+    <div class="username"></div>
+    
+    <div class="customer-tickets active">
+        
                 <table id="customer-tickets-table">
                     <thead>
                         <tr>
@@ -567,7 +829,7 @@ $conn->close();
                             <th>Action</th>
                         </tr>
                     </thead>
-                <tbody id="customer-table-body">
+                    <tbody id="customer-table-body">
     <?php
     if ($resultCustomer->num_rows > 0) {
         while ($row = $resultCustomer->fetch_assoc()) {
@@ -591,7 +853,7 @@ $conn->close();
         echo "<tr><td colspan='6' style='text-align: center;'>No customer tickets found.</td></tr>";
     }
     ?>
-                </tbody>
+                    </tbody>
                 </table>
                 <div class="pagination" id="customer-pagination">
                     <?php if ($pageCustomer > 1): ?>
@@ -611,11 +873,12 @@ $conn->close();
     </div>
 </div>
 
-<!-- Customer View Ticket Modal -->
+<!-- ORIGINAL MODALS (View, Reject, Filter) -->
 <div id="customerViewModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Customer Ticket Details</h2>
+           
         </div>
         <div id="customerViewContent" class="view-details"></div>
         <div class="modal-footer">
@@ -624,11 +887,11 @@ $conn->close();
     </div>
 </div>
 
-<!-- Reject Ticket Modal -->
 <div id="rejectModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Decline Ticket</h2>
+           
         </div>
         <form method="POST" id="rejectForm" class="modal-form">
             <input type="hidden" name="ticket_ref" id="rejectTicketRef">
@@ -643,11 +906,11 @@ $conn->close();
     </div>
 </div>
 
-<!-- Account Filter Modal -->
 <div id="accountFilterModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Filter by Account Name</h2>
+           
         </div>
         <form id="accountFilterForm" class="modal-form">
             <input type="hidden" name="tab" id="accountFilterTab" value="customer">
@@ -669,7 +932,283 @@ $conn->close();
     </div>
 </div>
 
+<!-- CHAT MODAL -->
+<div id="activeChatsModal" class="chat-modal">
+    <div class="chat-modal-content" style="max-width: 550px; height: 75vh;">
+        <div class="chat-modal-header">
+            <h2><i class="fas fa-comments"></i> Customer Conversations</h2>
+            <button class="chat-close-btn" onclick="closeModal('activeChatsModal')">&times;</button>
+        </div>
+        <div class="chat-modal-body">
+            <!-- Horizontal Customer Names -->
+     <!-- In the customer names container section, update the avatar display: -->
+<div class="customer-names-container">
+    <?php if (!empty($ticketsWithMessages)): ?>
+        <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
+            <?php
+            // FIXED: Use same avatar logic with proper default icon
+            $customerAvatarPath = 'Uploads/avatars/' . $ticket['c_id'] . '.png';
+            $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
+            $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
+            ?>
+            <div class="customer-name-tab <?php echo $index === 0 ? 'active' : ''; ?>" 
+                 onclick="switchConversation('<?php echo $ticket['s_ref']; ?>', this)"
+                 data-ticket-ref="<?php echo $ticket['s_ref']; ?>"
+                 data-unread-count="<?php echo $ticket['unread_count']; ?>">
+                <div class="customer-avatar">
+                    <?php if ($hasCustomerAvatar): ?>
+                        <img src="<?php echo $customerAvatarPath . '?' . time(); ?>" alt="Customer Avatar">
+                    <?php else: ?>
+                        <i class="fas fa-user-circle"></i>
+                    <?php endif; ?>
+                </div>
+                <span class="customer-name-text"><?php echo $ticket['c_fname'] . ' ' . $ticket['c_lname']; ?></span>
+                <?php if ($ticket['unread_count'] > 0): ?>
+                    <span class="customer-badge" id="badge-<?php echo $ticket['s_ref']; ?>"><?php echo $ticket['unread_count']; ?></span>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div style="text-align: center; color: #666; width: 100%;">
+            No active conversations
+        </div>
+    <?php endif; ?>
+</div>
+            
+            <!-- Conversation Area -->
+            <div class="chat-messages-container">
+                <?php if (!empty($ticketsWithMessages)): ?>
+                    <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
+                        <div class="customer-conversation <?php echo $index === 0 ? 'active' : ''; ?>" id="conversation-<?php echo $ticket['s_ref']; ?>">
+                            <div class="conversation-messages" id="messages-<?php echo $ticket['s_ref']; ?>">
+                                <div style="text-align: center; color: #666; padding: 20px;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading messages...
+                                </div>
+                            </div>
+                            
+                            <div class="message-input-container">
+                                <form class="conversation-form" method="POST" data-ticket-ref="<?php echo $ticket['s_ref']; ?>">
+                                    <input type="hidden" name="ticket_ref" value="<?php echo $ticket['s_ref']; ?>">
+                                    <input type="hidden" name="action" value="send_message">
+                                    <input type="hidden" name="sender_type" value="staff">
+                                    <textarea name="message" placeholder="Type your response to <?php echo $ticket['c_fname']; ?>..." required></textarea>
+                                    <div class="button-container">
+                                        <button type="submit" class="send-btn">
+                                            <i class="fas fa-paper-plane"></i> Send to <?php echo $ticket['c_fname']; ?>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="no-chats">
+                        <i class="fas fa-comment-slash"></i>
+                        <p>No active conversations</p>
+                        <p style="font-size: 12px; margin-top: 10px;">Customer conversations will appear here when they send messages</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// Real-time message checking
+let messageCheckInterval;
+let lastCheckTime = Date.now();
+
+function startMessageChecking() {
+    messageCheckInterval = setInterval(checkForNewMessages, 3000);
+}
+
+function stopMessageChecking() {
+    if (messageCheckInterval) {
+        clearInterval(messageCheckInterval);
+    }
+}
+
+function checkForNewMessages() {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `AllCustomersT.php?action=check_new_messages&t=${Date.now()}`, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                updateMessageBadges(response.tickets, response.totalUnread);
+            } catch (e) {
+                console.error('Error parsing new messages response:', e);
+            }
+        }
+    };
+    xhr.send();
+}
+
+function updateMessageBadges(tickets, totalUnread) {
+    const globalBadge = document.getElementById('globalChatBadge');
+    if (totalUnread > 0) {
+        if (globalBadge) {
+            globalBadge.textContent = totalUnread;
+        } else {
+            const activeChatsBtn = document.querySelector('.active-chats-btn');
+            if (activeChatsBtn && !activeChatsBtn.querySelector('.chat-badge')) {
+                const newBadge = document.createElement('span');
+                newBadge.className = 'chat-badge';
+                newBadge.id = 'globalChatBadge';
+                newBadge.textContent = totalUnread;
+                activeChatsBtn.appendChild(newBadge);
+            }
+        }
+    } else if (globalBadge) {
+        globalBadge.remove();
+    }
+
+    tickets.forEach(ticket => {
+        const badgeElement = document.getElementById(`badge-${ticket.s_ref}`);
+        if (ticket.unread_count > 0) {
+            if (badgeElement) {
+                badgeElement.textContent = ticket.unread_count;
+            } else {
+                const customerTab = document.querySelector(`[data-ticket-ref="${ticket.s_ref}"]`);
+                if (customerTab) {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'customer-badge';
+                    newBadge.id = `badge-${ticket.s_ref}`;
+                    newBadge.textContent = ticket.unread_count;
+                    customerTab.appendChild(newBadge);
+                }
+            }
+        } else if (badgeElement) {
+            badgeElement.remove();
+        }
+    });
+}
+
+function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const ticketRef = form.getAttribute('data-ticket-ref');
+    const messageText = form.querySelector('textarea').value.trim();
+    
+    if (!messageText) {
+        showNotification('Please enter a message', 'error');
+        return;
+    }
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    submitBtn.disabled = true;
+    
+    const messagesElement = document.getElementById(`messages-${ticketRef}`);
+    const tempId = 'temp-' + Date.now();
+    
+    if (messagesElement) {
+        const staffAvatarElement = document.querySelector('.user-icon');
+        let staffAvatarHtml = '<i class="fas fa-user-circle"></i>';
+        if (staffAvatarElement) {
+            const staffAvatarImg = staffAvatarElement.querySelector('img');
+            if (staffAvatarImg) {
+                staffAvatarHtml = `<img src="${staffAvatarImg.src}" alt="Staff Avatar">`;
+            }
+        }
+        
+        const tempMessage = `
+            <div id="${tempId}" class="message staff-message">
+                <div class="message-avatar staff-avatar">
+                    ${staffAvatarHtml}
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <strong>You</strong>
+                    </div>
+                    <div class="message-content">
+                        ${messageText.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="message-time">Sending...</div>
+                </div>
+            </div>`;
+        
+        messagesElement.innerHTML += tempMessage;
+        messagesElement.scrollTop = messagesElement.scrollHeight;
+    }
+    
+    form.querySelector('textarea').value = '';
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'AllCustomersT.php', true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    
+                    if (response.status === 'success') {
+                        const tempElement = document.getElementById(tempId);
+                        if (tempElement) {
+                            const timeElement = tempElement.querySelector('.message-time');
+                            if (timeElement) {
+                                timeElement.textContent = 'Sent';
+                                timeElement.style.color = '#28a745';
+                            }
+                            tempElement.removeAttribute('id');
+                            
+                            setTimeout(() => {
+                                loadConversation(ticketRef);
+                            }, 1000);
+                        }
+                        showNotification('Message sent successfully!', 'success');
+                    } else {
+                        throw new Error(response.message || 'Failed to send message');
+                    }
+                } catch (e) {
+                    const tempElement = document.getElementById(tempId);
+                    if (tempElement) {
+                        const timeElement = tempElement.querySelector('.message-time');
+                        timeElement.textContent = 'Sent';
+                        timeElement.style.color = '#28a745';
+                        tempElement.removeAttribute('id');
+                        
+                        setTimeout(() => {
+                            loadConversation(ticketRef);
+                        }, 1000);
+                    }
+                    showNotification('Message sent successfully!', 'success');
+                }
+            } else {
+                const tempElement = document.getElementById(tempId);
+                if (tempElement) {
+                    const timeElement = tempElement.querySelector('.message-time');
+                    timeElement.innerHTML = 'Failed - <a href="#" onclick="retrySendMessage(this)">Retry</a>';
+                    timeElement.style.color = '#dc3545';
+                }
+                showNotification('Failed to send message. Please try again.', 'error');
+            }
+            
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    };
+    
+    xhr.send(formData);
+}
+
+function retrySendMessage(element) {
+    const messageDiv = element.closest('.message');
+    const messageContent = messageDiv.querySelector('.message-content').textContent;
+    const ticketRef = messageDiv.closest('.customer-conversation').id.replace('conversation-', '');
+    
+    messageDiv.remove();
+    
+    const form = document.querySelector(`[data-ticket-ref="${ticketRef}"]`);
+    if (form) {
+        form.querySelector('textarea').value = messageContent;
+        form.dispatchEvent(new Event('submit'));
+    }
+}
+
 function showNotification(message, type) {
     const container = document.getElementById('alertContainer');
     container.innerHTML = '';
@@ -689,6 +1228,9 @@ function showNotification(message, type) {
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    if (modalId === 'activeChatsModal') {
+        stopMessageChecking();
+    }
 }
 
 function showAccountFilterModal(tab) {
@@ -713,6 +1255,101 @@ function showRejectModal(s_ref) {
     document.getElementById('rejectTicketRef').value = s_ref;
     document.getElementById('s_remarks').value = '';
     document.getElementById('rejectModal').style.display = 'block';
+}
+
+function showActiveChatsModal() {
+    document.getElementById('activeChatsModal').style.display = 'block';
+    <?php if (!empty($ticketsWithMessages)): ?>
+        const firstTicketRef = '<?php echo $ticketsWithMessages[0]['s_ref']; ?>';
+        loadConversation(firstTicketRef);
+        clearBadge(firstTicketRef);
+    <?php endif; ?>
+    
+    startMessageChecking();
+}
+
+function switchConversation(ticketRef, element) {
+    document.querySelectorAll('.customer-name-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    element.classList.add('active');
+    
+    document.querySelectorAll('.customer-conversation').forEach(conv => {
+        conv.classList.remove('active');
+    });
+    
+    const conversationElement = document.getElementById(`conversation-${ticketRef}`);
+    if (conversationElement) {
+        conversationElement.classList.add('active');
+        loadConversation(ticketRef);
+        clearBadge(ticketRef);
+    }
+}
+
+function loadConversation(ticketRef) {
+    const messagesElement = document.getElementById(`messages-${ticketRef}`);
+    if (!messagesElement) return;
+    
+    messagesElement.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>';
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `AllCustomersT.php?action=get_conversation&ticket_ref=${encodeURIComponent(ticketRef)}&t=${new Date().getTime()}`, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                messagesElement.innerHTML = xhr.responseText;
+                setTimeout(() => {
+                    messagesElement.scrollTop = messagesElement.scrollHeight;
+                }, 100);
+                markAsRead(ticketRef);
+            } else {
+                messagesElement.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading messages</div>';
+            }
+        }
+    };
+    xhr.send();
+}
+
+function markAsRead(ticketRef) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `AllCustomersT.php?action=mark_as_read&ticket_ref=${encodeURIComponent(ticketRef)}`, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            clearBadge(ticketRef);
+        }
+    };
+    xhr.send();
+}
+
+function clearBadge(ticketRef) {
+    const badgeElement = document.getElementById(`badge-${ticketRef}`);
+    if (badgeElement) {
+        badgeElement.remove();
+    }
+    updateGlobalBadge();
+}
+
+function updateGlobalBadge() {
+    let totalUnread = 0;
+    document.querySelectorAll('.customer-badge').forEach(badge => {
+        totalUnread += parseInt(badge.textContent) || 0;
+    });
+    
+    const globalBadge = document.getElementById('globalChatBadge');
+    if (globalBadge) {
+        if (totalUnread > 0) {
+            globalBadge.textContent = totalUnread;
+        } else {
+            globalBadge.remove();
+        }
+    }
+}
+
+function initializeChatForms() {
+    document.querySelectorAll('.conversation-form').forEach(form => {
+        form.removeEventListener('submit', handleFormSubmit);
+        form.addEventListener('submit', handleFormSubmit);
+    });
 }
 
 function approveTicket(s_ref) {
@@ -754,11 +1391,9 @@ function fetchTickets(page, searchTerm = '', accountFilter = '') {
             if (response.error) {
                 showNotification(response.error, 'error');
             } else {
-                console.log("Fetched tickets with searchTerm:", searchTerm, "accountFilter:", accountFilter, "response.html:", response.html);
                 document.getElementById('customer-table-body').innerHTML = response.html;
                 updatePagination(response.currentPage, response.totalPages, searchTerm, accountFilter);
                 
-                // Update URL without reloading page
                 const newUrl = `AllCustomersT.php?page_customer=${response.currentPage}&search=${encodeURIComponent(searchTerm)}&account_filter=${encodeURIComponent(accountFilter)}`;
                 window.history.replaceState({}, '', newUrl);
             }
@@ -777,7 +1412,7 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
     
     const nextLink = currentPage < totalPages 
         ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage + 1}, '${searchTerm}', '${accountFilter}'); return false;"><i class="fas fa-chevron-right"></i></a>`
-        : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
+        : `<span class="pagination-link disabled"><i class="fas fa-chevron-right'></i></span>`;
     
     pagination.innerHTML = `
         ${prevLink}
@@ -786,29 +1421,27 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
     `;
 }
 
-document.getElementById('accountFilterForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const accountFilter = document.getElementById('account_filter').value;
-    const searchTerm = document.getElementById('searchInput').value;
-    fetchTickets(1, searchTerm, accountFilter);
-    closeModal('accountFilterModal');
-});
-
-// Initialize search functionality on page load
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    initializeChatForms();
+    
     const searchInput = document.getElementById('searchInput');
     const accountFilter = document.getElementById('account_filter') ? document.getElementById('account_filter').value : '';
     
-    // If there's a search term or filter, ensure the table reflects it
     if (searchInput.value || accountFilter) {
         fetchTickets(<?php echo $pageCustomer; ?>, searchInput.value, accountFilter);
     }
+    
+    document.getElementById('activeChatsModal')?.addEventListener('click', function() {
+        setTimeout(initializeChatForms, 100);
+    });
+    
+    startMessageChecking();
 });
 
 // Handle session messages
 <?php if (isset($_SESSION['message'])): ?>
     showNotification("<?php echo htmlspecialchars($_SESSION['message'], ENT_QUOTES, 'UTF-8'); ?>", 'success');
-    // Refresh table after showing success message
     setTimeout(() => {
         fetchTickets(<?php echo $pageCustomer; ?>, document.getElementById('searchInput').value, document.getElementById('account_filter')?.value || '');
     }, 3000);
@@ -816,13 +1449,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
     showNotification("<?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); ?>", 'error');
-    // Refresh table after showing error message
     setTimeout(() => {
         fetchTickets(<?php echo $pageCustomer; ?>, document.getElementById('searchInput').value, document.getElementById('account_filter')?.value || '');
     }, 3000);
     <?php unset($_SESSION['error']); ?>
 <?php endif; ?>
 </script>
-
 </body>
 </html>
