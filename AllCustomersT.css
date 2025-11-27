@@ -947,26 +947,7 @@ tr:hover td {
     color: #333;
 }
 
-.chat-close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #666;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
 
-.chat-close-btn:hover {
-    background: #e9ecef;
-    color: #333;
-}
 
 .chat-modal-body {
     height: calc(100% - 60px);
@@ -1013,6 +994,46 @@ tr:hover td {
     font-weight: bold;
     min-width: 20px;
     text-align: center;
+}
+
+
+.chat-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 15px 15px 15 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.chat-modal-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chat-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+}
+
+.chat-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 
@@ -1355,6 +1376,8 @@ tr:hover td {
     border-color: #6c757d;
     order: 2;
 }
+
+
 
 .message-content-wrapper {
     flex: 1;

@@ -59,27 +59,32 @@ if ($resultUser->num_rows > 0) {
 }
 $stmt->close();
 
-// Real-time check for new messages - FILTERED BY CURRENT STAFF
+// Real-time check for new messages - GROUPED BY CUSTOMER
 if (isset($_GET['action']) && $_GET['action'] === 'check_new_messages') {
     header('Content-Type: application/json');
     
-    $sqlCheckMessages = "SELECT DISTINCT ct.s_ref, ct.c_fname, ct.c_lname, ct.s_subject, ct.s_status, ct.c_id,
-                        (SELECT COUNT(*) FROM tbl_ticket_conversations 
-                         WHERE ticket_ref = ct.s_ref 
-                         AND sender_type = 'customer' 
-                         AND (is_read IS NULL OR is_read = 0)) as unread_count
-                        FROM tbl_customer_ticket ct
-                        INNER JOIN tbl_ticket_conversations tc ON ct.s_ref = tc.ticket_ref
-                        WHERE ct.s_status IN ('Pending', 'Declined')
-                        AND tc.sender_type = 'customer'
-                        AND EXISTS (
-                            SELECT 1 FROM tbl_ticket_conversations tc2 
-                            WHERE tc2.ticket_ref = ct.s_ref 
-                            AND tc2.sender_type = 'staff' 
-                            AND tc2.sender_id = ?
-                        )
-                        GROUP BY ct.s_ref
-                        ORDER BY tc.timestamp DESC";
+    $sqlCheckMessages = "SELECT 
+        ct.c_id,
+        CONCAT(ct.c_fname, ' ', ct.c_lname) as customer_name,
+        GROUP_CONCAT(DISTINCT ct.s_ref) as ticket_refs,
+        COUNT(DISTINCT ct.s_ref) as ticket_count,
+        (SELECT COUNT(*) FROM tbl_ticket_conversations 
+         WHERE ticket_ref IN (SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ct.c_id)
+         AND sender_type = 'customer' 
+         AND (is_read IS NULL OR is_read = 0)) as unread_count
+        FROM tbl_customer_ticket ct
+        WHERE ct.s_status IN ('Pending', 'Declined')
+        AND EXISTS (
+            SELECT 1 FROM tbl_ticket_conversations tc
+            WHERE tc.ticket_ref = ct.s_ref 
+            AND tc.sender_type = 'staff' 
+            AND tc.sender_id = ?
+        )
+        GROUP BY ct.c_id
+        ORDER BY (
+            SELECT MAX(timestamp) FROM tbl_ticket_conversations 
+            WHERE ticket_ref IN (SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ct.c_id)
+        ) DESC";
     
     $stmtCheck = $conn->prepare($sqlCheckMessages);
     $stmtCheck->bind_param("i", $staff_id);
@@ -104,22 +109,30 @@ if (isset($_GET['action']) && $_GET['action'] === 'check_new_messages') {
 
 // Handle mark as read AJAX
 if (isset($_GET['action']) && $_GET['action'] === 'mark_as_read') {
-    $ticket_ref = $_GET['ticket_ref'] ?? '';
-    if (!empty($ticket_ref)) {
-        // Verify staff has access to this conversation
-        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
-                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
-        $verifyStmt = $conn->prepare($verifySql);
-        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
-        $verifyStmt->execute();
-        $verifyResult = $verifyStmt->get_result();
+    $customer_id = $_GET['customer_id'] ?? '';
+    if (!empty($customer_id)) {
+        // Get all ticket references for this customer
+        $ticketRefsSql = "SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ?";
+        $ticketRefsStmt = $conn->prepare($ticketRefsSql);
+        $ticketRefsStmt->bind_param("i", $customer_id);
+        $ticketRefsStmt->execute();
+        $ticketRefsResult = $ticketRefsStmt->get_result();
         
-        if ($verifyResult->num_rows > 0) {
-            // Mark all customer messages as read for this ticket
+        $ticketRefs = [];
+        while ($refRow = $ticketRefsResult->fetch_assoc()) {
+            $ticketRefs[] = $refRow['s_ref'];
+        }
+        $ticketRefsStmt->close();
+        
+        if (!empty($ticketRefs)) {
+            $placeholders = str_repeat('?,', count($ticketRefs) - 1) . '?';
             $updateSql = "UPDATE tbl_ticket_conversations SET is_read = 1 
-                          WHERE ticket_ref = ? AND sender_type = 'customer'";
+                          WHERE ticket_ref IN ($placeholders) 
+                          AND sender_type = 'customer'";
             $updateStmt = $conn->prepare($updateSql);
-            $updateStmt->bind_param("s", $ticket_ref);
+            
+            $types = str_repeat('s', count($ticketRefs));
+            $updateStmt->bind_param($types, ...$ticketRefs);
             
             if ($updateStmt->execute()) {
                 echo json_encode(['status' => 'success']);
@@ -128,210 +141,245 @@ if (isset($_GET['action']) && $_GET['action'] === 'mark_as_read') {
             }
             $updateStmt->close();
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+            echo json_encode(['status' => 'error', 'message' => 'No tickets found']);
         }
-        $verifyStmt->close();
     }
     exit();
 }
 
 // Handle conversation actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
-    $ticket_ref = $_POST['ticket_ref'] ?? '';
+    $customer_id = $_POST['customer_id'] ?? '';
     $message = trim($_POST['message'] ?? '');
     $sender_type = $_POST['sender_type'] ?? 'staff';
     
-    if (!empty($ticket_ref) && !empty($message)) {
-        // Verify staff has access to this conversation
-        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
-                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
-        $verifyStmt = $conn->prepare($verifySql);
-        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
-        $verifyStmt->execute();
-        $verifyResult = $verifyStmt->get_result();
+    if (!empty($customer_id) && !empty($message)) {
+        // Get the most recent ticket reference for this customer
+        $ticketRefSql = "SELECT s_ref 
+                        FROM tbl_customer_ticket 
+                        WHERE c_id = ? 
+                        AND s_status IN ('Pending', 'Declined')
+                        ORDER BY s_ref DESC 
+                        LIMIT 1";
+        $ticketRefStmt = $conn->prepare($ticketRefSql);
+        $ticketRefStmt->bind_param("i", $customer_id);
+        $ticketRefStmt->execute();
+        $ticketRefResult = $ticketRefStmt->get_result();
         
-        if ($verifyResult->num_rows > 0) {
-            // Store timestamp in Philippines time
-            $current_timestamp = date('Y-m-d H:i:s');
+        if ($ticketRefResult->num_rows > 0) {
+            $ticketData = $ticketRefResult->fetch_assoc();
+            $ticket_ref = $ticketData['s_ref'];
+            $ticketRefStmt->close();
             
-            $convSql = "INSERT INTO tbl_ticket_conversations (ticket_ref, sender_type, sender_id, message, timestamp) VALUES (?, ?, ?, ?, ?)";
-            $convStmt = $conn->prepare($convSql);
-            $convStmt->bind_param("ssiss", $ticket_ref, $sender_type, $staff_id, $message, $current_timestamp);
+            // Verify staff has access to this conversation
+            $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
+                          WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
+            $verifyStmt = $conn->prepare($verifySql);
+            $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
+            $verifyStmt->execute();
+            $verifyResult = $verifyStmt->get_result();
             
-            if ($convStmt->execute()) {
-                // Return success with Philippines timestamp
-                echo json_encode(['status' => 'success', 'timestamp' => $current_timestamp]);
+            if ($verifyResult->num_rows > 0) {
+                // Store timestamp in Philippines time
+                $current_timestamp = date('Y-m-d H:i:s');
+                
+                $convSql = "INSERT INTO tbl_ticket_conversations (ticket_ref, sender_type, sender_id, message, timestamp) VALUES (?, ?, ?, ?, ?)";
+                $convStmt = $conn->prepare($convSql);
+                $convStmt->bind_param("ssiss", $ticket_ref, $sender_type, $staff_id, $message, $current_timestamp);
+                
+                if ($convStmt->execute()) {
+                    // Return success with Philippines timestamp
+                    echo json_encode(['status' => 'success', 'timestamp' => $current_timestamp]);
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Failed to send message.']);
+                }
+                $convStmt->close();
             } else {
-                echo json_encode(['status' => 'error', 'message' => 'Failed to send message.']);
+                echo json_encode(['status' => 'error', 'message' => 'You don\'t have permission to access this ticket.']);
             }
-            $convStmt->close();
+            $verifyStmt->close();
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'You don\'t have permission to access this ticket.']);
+            echo json_encode(['status' => 'error', 'message' => 'No active tickets found for this customer.']);
         }
-        $verifyStmt->close();
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'Ticket reference and message are required.']);
+        echo json_encode(['status' => 'error', 'message' => 'Customer ID and message are required.']);
     }
     exit();
 }
 
-// Handle get conversation AJAX - WITH STAFF VERIFICATION
+// Handle get conversation AJAX - Get all messages for customer
 if (isset($_GET['action']) && $_GET['action'] === 'get_conversation') {
-    $ticket_ref = $_GET['ticket_ref'] ?? '';
-    if (!empty($ticket_ref)) {
-        // First verify that this staff member is part of this conversation
-        $verifySql = "SELECT 1 FROM tbl_ticket_conversations 
-                      WHERE ticket_ref = ? AND sender_type = 'staff' AND sender_id = ?";
-        $verifyStmt = $conn->prepare($verifySql);
-        $verifyStmt->bind_param("si", $ticket_ref, $staff_id);
-        $verifyStmt->execute();
-        $verifyResult = $verifyStmt->get_result();
+    $customer_id = $_GET['customer_id'] ?? '';
+    $mark_as_read = isset($_GET['mark_as_read']) ? (bool)$_GET['mark_as_read'] : false;
+    
+    if (!empty($customer_id)) {
+        // Get all ticket references for this customer
+        $ticketRefsSql = "SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ? AND s_status IN ('Pending', 'Declined')";
+        $ticketRefsStmt = $conn->prepare($ticketRefsSql);
+        $ticketRefsStmt->bind_param("i", $customer_id);
+        $ticketRefsStmt->execute();
+        $ticketRefsResult = $ticketRefsStmt->get_result();
         
-        if ($verifyResult->num_rows === 0) {
-            echo "<div style='text-align: center; color: red; padding: 20px;'>You don't have permission to view this conversation.</div>";
-            $verifyStmt->close();
-            exit();
+        $ticketRefs = [];
+        while ($refRow = $ticketRefsResult->fetch_assoc()) {
+            $ticketRefs[] = $refRow['s_ref'];
         }
-        $verifyStmt->close();
+        $ticketRefsStmt->close();
         
-        // Then mark all customer messages as read
-        $updateSql = "UPDATE tbl_ticket_conversations SET is_read = 1 
-                      WHERE ticket_ref = ? AND sender_type = 'customer'";
-        $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("s", $ticket_ref);
-        $updateStmt->execute();
-        $updateStmt->close();
-        
-        // Then fetch the conversation
-        $convSql = "SELECT tc.*, 
-                   CASE 
-                       WHEN tc.sender_type = 'staff' THEN CONCAT(u.u_fname, ' ', u.u_lname)
-                       ELSE CONCAT(c.c_fname, ' ', c.c_lname)
-                   END as sender_name,
-                   tc.sender_type,
-                   u.u_fname as staff_fname,
-                   u.u_lname as staff_lname,
-                   u.u_username as staff_username,
-                   c.c_fname as customer_fname,
-                   c.c_lname as customer_lname,
-                   c.c_id as customer_id
-                   FROM tbl_ticket_conversations tc
-                   LEFT JOIN tbl_user u ON tc.sender_id = u.u_id AND tc.sender_type = 'staff'
-                   LEFT JOIN tbl_customer c ON tc.sender_id = c.c_id AND tc.sender_type = 'customer'
-                   WHERE tc.ticket_ref = ? 
-                   ORDER BY CAST(tc.timestamp AS DATETIME) ASC";
-       
-        $convStmt = $conn->prepare($convSql);
-        $convStmt->bind_param("s", $ticket_ref);
-        $convStmt->execute();
-        $convResult = $convStmt->get_result();
-        
-        $conversation = '';
-        while ($row = $convResult->fetch_assoc()) {
-            // Proper timestamp handling with Philippines timezone
-            $timestamp = $row['timestamp'];
+        if (!empty($ticketRefs)) {
+            // Mark as read when requested
+            if ($mark_as_read) {
+                $placeholders = str_repeat('?,', count($ticketRefs) - 1) . '?';
+                $updateSql = "UPDATE tbl_ticket_conversations SET is_read = 1 
+                              WHERE ticket_ref IN ($placeholders) 
+                              AND sender_type = 'customer'";
+                $updateStmt = $conn->prepare($updateSql);
+                
+                $types = str_repeat('s', count($ticketRefs));
+                $updateStmt->bind_param($types, ...$ticketRefs);
+                $updateStmt->execute();
+                $updateStmt->close();
+            }
             
-            // Always show actual timestamp in Philippines time
-            $displayTime = date('M j, Y g:i A'); // Current Philippines time
+            // Get all messages for all ticket references of this customer
+            $placeholders = str_repeat('?,', count($ticketRefs) - 1) . '?';
+            $convSql = "SELECT tc.*, 
+                       CASE 
+                           WHEN tc.sender_type = 'staff' THEN CONCAT(u.u_fname, ' ', u.u_lname)
+                           ELSE CONCAT(c.c_fname, ' ', c.c_lname)
+                       END as sender_name,
+                       tc.sender_type,
+                       u.u_fname as staff_fname,
+                       u.u_lname as staff_lname,
+                       u.u_username as staff_username,
+                       c.c_fname as customer_fname,
+                       c.c_lname as customer_lname,
+                       c.c_id as customer_id,
+                       tc.ticket_ref
+                       FROM tbl_ticket_conversations tc
+                       LEFT JOIN tbl_user u ON tc.sender_id = u.u_id AND tc.sender_type = 'staff'
+                       LEFT JOIN tbl_customer c ON tc.sender_id = c.c_id AND tc.sender_type = 'customer'
+                       WHERE tc.ticket_ref IN ($placeholders)
+                       ORDER BY CAST(tc.timestamp AS DATETIME) ASC";
             
-            if (!empty($timestamp) && $timestamp != '0000-00-00 00:00:00') {
-                $parsedTime = strtotime($timestamp);
-                if ($parsedTime !== false && $parsedTime > 0) {
-                    // Convert to Philippines time format
-                    $displayTime = date('M j, Y g:i A', $parsedTime);
+            $convStmt = $conn->prepare($convSql);
+            $types = str_repeat('s', count($ticketRefs));
+            $convStmt->bind_param($types, ...$ticketRefs);
+            $convStmt->execute();
+            $convResult = $convStmt->get_result();
+            
+            $conversation = '';
+            
+            while ($row = $convResult->fetch_assoc()) {
+                // Timestamp handling
+                $timestamp = $row['timestamp'];
+                $displayTime = date('M j, Y g:i A');
+                
+                if (!empty($timestamp) && $timestamp != '0000-00-00 00:00:00') {
+                    $parsedTime = strtotime($timestamp);
+                    if ($parsedTime !== false && $parsedTime > 0) {
+                        $displayTime = date('M j, Y g:i A', $parsedTime);
+                    }
+                }
+                
+                if ($row['sender_type'] === 'staff') {
+                    // Staff message - LEFT side
+                    $senderName = $row['sender_name'] ?: 'Staff';
+                    
+                    // Staff avatar logic
+                    $staffAvatarPath = 'Uploads/avatars/' . $row['staff_username'] . '.png';
+                    $cleanStaffAvatarPath = preg_replace('/\?\d+$/', '', $staffAvatarPath);
+                    $hasStaffAvatar = file_exists($cleanStaffAvatarPath) && is_file($cleanStaffAvatarPath);
+                    
+                    $staffAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #28a745;"></i>';
+                    if ($hasStaffAvatar) {
+                        $staffAvatarHtml = "<img src='$staffAvatarPath?" . time() . "' alt='Staff Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
+                    }
+                    
+                    $conversation .= '
+                    <div class="message staff-message">
+                        <div class="message-avatar staff-avatar">
+                            ' . $staffAvatarHtml . '
+                        </div>
+                        <div class="message-content-wrapper">
+                            <div class="message-header">
+                                <strong>' . $senderName . '</strong>
+                            </div>
+                            <div class="message-content">
+                                ' . nl2br(htmlspecialchars($row['message'])) . '
+                            </div>
+                            <div class="message-time">' . $displayTime . '</div>
+                        </div>
+                    </div>';
+                } else {
+                    // Customer message - RIGHT side  
+                    $senderName = $row['sender_name'] ?: 'Customer';
+                    $customerId = $row['customer_id'];
+                    
+                    // Customer avatar logic
+                    $customerAvatarPath = 'Uploads/avatars/' . $customerId . '.png';
+                    $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
+                    $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
+                    
+                    $customerAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #6c757d;"></i>';
+                    if ($hasCustomerAvatar) {
+                        $customerAvatarHtml = "<img src='$customerAvatarPath?" . time() . "' alt='Customer Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
+                    }
+                    
+                    $conversation .= '
+                    <div class="message customer-message">
+                        <div class="message-avatar customer-avatar">
+                            ' . $customerAvatarHtml . '
+                        </div>
+                        <div class="message-content-wrapper">
+                            <div class="message-header">
+                                <strong>' . $senderName . '</strong>
+                            </div>
+                            <div class="message-content">
+                                ' . nl2br(htmlspecialchars($row['message'])) . '
+                            </div>
+                            <div class="message-time">' . $displayTime . '</div>
+                        </div>
+                    </div>';
                 }
             }
             
-            if ($row['sender_type'] === 'staff') {
-                // Staff message - LEFT side
-                $senderName = $row['sender_name'] ?: 'Staff';
-                
-                // FIXED: PROPER STAFF AVATAR LOGIC WITH VISIBLE DEFAULT
-                $staffAvatarPath = 'Uploads/avatars/' . $row['staff_username'] . '.png';
-                $cleanStaffAvatarPath = preg_replace('/\?\d+$/', '', $staffAvatarPath);
-                $hasStaffAvatar = file_exists($cleanStaffAvatarPath) && is_file($cleanStaffAvatarPath);
-                
-                $staffAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #28a745;"></i>';
-                if ($hasStaffAvatar) {
-                    $staffAvatarHtml = "<img src='$staffAvatarPath?" . time() . "' alt='Staff Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
-                }
-                
-                $conversation .= "
-                <div class='message staff-message'>
-                    <div class='message-avatar staff-avatar'>
-                        $staffAvatarHtml
-                    </div>
-                    <div class='message-content-wrapper'>
-                        <div class='message-header'>
-                            <strong>$senderName</strong>
-                        </div>
-                        <div class='message-content'>
-                            " . nl2br(htmlspecialchars($row['message'])) . "
-                        </div>
-                        <div class='message-time'>$displayTime</div>
-                    </div>
-                </div>";
-            } else {
-                // Customer message - RIGHT side
-                $senderName = $row['sender_name'] ?: 'Customer';
-                $customerId = $row['customer_id'];
-                
-                // FIXED: PROPER CUSTOMER AVATAR LOGIC WITH VISIBLE DEFAULT
-                $customerAvatarPath = 'Uploads/avatars/' . $customerId . '.png';
-                $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
-                $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
-                
-                $customerAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #6c757d;"></i>';
-                if ($hasCustomerAvatar) {
-                    $customerAvatarHtml = "<img src='$customerAvatarPath?" . time() . "' alt='Customer Avatar' style='width: 100%; height: 100%; object-fit: cover;'>";
-                }
-                
-                $conversation .= "
-                <div class='message customer-message'>
-                    <div class='message-avatar customer-avatar'>
-                        $customerAvatarHtml
-                    </div>
-                    <div class='message-content-wrapper'>
-                        <div class='message-header'>
-                            <strong>$senderName</strong>
-                        </div>
-                        <div class='message-content'>
-                            " . nl2br(htmlspecialchars($row['message'])) . "
-                        </div>
-                        <div class='message-time'>$displayTime</div>
-                    </div>
-                </div>";
+            if (empty($conversation)) {
+                $conversation = "<div style='text-align: center; color: #666; padding: 20px;'>No messages yet. Start the conversation!</div>";
             }
+            
+            echo $conversation;
+            $convStmt->close();
+        } else {
+            echo "<div style='text-align: center; color: red; padding: 20px;'>No active tickets found for this customer.</div>";
         }
-        
-        if (empty($conversation)) {
-            $conversation = "<div style='text-align: center; color: #666; padding: 20px;'>No messages yet. Start the conversation!</div>";
-        }
-        
-        echo $conversation;
-        $convStmt->close();
         exit();
     }
 }
 
-// Fetch tickets with conversations for message badges - FILTERED BY CURRENT STAFF
-$sqlTicketsWithMessages = "SELECT DISTINCT ct.s_ref, ct.c_fname, ct.c_lname, ct.s_subject, ct.s_status, ct.c_id,
-                          (SELECT COUNT(*) FROM tbl_ticket_conversations 
-                           WHERE ticket_ref = ct.s_ref 
-                           AND sender_type = 'customer' 
-                           AND (is_read IS NULL OR is_read = 0)) as unread_count
-                          FROM tbl_customer_ticket ct
-                          INNER JOIN tbl_ticket_conversations tc ON ct.s_ref = tc.ticket_ref
-                          WHERE ct.s_status IN ('Pending', 'Declined')
-                          AND tc.sender_type = 'customer'
-                          AND EXISTS (
-                              SELECT 1 FROM tbl_ticket_conversations tc2 
-                              WHERE tc2.ticket_ref = ct.s_ref 
-                              AND tc2.sender_type = 'staff' 
-                              AND tc2.sender_id = ?
-                          )
-                          GROUP BY ct.s_ref
-                          ORDER BY tc.timestamp DESC";
+// Fetch tickets with conversations for message badges - GROUPED BY CUSTOMER
+$sqlTicketsWithMessages = "SELECT 
+    ct.c_id,
+    CONCAT(ct.c_fname, ' ', ct.c_lname) as customer_name,
+    GROUP_CONCAT(DISTINCT ct.s_ref) as ticket_refs,
+    COUNT(DISTINCT ct.s_ref) as ticket_count,
+    (SELECT COUNT(*) FROM tbl_ticket_conversations 
+     WHERE ticket_ref IN (SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ct.c_id)
+     AND sender_type = 'customer' 
+     AND (is_read IS NULL OR is_read = 0)) as unread_count
+    FROM tbl_customer_ticket ct
+    WHERE ct.s_status IN ('Pending', 'Declined')
+    AND EXISTS (
+        SELECT 1 FROM tbl_ticket_conversations tc
+        WHERE tc.ticket_ref = ct.s_ref 
+        AND tc.sender_type = 'staff' 
+        AND tc.sender_id = ?
+    )
+    GROUP BY ct.c_id
+    ORDER BY (
+        SELECT MAX(timestamp) FROM tbl_ticket_conversations 
+        WHERE ticket_ref IN (SELECT s_ref FROM tbl_customer_ticket WHERE c_id = ct.c_id)
+    ) DESC";
 
 $stmtActiveChats = $conn->prepare($sqlTicketsWithMessages);
 $stmtActiveChats->bind_param("i", $staff_id);
@@ -609,7 +657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // AUTO-SEND REMARKS AS MESSAGE TO CUSTOMER
             if (!empty($remarks)) {
                 $current_timestamp = date('Y-m-d H:i:s');
-                $systemMessage = "Your ticket has been declined. Remarks: " . $remarks;
+              $systemMessage = "Ticket" . $ticket_ref . " has been declined. Remarks: " . $remarks;
                 $sender_type = 'staff';
                 
                 $convSql = "INSERT INTO tbl_ticket_conversations (ticket_ref, sender_type, sender_id, message, timestamp) VALUES (?, ?, ?, ?, ?)";
@@ -733,7 +781,7 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard | Customer Tickets</title>
-    <link rel="stylesheet" href="AllCustomersTT.css">
+    <link rel="stylesheet" href="AllCustomersT.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -932,7 +980,7 @@ $conn->close();
     </div>
 </div>
 
-<!-- CHAT MODAL -->
+<!-- CHAT MODAL - MOVED OUTSIDE MAIN CONTAINER -->
 <div id="activeChatsModal" class="chat-modal">
     <div class="chat-modal-content" style="max-width: 550px; height: 75vh;">
         <div class="chat-modal-header">
@@ -941,73 +989,74 @@ $conn->close();
         </div>
         <div class="chat-modal-body">
             <!-- Horizontal Customer Names -->
-     <!-- In the customer names container section, update the avatar display: -->
-<div class="customer-names-container">
-    <?php if (!empty($ticketsWithMessages)): ?>
-        <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
-            <?php
-            // FIXED: Use same avatar logic with proper default icon
-            $customerAvatarPath = 'Uploads/avatars/' . $ticket['c_id'] . '.png';
-            $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
-            $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
-            ?>
-            <div class="customer-name-tab <?php echo $index === 0 ? 'active' : ''; ?>" 
-                 onclick="switchConversation('<?php echo $ticket['s_ref']; ?>', this)"
-                 data-ticket-ref="<?php echo $ticket['s_ref']; ?>"
-                 data-unread-count="<?php echo $ticket['unread_count']; ?>">
-                <div class="customer-avatar">
-                    <?php if ($hasCustomerAvatar): ?>
-                        <img src="<?php echo $customerAvatarPath . '?' . time(); ?>" alt="Customer Avatar">
-                    <?php else: ?>
-                        <i class="fas fa-user-circle"></i>
-                    <?php endif; ?>
+                      <!-- Horizontal Customer Names -->
+            <div class="customer-names-container">
+            <?php if (!empty($ticketsWithMessages)): ?>
+                <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
+                    <?php
+                    $customerAvatarPath = 'Uploads/avatars/' . $ticket['c_id'] . '.png';
+                    $cleanCustomerAvatarPath = preg_replace('/\?\d+$/', '', $customerAvatarPath);
+                    $hasCustomerAvatar = file_exists($cleanCustomerAvatarPath) && is_file($cleanCustomerAvatarPath);
+                    ?>
+                    <div class="customer-name-tab <?php echo $index === 0 ? 'active' : ''; ?>" 
+                         onclick="switchConversation('<?php echo $ticket['c_id']; ?>', this)"
+                         data-customer-id="<?php echo $ticket['c_id']; ?>"
+                         data-unread-count="<?php echo $ticket['unread_count']; ?>">
+                        <div class="customer-avatar">
+                            <?php if ($hasCustomerAvatar): ?>
+                                <img src="<?php echo $customerAvatarPath . '?' . time(); ?>" alt="Customer Avatar">
+                            <?php else: ?>
+                                <i class="fas fa-user-circle"></i>
+                            <?php endif; ?>
+                        </div>
+                        <span class="customer-name-text">
+                            <?php echo $ticket['customer_name']; ?>
+                        </span>
+                        <?php if ($ticket['unread_count'] > 0): ?>
+                            <span class="customer-badge" id="badge-<?php echo $ticket['c_id']; ?>"><?php echo $ticket['unread_count']; ?></span>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div style="text-align: center; color: #666; width: 100%;">
+                    No active conversations
                 </div>
-                <span class="customer-name-text"><?php echo $ticket['c_fname'] . ' ' . $ticket['c_lname']; ?></span>
-                <?php if ($ticket['unread_count'] > 0): ?>
-                    <span class="customer-badge" id="badge-<?php echo $ticket['s_ref']; ?>"><?php echo $ticket['unread_count']; ?></span>
-                <?php endif; ?>
+            <?php endif; ?>
             </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <div style="text-align: center; color: #666; width: 100%;">
-            No active conversations
-        </div>
-    <?php endif; ?>
-</div>
             
             <!-- Conversation Area -->
             <div class="chat-messages-container">
-                <?php if (!empty($ticketsWithMessages)): ?>
-                    <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
-                        <div class="customer-conversation <?php echo $index === 0 ? 'active' : ''; ?>" id="conversation-<?php echo $ticket['s_ref']; ?>">
-                            <div class="conversation-messages" id="messages-<?php echo $ticket['s_ref']; ?>">
-                                <div style="text-align: center; color: #666; padding: 20px;">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading messages...
-                                </div>
-                            </div>
-                            
-                            <div class="message-input-container">
-                                <form class="conversation-form" method="POST" data-ticket-ref="<?php echo $ticket['s_ref']; ?>">
-                                    <input type="hidden" name="ticket_ref" value="<?php echo $ticket['s_ref']; ?>">
-                                    <input type="hidden" name="action" value="send_message">
-                                    <input type="hidden" name="sender_type" value="staff">
-                                    <textarea name="message" placeholder="Type your response to <?php echo $ticket['c_fname']; ?>..." required></textarea>
-                                    <div class="button-container">
-                                        <button type="submit" class="send-btn">
-                                            <i class="fas fa-paper-plane"></i> Send to <?php echo $ticket['c_fname']; ?>
-                                        </button>
-                                    </div>
-                                </form>
+              <?php if (!empty($ticketsWithMessages)): ?>
+                <?php foreach ($ticketsWithMessages as $index => $ticket): ?>
+                    <div class="customer-conversation <?php echo $index === 0 ? 'active' : ''; ?>" id="conversation-<?php echo $ticket['c_id']; ?>">
+                        <div class="conversation-messages" id="messages-<?php echo $ticket['c_id']; ?>">
+                            <div style="text-align: center; color: #666; padding: 20px;">
+                                <i class="fas fa-spinner fa-spin"></i> Loading messages...
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="no-chats">
-                        <i class="fas fa-comment-slash"></i>
-                        <p>No active conversations</p>
-                        <p style="font-size: 12px; margin-top: 10px;">Customer conversations will appear here when they send messages</p>
+                        
+                        <div class="message-input-container">
+                            <form class="conversation-form" method="POST" data-customer-id="<?php echo $ticket['c_id']; ?>">
+                                <input type="hidden" name="action" value="send_message">
+                                <input type="hidden" name="sender_type" value="staff">
+                                <input type="hidden" name="customer_id" value="<?php echo $ticket['c_id']; ?>">
+                                <textarea name="message" placeholder="Type your response to <?php echo $ticket['customer_name']; ?>..." required></textarea>
+                                <div class="button-container">
+                                    <button type="submit" class="send-btn">
+                                        <i class="fas fa-paper-plane"></i> Send to <?php echo $ticket['customer_name']; ?>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                <?php endif; ?>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <div class="no-chats">
+                    <i class="fas fa-comment-slash"></i>
+                    <p>No active conversations</p>
+                    <p style="font-size: 12px; margin-top: 10px;">Customer conversations will appear here when they send messages</p>
+                </div>
+              <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1016,7 +1065,6 @@ $conn->close();
 <script>
 // Real-time message checking
 let messageCheckInterval;
-let lastCheckTime = Date.now();
 
 function startMessageChecking() {
     messageCheckInterval = setInterval(checkForNewMessages, 3000);
@@ -1064,16 +1112,16 @@ function updateMessageBadges(tickets, totalUnread) {
     }
 
     tickets.forEach(ticket => {
-        const badgeElement = document.getElementById(`badge-${ticket.s_ref}`);
+        const badgeElement = document.getElementById(`badge-${ticket.c_id}`);
         if (ticket.unread_count > 0) {
             if (badgeElement) {
                 badgeElement.textContent = ticket.unread_count;
             } else {
-                const customerTab = document.querySelector(`[data-ticket-ref="${ticket.s_ref}"]`);
+                const customerTab = document.querySelector(`[data-customer-id="${ticket.c_id}"]`);
                 if (customerTab) {
                     const newBadge = document.createElement('span');
                     newBadge.className = 'customer-badge';
-                    newBadge.id = `badge-${ticket.s_ref}`;
+                    newBadge.id = `badge-${ticket.c_id}`;
                     newBadge.textContent = ticket.unread_count;
                     customerTab.appendChild(newBadge);
                 }
@@ -1089,7 +1137,7 @@ function handleFormSubmit(e) {
     
     const form = e.target;
     const formData = new FormData(form);
-    const ticketRef = form.getAttribute('data-ticket-ref');
+    const customerId = form.getAttribute('data-customer-id');
     const messageText = form.querySelector('textarea').value.trim();
     
     if (!messageText) {
@@ -1102,16 +1150,16 @@ function handleFormSubmit(e) {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     submitBtn.disabled = true;
     
-    const messagesElement = document.getElementById(`messages-${ticketRef}`);
+    const messagesElement = document.getElementById(`messages-${customerId}`);
     const tempId = 'temp-' + Date.now();
     
     if (messagesElement) {
         const staffAvatarElement = document.querySelector('.user-icon');
-        let staffAvatarHtml = '<i class="fas fa-user-circle"></i>';
+        let staffAvatarHtml = '<i class="fas fa-user-circle" style="font-size: 24px; color: #28a745;"></i>';
         if (staffAvatarElement) {
             const staffAvatarImg = staffAvatarElement.querySelector('img');
             if (staffAvatarImg) {
-                staffAvatarHtml = `<img src="${staffAvatarImg.src}" alt="Staff Avatar">`;
+                staffAvatarHtml = `<img src="${staffAvatarImg.src}" alt="Staff Avatar" style="width: 100%; height: 100%; object-fit: cover;">`;
             }
         }
         
@@ -1156,7 +1204,7 @@ function handleFormSubmit(e) {
                             tempElement.removeAttribute('id');
                             
                             setTimeout(() => {
-                                loadConversation(ticketRef);
+                                loadConversation(customerId);
                             }, 1000);
                         }
                         showNotification('Message sent successfully!', 'success');
@@ -1172,7 +1220,7 @@ function handleFormSubmit(e) {
                         tempElement.removeAttribute('id');
                         
                         setTimeout(() => {
-                            loadConversation(ticketRef);
+                            loadConversation(customerId);
                         }, 1000);
                     }
                     showNotification('Message sent successfully!', 'success');
@@ -1198,11 +1246,11 @@ function handleFormSubmit(e) {
 function retrySendMessage(element) {
     const messageDiv = element.closest('.message');
     const messageContent = messageDiv.querySelector('.message-content').textContent;
-    const ticketRef = messageDiv.closest('.customer-conversation').id.replace('conversation-', '');
+    const customerId = messageDiv.closest('.customer-conversation').id.replace('conversation-', '');
     
     messageDiv.remove();
     
-    const form = document.querySelector(`[data-ticket-ref="${ticketRef}"]`);
+    const form = document.querySelector(`[data-customer-id="${customerId}"]`);
     if (form) {
         form.querySelector('textarea').value = messageContent;
         form.dispatchEvent(new Event('submit'));
@@ -1260,15 +1308,16 @@ function showRejectModal(s_ref) {
 function showActiveChatsModal() {
     document.getElementById('activeChatsModal').style.display = 'block';
     <?php if (!empty($ticketsWithMessages)): ?>
-        const firstTicketRef = '<?php echo $ticketsWithMessages[0]['s_ref']; ?>';
-        loadConversation(firstTicketRef);
-        clearBadge(firstTicketRef);
+        const firstCustomerId = '<?php echo $ticketsWithMessages[0]['c_id']; ?>';
+        loadConversation(firstCustomerId);
+        clearBadge(firstCustomerId);
+        markAsRead(firstCustomerId);
     <?php endif; ?>
     
     startMessageChecking();
 }
 
-function switchConversation(ticketRef, element) {
+function switchConversation(customerId, element) {
     document.querySelectorAll('.customer-name-tab').forEach(tab => {
         tab.classList.remove('active');
     });
@@ -1278,22 +1327,23 @@ function switchConversation(ticketRef, element) {
         conv.classList.remove('active');
     });
     
-    const conversationElement = document.getElementById(`conversation-${ticketRef}`);
+    const conversationElement = document.getElementById(`conversation-${customerId}`);
     if (conversationElement) {
         conversationElement.classList.add('active');
-        loadConversation(ticketRef);
-        clearBadge(ticketRef);
+        loadConversation(customerId);
+        clearBadge(customerId);
+        markAsRead(customerId);
     }
 }
 
-function loadConversation(ticketRef) {
-    const messagesElement = document.getElementById(`messages-${ticketRef}`);
+function loadConversation(customerId) {
+    const messagesElement = document.getElementById(`messages-${customerId}`);
     if (!messagesElement) return;
     
     messagesElement.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>';
     
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `AllCustomersT.php?action=get_conversation&ticket_ref=${encodeURIComponent(ticketRef)}&t=${new Date().getTime()}`, true);
+    xhr.open('GET', `AllCustomersT.php?action=get_conversation&customer_id=${encodeURIComponent(customerId)}&t=${new Date().getTime()}`, true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -1301,7 +1351,6 @@ function loadConversation(ticketRef) {
                 setTimeout(() => {
                     messagesElement.scrollTop = messagesElement.scrollHeight;
                 }, 100);
-                markAsRead(ticketRef);
             } else {
                 messagesElement.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading messages</div>';
             }
@@ -1310,19 +1359,14 @@ function loadConversation(ticketRef) {
     xhr.send();
 }
 
-function markAsRead(ticketRef) {
+function markAsRead(customerId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `AllCustomersT.php?action=mark_as_read&ticket_ref=${encodeURIComponent(ticketRef)}`, true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            clearBadge(ticketRef);
-        }
-    };
+    xhr.open('GET', `AllCustomersT.php?action=mark_as_read&customer_id=${encodeURIComponent(customerId)}`, true);
     xhr.send();
 }
 
-function clearBadge(ticketRef) {
-    const badgeElement = document.getElementById(`badge-${ticketRef}`);
+function clearBadge(customerId) {
+    const badgeElement = document.getElementById(`badge-${customerId}`);
     if (badgeElement) {
         badgeElement.remove();
     }
@@ -1412,7 +1456,7 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
     
     const nextLink = currentPage < totalPages 
         ? `<a href="#" class="pagination-link" onclick="fetchTickets(${currentPage + 1}, '${searchTerm}', '${accountFilter}'); return false;"><i class="fas fa-chevron-right"></i></a>`
-        : `<span class="pagination-link disabled"><i class="fas fa-chevron-right'></i></span>`;
+        : `<span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>`;
     
     pagination.innerHTML = `
         ${prevLink}
@@ -1420,6 +1464,26 @@ function updatePagination(currentPage, totalPages, searchTerm, accountFilter) {
         ${nextLink}
     `;
 }
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('activeChatsModal');
+    if (modal && modal.style.display === 'block') {
+        if (event.target === modal) {
+            closeModal('activeChatsModal');
+        }
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('activeChatsModal');
+        if (modal && modal.style.display === 'block') {
+            closeModal('activeChatsModal');
+        }
+    }
+});
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -1432,10 +1496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchTickets(<?php echo $pageCustomer; ?>, searchInput.value, accountFilter);
     }
     
-    document.getElementById('activeChatsModal')?.addEventListener('click', function() {
-        setTimeout(initializeChatForms, 100);
-    });
-    
+    // Start checking for new messages
     startMessageChecking();
 });
 
