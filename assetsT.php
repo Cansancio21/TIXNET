@@ -64,6 +64,44 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_asset_names') {
     exit;
 }
 
+if (isset($_GET['action']) && $_GET['action'] === 'get_asset_details') {
+    $ref_no = $_GET['ref_no'] ?? '';
+    
+    if (!empty($ref_no)) {
+        // Try to get from tbl_assets first
+        $sql = "SELECT a.*, s.tech_name, s.tech_id 
+                FROM tbl_assets a 
+                LEFT JOIN tbl_asset_status s ON a.a_ref_no = s.a_ref_no AND s.a_status IN ('Borrowed', 'Deployed')
+                WHERE a.a_ref_no = ? 
+                LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $ref_no);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            echo json_encode([
+                'ref_no' => $row['a_ref_no'],
+                'name' => $row['a_name'],
+                'status' => $row['a_status'],
+                'current_status' => $row['a_current_status'],
+                'date' => $row['a_date'],
+                'serial_no' => $row['a_serial_no'] ?? '',
+                'specs' => $row['a_specs'] ?? '',
+                'cycle' => $row['a_cycle'] ?? '',
+                'condition' => $row['a_condition'] ?? '',
+                'tech_name' => $row['tech_name'] ?? '',
+                'tech_id' => $row['tech_id'] ?? ''
+            ]);
+        } else {
+            echo json_encode(['error' => 'Asset not found']);
+        }
+        $stmt->close();
+    }
+    exit;
+}
+
 if (isset($_GET['action']) && $_GET['action'] === 'export_data' && isset($_GET['tab'])) {
     $searchTerm = trim($_GET['search'] ?? '');
     $filterName = trim($_GET['filter_name'] ?? '');
@@ -192,6 +230,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
     $deleteStmt->close();
     exit();
 }
+
     if ($conn) {
         $sqlUser = "SELECT u_fname, u_type FROM tbl_user WHERE u_username = ?";
         $stmtUser = $conn->prepare($sqlUser);
@@ -943,28 +982,28 @@ if (isset($_POST['return_asset'])) {
         error_log("Executing borrowed tab query with searchTerm: $searchTerm, assetName: $assetName, techName: $techName");
         $params = [];
         $types = '';
-        $whereClauses = ["a_status = 'Borrowed'"];
+        $whereClauses = ["s.a_status = 'Borrowed'"]; // FIXED: Added table alias
 
         if ($searchTerm !== '') {
-            $whereClauses[] = "(a_name LIKE ? OR a_ref_no LIKE ? OR tech_name LIKE ? OR tech_id LIKE ? OR a_date LIKE ?)";
+            $whereClauses[] = "(s.a_name LIKE ? OR s.a_ref_no LIKE ? OR s.tech_name LIKE ? OR s.tech_id LIKE ? OR s.a_date LIKE ?)";
             $searchWildcard = "%$searchTerm%";
             $params = array_merge($params, [$searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard, $searchWildcard]);
             $types .= 'sssss';
         }
         if ($assetName !== '') {
-            $whereClauses[] = "a_name = ?";
+            $whereClauses[] = "s.a_name = ?";
             $params[] = $assetName;
             $types .= 's';
         }
         if ($techName !== '') {
-            $whereClauses[] = "tech_name = ?";
+            $whereClauses[] = "s.tech_name = ?";
             $params[] = $techName;
             $types .= 's';
         }
 
         $whereClause = implode(' AND ', $whereClauses);
 
-        $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status WHERE $whereClause";
+        $countSql = "SELECT COUNT(*) as total FROM tbl_asset_status s WHERE $whereClause";
         error_log("Borrowed Count SQL: $countSql, Params: " . json_encode($params));
         $countStmt = $conn->prepare($countSql);
         if (!empty($params)) {
@@ -977,10 +1016,11 @@ if (isset($_POST['return_asset'])) {
 
         $totalPages = ceil($totalRecords / $limit);
 
-        $sql = "SELECT a_ref_no, a_name, tech_name, tech_id, a_serial_no, a_date 
-                FROM tbl_asset_status 
+        $sql = "SELECT s.a_ref_no, s.a_name, s.tech_name, s.tech_id, s.a_serial_no, s.a_date, a.a_specs, a.a_cycle, a.a_condition 
+                FROM tbl_asset_status s
+                INNER JOIN tbl_assets a ON s.a_ref_no = a.a_ref_no 
                 WHERE $whereClause 
-                ORDER BY a_ref_no ASC 
+                ORDER BY s.a_ref_no ASC 
                 LIMIT ?, ?";
         error_log("Borrowed Main SQL: $sql, Params: " . json_encode(array_merge($params, [$offset, $limit])));
         $stmt = $conn->prepare($sql);
@@ -1001,7 +1041,7 @@ if (isset($_POST['return_asset'])) {
                     <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                     <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                     <td>
-                        <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                        <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                         <a class='borrowdelete-btn' onclick=\"showBorrowedDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                     </td></tr>";
             }
@@ -1075,7 +1115,7 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
-                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                     <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                 </td></tr>";
@@ -1150,7 +1190,7 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
-                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                     <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                     <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                 </td></tr>";
@@ -1441,13 +1481,13 @@ unset($_SESSION['open_modal']);
                                     <i class='bx bx-filter'></i>
                                     </button>
                             </th>
-                            <th>Category
-                                    <button class="filter-btn" onclick="showAssetStatusFilterModal('active')" title="Filter by Category">
+                            <th>Asset Specification
+                                    <button class="filter-btn" onclick="showAssetStatusFilterModal('active')" title="Filter by Asset Specification">
                                     <i class='bx bx-filter'></i>
                                     </button>
                             </th>
                             <th>Quantity</th>
-                            <th>Current Status</th>
+                            <th>Asset Category</th>
                             <th>Date Registered</th>
                             <th>Actions</th>
                             </tr>
@@ -1459,12 +1499,12 @@ unset($_SESSION['open_modal']);
                                         echo "<tr> 
                                                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
-                                                <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td>" . htmlspecialchars($row['a_specs'] ?? 'Not specified', ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
-                                                   <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "',  '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                   <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                                    <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                                    <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                                 </td></tr>"; 
@@ -1501,13 +1541,13 @@ unset($_SESSION['open_modal']);
                                         </button>
                                     </th>
                                     <th>
-                                        Category
-                                        <button class="filter-btn" onclick="showAssetStatusFilterModal('archive')" title="Filter by Category">
+                                        Asset Specification
+                                        <button class="filter-btn" onclick="showAssetStatusFilterModal('archive')" title="Filter by Asset Specification">
                                             <i class='bx bx-filter'></i>
                                         </button>
                                     </th>
                                     <th>Quantity</th>
-                                    <th>Current Status</th>
+                                    <th>Asset Category</th>
                                     <th>Date Registered</th>
                                     <th>Actions</th>
                                 </tr>
@@ -1519,12 +1559,12 @@ unset($_SESSION['open_modal']);
                                         echo "<tr> 
                                                 <td>" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "</td>  
-                                                <td>" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "</td>
+                                                <td>" . htmlspecialchars($row['a_specs'] ?? 'Not specified', ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_quantity'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
-                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "',  '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                                     <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                                     <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                                 </td></tr>"; 
@@ -1605,7 +1645,7 @@ unset($_SESSION['open_modal']);
                             <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                             <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                             <td>
-                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\"
+                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
                                 <a class='borrowdelete-btn' onclick=\"showBorrowedDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                             </td></tr>";
                 }   
@@ -1822,7 +1862,7 @@ unset($_SESSION['open_modal']);
     </div>
 </div>
 
-            <!-- Edit Asset Modal -->
+            <!-- Edit Asset Modal - Updated labels -->
       <div id="editAssetModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -1842,7 +1882,7 @@ unset($_SESSION['open_modal']);
                 <span class="error" id="edit_serial_no_error"></span>
             </div>
             <div class="form-group">
-                <label for="edit_asset_status">Category:</label>
+                <label for="edit_asset_status">Asset Specification:</label>
                 <select id="edit_asset_status" name="asset_status" required>
                     <option value="Borrowing">Borrowing</option>
                     <option value="Deployment">Deployment</option>
@@ -1851,7 +1891,7 @@ unset($_SESSION['open_modal']);
                 <span class="error" id="edit_asset_status_error"></span>
             </div>
             <div class="form-group">
-                <label for="edit_current_status">Current Status:</label>
+                <label for="edit_current_status">Asset Category:</label>
                 <select id="edit_current_status" name="current_status" required>
                     <option value="Available">Available</option>
                     <option value="Borrowed">Borrowed</option>
@@ -2097,17 +2137,17 @@ unset($_SESSION['open_modal']);
     </div>
 </div>
 
-            <!-- Asset Status Filter Modal -->
+            <!-- Asset Status Filter Modal - Updated label -->
             <div id="assetStatusFilterModal" class="modal">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h2>Filter by Category</h2>
+                        <h2>Filter by Asset Specification</h2>
                     </div>
                     <form id="assetStatusFilterForm" class="modal-form">
                         <input type="hidden" name="tab" id="assetStatusFilterTab">
-                        <label for="asset_status_filter">Select Category</label>
+                        <label for="asset_status_filter">Select Asset Specification</label>
                         <select name="asset_status_filter" id="asset_status_filter">
-                            <option value="">All Categories</option>
+                            <option value="">All Specifications</option>
                             <?php foreach ($uniqueAssetStatuses as $status): ?>
                                 <option value="<?php echo htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?>">
                                     <?php echo htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?>
@@ -2628,45 +2668,16 @@ function showAddAssetModal() {
     searchAssets(1, tab);
 }
 
-function showAssetViewModal(ref_no) {
-    // Fetch complete asset details via AJAX
-    fetch(`assetsT.php?action=get_asset_details&ref_no=${ref_no}`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('assetViewContent').innerHTML = `
-                <div class="asset-details">
-                    <p><strong>Asset Ref No:</strong> ${data.ref_no}</p>
-                    <p><strong>Asset Name:</strong> ${data.name}</p>
-                    <p><strong>Category:</strong> ${data.status}</p>
-                    <p><strong>Current Status:</strong> ${data.current_status}</p>
-                    <p><strong>Serial No:</strong> ${data.serial_no || 'N/A'}</p>
-                    <p><strong>Asset Specification:</strong> ${data.specs ? data.specs : '<em>Not specified</em>'}</p>
-                    <p><strong>Asset Lifecycle:</strong> ${data.cycle || '<em>Not set</em>'}</p>
-                    <p><strong>Asset Condition:</strong> <span style="font-weight:600;color:${
-                        data.condition === 'Brand New' ? '#28a745' :
-                        data.condition === 'Good Condition' ? '#007bff' :
-                        data.condition === 'Slightly Used' ? '#ffc107' :
-                        data.condition === 'For Repair' ? '#fd7e14' : '#dc3545'
-                    };">${data.condition || '<em>Not set</em>'}</span></p>
-                    <p><strong>Date ${data.current_status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${data.date}</p>
-                    ${data.tech_name ? `<p><strong>Technician Name:</strong> ${data.tech_name}</p>` : ''}
-                    ${data.tech_id ? `<p><strong>Technician ID:</strong> ${data.tech_id}</p>` : ''}
-                </div>
-            `;
-            document.getElementById('assetViewModal').style.display = 'block';
-        })
-        .catch(error => {
-            console.error('Error fetching asset details:', error);
-            showErrorMessage('Failed to load asset details.');
-        });
-}
-function showAssetViewModal(ref_no, name, status, current_status, date, serial_no, specs = '', cycle = '', condition = '') {
-    document.getElementById('assetViewContent').innerHTML = `
+function showAssetViewModal(ref_no, name, status, current_status, date, serial_no, specs = '', cycle = '', condition = '', tech_name = '', tech_id = '') {
+    // Check if this is a borrowed asset (has technician details)
+    const isBorrowed = tech_name !== '' || tech_id !== '';
+    
+    let content = `
         <div class="asset-details">
             <p><strong>Asset Ref No:</strong> ${ref_no}</p>
             <p><strong>Asset Name:</strong> ${name}</p>
-            <p><strong>Category:</strong> ${status}</p>
-            <p><strong>Current Status:</strong> ${current_status}</p>
+            <p><strong>Asset Specification:</strong> ${status}</p>
+            <p><strong>Asset Category:</strong> ${current_status}</p>
             <p><strong>Serial No:</strong> ${serial_no || 'N/A'}</p>
             <p><strong>Asset Specification:</strong> ${specs ? specs : '<em>Not specified</em>'}</p>
             <p><strong>Asset Lifecycle:</strong> ${cycle || '<em>Not set</em>'}</p>
@@ -2676,13 +2687,22 @@ function showAssetViewModal(ref_no, name, status, current_status, date, serial_n
                 condition === 'Slightly Used' ? '#ffc107' :
                 condition === 'For Repair' ? '#fd7e14' : '#dc3545'
             };">${condition || '<em>Not set</em>'}</span></p>
-            <p><strong>Date ${current_status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${date}</p>
-        </div>
-    `;
+            <p><strong>Date ${current_status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${date}</p>`;
+    
+    // Add technician details if it's a borrowed asset
+    if (isBorrowed) {
+        content += `
+            <p><strong>Technician Name:</strong> ${tech_name}</p>
+            <p><strong>Technician ID:</strong> ${tech_id}</p>`;
+    }
+    
+    content += `</div>`;
+    
+    document.getElementById('assetViewContent').innerHTML = content;
     document.getElementById('assetViewModal').style.display = 'block';
 }
 
-    function showEditAssetModal(ref_no, name, status, current_status, serial_no) {
+function showEditAssetModal(ref_no, name, status, current_status, serial_no) {
     console.log('showEditAssetModal called with:', { ref_no, name, status, current_status, serial_no });
     if (current_status === 'Borrowed' || current_status === 'Deployed') {
         showErrorMessage('Cannot edit the borrowed and deployed asset.');
