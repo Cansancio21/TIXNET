@@ -236,13 +236,16 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $hasError = false;
 
-         if (isset($_POST['add_asset'])) {
+    if (isset($_POST['add_asset'])) {
     $errors = [];
     $assetname = trim($_POST['asset_name'] ?? '');
     $assetstatus = trim($_POST['asset_status'] ?? '');
     $assetquantity = trim($_POST['asset_quantity'] ?? '');
     $assetdate = trim($_POST['date'] ?? '');
     $serial_no = trim($_POST['serial_no'] ?? '');
+    $asset_specs     = trim($_POST['asset_specs'] ?? '');
+    $asset_cycle     = $_POST['asset_cycle'] ?? '';
+    $asset_condition = $_POST['asset_condition'] ?? '';
 
     if (!preg_match("/^[a-zA-Z\s-]+$/", $assetname)) {
         $errors['asset_name'] = "Asset Name should not contain numbers.";
@@ -260,6 +263,17 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
         $errors['serial_no'] = "Cannot assign the same serial number to multiple assets.";
     }
 
+    if (!empty($asset_specs) && !preg_match("/^[a-zA-Z\s\.,\-()\'\"&]+$/", $asset_specs)) {
+            $errors['asset_specs'] = "Asset Specification can only contain letters, spaces, and basic punctuation. Numbers are not allowed.";
+    }
+    if (!in_array($asset_cycle, ['Reusable', 'Non-reusable'])) {
+            $errors['asset_cycle'] = "Please select a valid Asset Lifecycle.";
+    }
+        $valid_conditions = ['Brand New', 'Good Condition', 'Slightly Used', 'For Repair', 'Damaged'];
+    if (!in_array($asset_condition, $valid_conditions)) {
+            $errors['asset_condition'] = "Please select a valid Asset Condition.";
+    }
+
     if (empty($errors)) {
         $prefix = strtoupper(preg_replace('/\W+/', '', $assetname)) . '-';
         $sql_max = "SELECT MAX(CAST(SUBSTR(a_ref_no, LENGTH(?) + 1) AS UNSIGNED)) AS max_num FROM tbl_assets WHERE a_ref_no LIKE CONCAT(?, '%')";
@@ -275,9 +289,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
             for ($i = 1; $i <= $assetquantity; $i++) {
                 $num = $max_num + $i;
                 $ref_no = $prefix . sprintf('%03d', $num);
-                $sql = "INSERT INTO tbl_assets (a_name, a_status, a_quantity, a_date, a_ref_no, a_serial_no, a_current_status) VALUES (?, ?, 1, ?, ?, ?, 'Available')";
+                $sql = "INSERT INTO tbl_assets (a_name, a_status, a_quantity, a_date, a_ref_no, a_serial_no, a_current_status, a_specs, a_cycle, a_condition) VALUES (?, ?, 1, ?, ?, ?, 'Available', ?, ?, ?)";
                 $stmt = $conn->prepare($sql);
-                $stmt->bind_param("sssss", $assetname, $assetstatus, $assetdate, $ref_no, $serial_no);
+                $stmt->bind_param("ssssssss", $assetname, $assetstatus, $assetdate, $ref_no, $serial_no, $asset_specs, $asset_cycle, $asset_condition);
                 $stmt->execute();
                 $stmt->close();
             }
@@ -290,6 +304,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
             $stmtLog->bind_param("ss", $logDescription, $logType);
             $stmtLog->execute();
             $stmtLog->close();
+            
+            // Clear session data on success
+            unset($_SESSION['add_errors']);
+            unset($_SESSION['add_form_data']);
 
             if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
                 header('Content-Type: application/json');
@@ -316,6 +334,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
             'asset_quantity' => $assetquantity,
             'date' => $assetdate,
             'serial_no' => $serial_no,
+            'asset_specs' => $asset_specs,
+            'asset_cycle' => $asset_cycle,
+            'asset_condition' => $asset_condition
         ];
         $_SESSION['open_modal'] = 'addAsset';
     }
@@ -1030,11 +1051,11 @@ if (isset($_POST['return_asset'])) {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no 
-            FROM tbl_assets 
-            WHERE $whereClause 
-            ORDER BY a_ref_no ASC 
-            LIMIT ?, ?";
+   $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no, a_specs, a_cycle, a_condition 
+        FROM tbl_assets 
+        WHERE $whereClause 
+        ORDER BY a_ref_no ASC 
+        LIMIT ?, ?";
     error_log("Active Main SQL: $sql, Params: " . json_encode(array_merge($params, [$offset, $limit])));
     $stmt = $conn->prepare($sql);
     $params[] = $offset;
@@ -1105,11 +1126,11 @@ if (isset($_POST['return_asset'])) {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no 
-            FROM tbl_assets 
-            WHERE $whereClause 
-            ORDER BY a_ref_no ASC 
-            LIMIT ?, ?";
+    $sql = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no, a_specs, a_cycle, a_condition 
+        FROM tbl_assets 
+        WHERE $whereClause 
+        ORDER BY a_ref_no ASC 
+        LIMIT ?, ?";
     error_log("Archive Main SQL: $sql, Params: " . json_encode(array_merge($params, [$offset, $limit])));
     $stmt = $conn->prepare($sql);
     $params[] = $offset;
@@ -1237,7 +1258,7 @@ if (isset($_POST['return_asset'])) {
         $totalActive = $activeCountResult ? $activeCountResult->fetch_assoc()['total'] : 0;
         $totalActivePages = ceil($totalActive / $limit);
 
-        $sqlActive = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no FROM tbl_assets WHERE a_current_status != 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
+        $sqlActive = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no, a_specs, a_cycle, a_condition FROM tbl_assets WHERE a_current_status != 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
         $stmtActive = $conn->prepare($sqlActive);
         $stmtActive->bind_param("ii", $activeOffset, $limit);
         $stmtActive->execute();
@@ -1249,7 +1270,7 @@ if (isset($_POST['return_asset'])) {
         $totalArchived = $archivedCountResult ? $archivedCountResult->fetch_assoc()['total'] : 0;
         $totalArchivedPages = ceil($totalArchived / $limit);
 
-        $sqlArchived = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no FROM tbl_assets WHERE a_current_status = 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
+        $sqlArchived = "SELECT a_ref_no, a_name, a_status, a_current_status, a_date, a_quantity, a_serial_no, a_specs, a_cycle, a_condition FROM tbl_assets WHERE a_current_status = 'Archived' ORDER BY a_ref_no ASC LIMIT ?, ?";
         $stmtArchived = $conn->prepare($sqlArchived);
         $stmtArchived->bind_param("ii", $archivedOffset, $limit);
         $stmtArchived->execute();
@@ -1443,7 +1464,7 @@ unset($_SESSION['open_modal']);
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
-                                                   <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                   <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "',  '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\" title='View'><i class='fas fa-eye'></i></a>
                                                    <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                                    <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                                 </td></tr>"; 
@@ -1503,7 +1524,7 @@ unset($_SESSION['open_modal']);
                                                 <td>" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "</td>
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
-                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "',  '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\" title='View'><i class='fas fa-eye'></i></a>
                                                     <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                                                     <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                                                 </td></tr>"; 
@@ -1563,7 +1584,7 @@ unset($_SESSION['open_modal']);
             $totalBorrowed = $borrowedCountResult ? $borrowedCountResult->fetch_assoc()['total'] : 0;
             $totalBorrowedPages = ceil($totalBorrowed / $limit);
 
-            $sqlBorrowed = "SELECT s.a_ref_no, s.a_name, s.tech_name, s.tech_id, s.a_serial_no, s.a_date 
+            $sqlBorrowed = "SELECT s.a_ref_no, s.a_name, s.tech_name, s.tech_id, s.a_serial_no, s.a_date, a.a_specs, a.a_cycle, a.a_condition 
                 FROM tbl_asset_status s
                 INNER JOIN tbl_assets a ON s.a_ref_no = a.a_ref_no 
                 WHERE s.a_status = 'Borrowed' AND a.a_current_status != 'Archived' 
@@ -1584,7 +1605,7 @@ unset($_SESSION['open_modal']);
                             <td>" . ($row['a_serial_no'] ? htmlspecialchars($row['a_serial_no'], ENT_QUOTES, 'UTF-8') : '') . "</td>
                             <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                             <td>
-                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
+                                <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', 'Borrowed', 'Borrowed', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['tech_id'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES) . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES) . "','" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES) . "')\"
                                 <a class='borrowdelete-btn' onclick=\"showBorrowedDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                             </td></tr>";
                 }   
@@ -1625,51 +1646,102 @@ unset($_SESSION['open_modal']);
                 </div>
             </div>
 
-            <!-- Add Asset Modal -->
-            <div id="addAssetModal" class="modal">
-    <div class="modal-content">
+<!-- Add Asset Modal - WITH INTERNAL SCROLL -->
+<div id="addAssetModal" class="modal">
+    <div class="modal-content scrollable-modal">
+        <!-- Fixed Header -->
         <div class="modal-header">
             <h2>Add New Asset</h2>
         </div>
-        <form method="POST" id="addAssetForm" class="modal-form">
-            <input type="hidden" name="add_asset" value="1">
-            <input type="hidden" name="ajax" value="true">
-            <div class="form-group">
-                <label for="asset_name">Asset Name:</label>
-                <input type="text" id="asset_name" name="asset_name" placeholder="Asset Name" value="<?php echo isset($_SESSION['add_form_data']['asset_name']) ? htmlspecialchars($_SESSION['add_form_data']['asset_name']) : ''; ?>" required>
-                <span class="error" id="addAssetForm_asset_name_error"><?php echo isset($_SESSION['add_errors']['asset_name']) ? htmlspecialchars($_SESSION['add_errors']['asset_name']) : ''; ?></span>
-            </div>
-            <div class="form-group">
-                <label for="asset_quantity">Number of Assets to Register:</label>
-                <input type="text" id="asset_quantity" name="asset_quantity" placeholder="Number of assets" value="<?php echo isset($_SESSION['add_form_data']['asset_quantity']) ? htmlspecialchars($_SESSION['add_form_data']['asset_quantity']) : ''; ?>" required>
-                <span class="error" id="addAssetForm_asset_quantity_error"><?php echo isset($_SESSION['add_errors']['asset_quantity']) ? htmlspecialchars($_SESSION['add_errors']['asset_quantity']) : ''; ?></span>
-            </div>
-            <div class="form-group">
-                <label for="serial_no">Serial Number:</label>
-                <input type="text" id="serial_no" name="serial_no" placeholder="Serial Number (optional)" value="<?php echo isset($_SESSION['add_form_data']['serial_no']) ? htmlspecialchars($_SESSION['add_form_data']['serial_no']) : ''; ?>">
-                <span class="error" id="addAssetForm_serial_no_error"><?php echo isset($_SESSION['add_errors']['serial_no']) ? htmlspecialchars($_SESSION['add_errors']['serial_no']) : ''; ?></span>
-            </div>
-            <div class="form-group">
-                <label for="asset_status">Asset Category:</label>
-                <select id="asset_status" name="asset_status" required>
-                    <option value="Borrowing" <?php echo isset($_SESSION['add_form_data']['asset_status']) && $_SESSION['add_form_data']['asset_status'] === 'Borrowing' ? 'selected' : ''; ?>>Borrowing</option>
-                    <option value="Deployment" <?php echo isset($_SESSION['add_form_data']['asset_status']) && $_SESSION['add_form_data']['asset_status'] === 'Deployment' ? 'selected' : ''; ?>>Deployment</option>
-                </select>
-                <span class="error" id="addAssetForm_asset_status_error"><?php echo isset($_SESSION['add_errors']['asset_status']) ? htmlspecialchars($_SESSION['add_errors']['asset_status']) : ''; ?></span>
-            </div>
-            <div class="form-group">
-                <label for="date">Date Registered:</label>
-                <input type="date" id="date" name="date" value="<?php echo isset($_SESSION['add_form_data']['date']) ? htmlspecialchars($_SESSION['add_form_data']['date']) : ''; ?>" required>
-                <span class="error" id="addAssetForm_date_error"><?php echo isset($_SESSION['add_errors']['date']) ? htmlspecialchars($_SESSION['add_errors']['date']) : ''; ?></span>
-            </div>
-            <div class="form-group">
-                <span class="error" id="addAssetForm_general_error"><?php echo isset($_SESSION['add_errors']['general']) ? htmlspecialchars($_SESSION['add_errors']['general']) : ''; ?></span>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('addAssetModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Add Asset</button>
-            </div>
-        </form>
+
+        <!-- Scrollable Body -->
+        <div class="modal-body">
+            <form method="POST" id="addAssetForm" class="modal-form">
+                <input type="hidden" name="add_asset" value="1">
+                <input type="hidden" name="ajax" value="true">
+
+                <div class="form-group">
+                    <label for="asset_name">Asset Name:</label>
+                    <input type="text" id="asset_name" name="asset_name" placeholder="Asset Name" 
+                           value="<?php echo isset($_SESSION['add_form_data']['asset_name']) ? htmlspecialchars($_SESSION['add_form_data']['asset_name']) : ''; ?>" required>
+                    <span class="error" id="addAssetForm_asset_name_error"><?php echo isset($_SESSION['add_errors']['asset_name']) ? htmlspecialchars($_SESSION['add_errors']['asset_name']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="asset_quantity">Number of Assets to Register:</label>
+                    <input type="text" id="asset_quantity" name="asset_quantity" placeholder="e.g. 5" 
+                           value="<?php echo isset($_SESSION['add_form_data']['asset_quantity']) ? htmlspecialchars($_SESSION['add_form_data']['asset_quantity']) : ''; ?>" required>
+                    <span class="error" id="addAssetForm_asset_quantity_error"><?php echo isset($_SESSION['add_errors']['asset_quantity']) ? htmlspecialchars($_SESSION['add_errors']['asset_quantity']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="serial_no">Serial Number:</label>
+                    <input type="text" id="serial_no" name="serial_no" placeholder="Serial Number (optional)" 
+                           value="<?php echo isset($_SESSION['add_form_data']['serial_no']) ? htmlspecialchars($_SESSION['add_form_data']['serial_no']) : ''; ?>">
+                    <span class="error" id="addAssetForm_serial_no_error"><?php echo isset($_SESSION['add_errors']['serial_no']) ? htmlspecialchars($_SESSION['add_errors']['serial_no']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="asset_specs">Asset Specification:</label>
+                    <textarea id="asset_specs" name="asset_specs" rows="3" 
+                              placeholder="e.g. Wireless Optical Mouse with USB Receiver"><?php echo isset($_SESSION['add_form_data']['asset_specs']) ? htmlspecialchars($_SESSION['add_form_data']['asset_specs']) : ''; ?></textarea>
+                    <span class="error" id="addAssetForm_asset_specs_error"><?php echo isset($_SESSION['add_errors']['asset_specs']) ? htmlspecialchars($_SESSION['add_errors']['asset_specs']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="asset_cycle">Asset Lifecycle:</label>
+                    <select id="asset_cycle" name="asset_cycle" required>
+                        <option value="">Select Lifecycle</option>
+                        <option value="Reusable" <?php echo (isset($_SESSION['add_form_data']['asset_cycle']) && $_SESSION['add_form_data']['asset_cycle'] === 'Reusable') ? 'selected' : ''; ?>>Reusable</option>
+                        <option value="Non-reusable" <?php echo (isset($_SESSION['add_form_data']['asset_cycle']) && $_SESSION['add_form_data']['asset_cycle'] === 'Non-reusable') ? 'selected' : ''; ?>>Non-reusable</option>
+                    </select>
+                    <span class="error" id="addAssetForm_asset_cycle_error"><?php echo isset($_SESSION['add_errors']['asset_cycle']) ? htmlspecialchars($_SESSION['add_errors']['asset_cycle']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="asset_condition">Asset Condition:</label>
+                    <select id="asset_condition" name="asset_condition" required>
+                        <option value="">Select Condition</option>
+                        <option value="Brand New" <?php echo (isset($_SESSION['add_form_data']['asset_condition']) && $_SESSION['add_form_data']['asset_condition'] === 'Brand New') ? 'selected' : ''; ?>>Brand New</option>
+                        <option value="Good Condition" <?php echo (isset($_SESSION['add_form_data']['asset_condition']) && $_SESSION['add_form_data']['asset_condition'] === 'Good Condition') ? 'selected' : ''; ?>>Good Condition</option>
+                        <option value="Slightly Used" <?php echo (isset($_SESSION['add_form_data']['asset_condition']) && $_SESSION['add_form_data']['asset_condition'] === 'Slightly Used') ? 'selected' : ''; ?>>Slightly Used</option>
+                        <option value="For Repair" <?php echo (isset($_SESSION['add_form_data']['asset_condition']) && $_SESSION['add_form_data']['asset_condition'] === 'For Repair') ? 'selected' : ''; ?>>For Repair</option>
+                        <option value="Damaged" <?php echo (isset($_SESSION['add_form_data']['asset_condition']) && $_SESSION['add_form_data']['asset_condition'] === 'Damaged') ? 'selected' : ''; ?>>Damaged</option>
+                    </select>
+                    <span class="error" id="addAssetForm_asset_condition_error"><?php echo isset($_SESSION['add_errors']['asset_condition']) ? htmlspecialchars($_SESSION['add_errors']['asset_condition']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="asset_status">Asset Category:</label>
+                    <select id="asset_status" name="asset_status" required>
+                        <option value="">Select Category</option>
+                        <option value="Borrowing" <?php echo (isset($_SESSION['add_form_data']['asset_status']) && $_SESSION['add_form_data']['asset_status'] === 'Borrowing') ? 'selected' : ''; ?>>Borrowing</option>
+                        <option value="Deployment" <?php echo (isset($_SESSION['add_form_data']['asset_status']) && $_SESSION['add_form_data']['asset_status'] === 'Deployment') ? 'selected' : ''; ?>>Deployment</option>
+                    </select>
+                    <span class="error" id="addAssetForm_asset_status_error"><?php echo isset($_SESSION['add_errors']['asset_status']) ? htmlspecialchars($_SESSION['add_errors']['asset_status']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="date">Date Registered:</label>
+                    <input type="date" id="date" name="date" 
+                           value="<?php echo isset($_SESSION['add_form_data']['date']) ? htmlspecialchars($_SESSION['add_form_data']['date']) : date('Y-m-d'); ?>" required>
+                    <span class="error" id="addAssetForm_date_error"><?php echo isset($_SESSION['add_errors']['date']) ? htmlspecialchars($_SESSION['add_errors']['date']) : ''; ?></span>
+                </div>
+
+                <div class="form-group">
+                    <span class="error" id="addAssetForm_general_error" style="font-weight:600;">
+                        <?php echo isset($_SESSION['add_errors']['general']) ? htmlspecialchars($_SESSION['add_errors']['general']) : ''; ?>
+                    </span>
+                </div>
+            </form>
+        </div>
+        <!-- End .modal-body -->
+
+        <!-- Fixed Footer -->
+        <div class="modal-footer">
+            <button type="button" class="modal-btn cancel" onclick="closeModal('addAssetModal')">Cancel</button>
+            <button type="button" id="addAssetSubmitBtn" class="modal-btn confirm">Add Asset</button>
+        </div>
     </div>
 </div>
 
@@ -2053,6 +2125,14 @@ unset($_SESSION['open_modal']);
 
     <script>
 
+    // Prevent form submission on Enter key
+document.getElementById('addAssetForm').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('addAssetSubmitBtn').click();
+    }
+});
+
     document.addEventListener('DOMContentLoaded', function() {
     const successMessage = document.getElementById('success-message');
     if (successMessage) {
@@ -2093,11 +2173,10 @@ function clearModalErrors(formId) {
 }
 
 
-
-// Validate Add Asset Form
-document.getElementById('addAssetForm').addEventListener('submit', function(e) {
+// Handle Add Asset Form Submission
+document.getElementById('addAssetSubmitBtn').addEventListener('click', function(e) {
     e.preventDefault();
-    const form = this;
+    const form = document.getElementById('addAssetForm');
     const formData = new FormData(form);
     formData.append('ajax', 'true');
 
@@ -2106,8 +2185,14 @@ document.getElementById('addAssetForm').addEventListener('submit', function(e) {
     const assetName = document.getElementById('asset_name').value.trim();
     const quantity = document.getElementById('asset_quantity').value.trim();
     const serial = document.getElementById('serial_no').value.trim();
+    const specs = document.getElementById('asset_specs').value.trim();
+    const cycle = document.getElementById('asset_cycle').value;
+    const condition = document.getElementById('asset_condition').value;
     const assetStatus = document.getElementById('asset_status').value;
     const date = document.getElementById('date').value;
+
+    // Reset all errors first
+    clearModalErrors('addAssetForm');
 
     if (!assetName || !/^[a-zA-Z\s-]+$/.test(assetName)) {
         errors['asset_name'] = 'Asset Name is required and should not contain numbers.';
@@ -2118,8 +2203,17 @@ document.getElementById('addAssetForm').addEventListener('submit', function(e) {
     if (!quantity || isNaN(quantity) || quantity < 0) {
         errors['asset_quantity'] = 'Quantity must be a non-negative number.';
     }
-    if (serial && quantity > 1) {
+    if (serial && parseInt(quantity) > 1) {
         errors['serial_no'] = 'Cannot assign the same serial number to multiple assets.';
+    }
+    if (specs && !/^[a-zA-Z\s\.,\-()'"&]+$/.test(specs)) {
+        errors['asset_specs'] = 'Asset Specification can only contain letters, spaces, and basic punctuation. Numbers are not allowed.';
+    }
+    if (!cycle) {
+        errors['asset_cycle'] = 'Please select Asset Lifecycle.';
+    }
+    if (!condition) {
+        errors['asset_condition'] = 'Please select Asset Condition.';
     }
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         errors['date'] = 'Invalid date format.';
@@ -2130,28 +2224,56 @@ document.getElementById('addAssetForm').addEventListener('submit', function(e) {
         return;
     }
 
-    clearModalErrors('addAssetForm');
+    // Show loading state
+    const submitBtn = document.getElementById('addAssetSubmitBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Adding...';
+    submitBtn.disabled = true;
 
     // AJAX submission
     fetch('assetsT.php', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        return response.text().then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.log('Response is not JSON:', text);
+                throw new Error('Server returned an invalid response');
+            }
+        });
+    })
     .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
         if (data.success) {
             showSuccessMessage(data.message);
             closeModal('addAssetModal');
-            searchAssets(1, 'active'); // Refresh table instead of reloading page
+            // Refresh the active tab
+            const activeTab = document.querySelector('.tab-btn.active').getAttribute('onclick').match(/'([^']+)'/)[1];
+            searchAssets(1, activeTab);
+            // Also reset the form
+            form.reset();
         } else {
-            displayModalErrors('addAssetForm', data.errors);
+            console.error('Server-side errors:', data.errors);
+            if (data.errors) {
+                displayModalErrors('addAssetForm', data.errors);
+            } else {
+                showErrorMessage(data.message || 'Failed to add asset. Please try again.');
+            }
         }
     })
     .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
         console.error('Fetch error:', error);
-        showErrorMessage('An error occurred while processing your request.');
+        showErrorMessage('An error occurred while processing your request: ' + error.message);
     });
 });
+
 
 // Validate Borrow Asset Form
 document.getElementById('borrowAssetForm').addEventListener('submit', function(e) {
@@ -2373,6 +2495,7 @@ function displayModalErrors(formId, errors) {
     }
 }
 
+
 function showSuccessMessage(message) {
     const alertContainer = document.querySelector('.alert-container') || document.createElement('div');
     if (!alertContainer.classList.contains('alert-container')) {
@@ -2405,14 +2528,51 @@ function showErrorMessage(message) {
     }, 4000);
 }
 
-// Clear errors when modals are opened
 function showAddAssetModal() {
-    document.getElementById('addAssetForm').reset();
+    const modal = document.getElementById('addAssetModal');
+    const form = document.getElementById('addAssetForm');
+    
+    // Reset the form
+    form.reset();
+    
+    // Set default date to today
+    const dateField = document.getElementById('date');
+    if (dateField) {
+        const today = new Date().toISOString().split('T')[0];
+        dateField.value = today;
+    }
+    
+    // Reset lifecycle and condition dropdowns to default
+    document.getElementById('asset_cycle').value = '';
+    document.getElementById('asset_condition').value = '';
+    
+    // Clear all errors
     clearModalErrors('addAssetForm');
-    document.getElementById('addAssetModal').style.display = 'block';
+    
+    // Reset submit button state
+    const submitBtn = document.getElementById('addAssetSubmitBtn');
+    submitBtn.textContent = 'Add Asset';
+    submitBtn.disabled = false;
+    
+    // Show the modal
+    modal.style.display = 'block';
+    
     <?php if (isset($_SESSION['add_errors'])): ?>
+        // Display any PHP session errors
         displayModalErrors('addAssetForm', <?php echo json_encode($_SESSION['add_errors']); ?>);
         <?php unset($_SESSION['add_errors']); ?>
+        
+        // Populate form with previous data if available
+        <?php if (isset($_SESSION['add_form_data'])): ?>
+            const formData = <?php echo json_encode($_SESSION['add_form_data']); ?>;
+            Object.keys(formData).forEach(key => {
+                const field = form.querySelector(`[name="${key}"]`);
+                if (field) {
+                    field.value = formData[key];
+                }
+            });
+            <?php unset($_SESSION['add_form_data']); ?>
+        <?php endif; ?>
     <?php endif; ?>
 }
 
@@ -2468,28 +2628,59 @@ function showAddAssetModal() {
     searchAssets(1, tab);
 }
 
-   function showAssetViewModal(ref_no, name, status, current_status, date, serial_no, tech_name = '', tech_id = '') {
+function showAssetViewModal(ref_no) {
+    // Fetch complete asset details via AJAX
+    fetch(`assetsT.php?action=get_asset_details&ref_no=${ref_no}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('assetViewContent').innerHTML = `
+                <div class="asset-details">
+                    <p><strong>Asset Ref No:</strong> ${data.ref_no}</p>
+                    <p><strong>Asset Name:</strong> ${data.name}</p>
+                    <p><strong>Category:</strong> ${data.status}</p>
+                    <p><strong>Current Status:</strong> ${data.current_status}</p>
+                    <p><strong>Serial No:</strong> ${data.serial_no || 'N/A'}</p>
+                    <p><strong>Asset Specification:</strong> ${data.specs ? data.specs : '<em>Not specified</em>'}</p>
+                    <p><strong>Asset Lifecycle:</strong> ${data.cycle || '<em>Not set</em>'}</p>
+                    <p><strong>Asset Condition:</strong> <span style="font-weight:600;color:${
+                        data.condition === 'Brand New' ? '#28a745' :
+                        data.condition === 'Good Condition' ? '#007bff' :
+                        data.condition === 'Slightly Used' ? '#ffc107' :
+                        data.condition === 'For Repair' ? '#fd7e14' : '#dc3545'
+                    };">${data.condition || '<em>Not set</em>'}</span></p>
+                    <p><strong>Date ${data.current_status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${data.date}</p>
+                    ${data.tech_name ? `<p><strong>Technician Name:</strong> ${data.tech_name}</p>` : ''}
+                    ${data.tech_id ? `<p><strong>Technician ID:</strong> ${data.tech_id}</p>` : ''}
+                </div>
+            `;
+            document.getElementById('assetViewModal').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error fetching asset details:', error);
+            showErrorMessage('Failed to load asset details.');
+        });
+}
+function showAssetViewModal(ref_no, name, status, current_status, date, serial_no, specs = '', cycle = '', condition = '') {
     document.getElementById('assetViewContent').innerHTML = `
         <div class="asset-details">
             <p><strong>Asset Ref No:</strong> ${ref_no}</p>
             <p><strong>Asset Name:</strong> ${name}</p>
             <p><strong>Category:</strong> ${status}</p>
             <p><strong>Current Status:</strong> ${current_status}</p>
-            <p><strong>Serial No:</strong> ${serial_no || ''}</p>
-            <p><strong>Date ${status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${date}</p>
-            ${tech_name ? `<p><strong>Technician Name:</strong> ${tech_name}</p>` : ''}
-            ${tech_id ? `<p><strong>Technician ID:</strong> ${tech_id}</p>` : ''}
+            <p><strong>Serial No:</strong> ${serial_no || 'N/A'}</p>
+            <p><strong>Asset Specification:</strong> ${specs ? specs : '<em>Not specified</em>'}</p>
+            <p><strong>Asset Lifecycle:</strong> ${cycle || '<em>Not set</em>'}</p>
+            <p><strong>Asset Condition:</strong> <span style="font-weight:600;color:${
+                condition === 'Brand New' ? '#28a745' :
+                condition === 'Good Condition' ? '#007bff' :
+                condition === 'Slightly Used' ? '#ffc107' :
+                condition === 'For Repair' ? '#fd7e14' : '#dc3545'
+            };">${condition || '<em>Not set</em>'}</span></p>
+            <p><strong>Date ${current_status === 'Borrowed' ? 'Borrowed' : 'Registered'}:</strong> ${date}</p>
         </div>
     `;
     document.getElementById('assetViewModal').style.display = 'block';
 }
-
-
-    function showAddAssetModal() {
-        document.getElementById('addAssetForm').reset();
-        document.querySelectorAll('#addAssetForm .error').forEach(el => el.textContent = '');
-        document.getElementById('addAssetModal').style.display = 'block';
-    }
 
     function showEditAssetModal(ref_no, name, status, current_status, serial_no) {
     console.log('showEditAssetModal called with:', { ref_no, name, status, current_status, serial_no });

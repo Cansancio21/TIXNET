@@ -717,6 +717,7 @@ tr:hover td {
 #addAssetModal .modal-content {
     margin: 8% auto;
     max-width: 500px;
+    margin-top: 10px;
 }
 
 #borrowAssetModal .modal-content {
@@ -1088,4 +1089,90 @@ tr:hover td {
 
 .generate-btn:hover {
     background-color: #45a049;
+}
+
+/* ———————— ASSET SPECIFICATION TEXTAREA ———————— */
+.form-group textarea#asset_specs {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 100px;
+    background-color: #fafafa;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03) inset;
+}
+
+.form-group textarea#asset_specs:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(61, 40, 226, 0.15);
+    transform: translateY(-1px);
+}
+
+.form-group textarea#asset_specs::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* Error state for textarea */
+.form-group textarea#asset_specs.error-input {
+    border-color: var(--danger);
+    background-color: #fff5f5;
+    box-shadow: 0 0 0 3px rgba(214, 48, 49, 0.15);
+}
+
+/* Optional: Highlight when there's an error below */
+.form-group:has(textarea#asset_specs.error-input) + .error,
+.form-group .error {
+    color: var(--danger);
+    font-size: 0.9em;
+    margin-top: 6px;
+    display: block;
+}
+
+
+/* ———————— ADD NEW ASSET MODAL WITH INTERNAL SCROLL ———————— */
+#addAssetModal .modal-content {
+    max-height: 90vh;           /* Never taller than 90% of screen */
+    overflow: hidden;           /* Hide overflow from modal-content */
+    display: flex;
+    flex-direction: column;
+}
+
+#addAssetModal .modal-body {
+    flex: 1;
+    overflow-y: auto;           /* This creates the scroll inside the form */
+    padding-right: 10px;        /* Space for scrollbar */
+    margin-right: -10px;        /* Compensate padding */
+}
+
+/* Beautiful custom scrollbar for the modal */
+#addAssetModal .modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+#addAssetModal .modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#addAssetModal .modal-body::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+#addAssetModal .modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
+}
+
+/* Firefox support */
+#addAssetModal .modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) #f1f1f1;
 }
