@@ -386,13 +386,13 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
     exit();
 }
 
-    if (isset($_POST['edit_asset'])) {
+ if (isset($_POST['edit_asset'])) {
     $errors = [];
     $assetRefNo = trim($_POST['a_ref_no'] ?? '');
     $assetname = trim($_POST['asset_name'] ?? '');
-    $assetstatus = trim($_POST['asset_status'] ?? '');
-    $assetcurrentstatus = trim($_POST['current_status'] ?? '');
     $serial_no = trim($_POST['serial_no'] ?? '');
+    $asset_specs = trim($_POST['asset_specs'] ?? '');
+    $asset_condition = $_POST['asset_condition'] ?? '';
 
     // Validate inputs
     if (empty($assetRefNo)) {
@@ -401,11 +401,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
     if (!preg_match("/^[a-zA-Z\s-]+$/", $assetname)) {
         $errors['asset_name'] = "Asset Name should not contain numbers.";
     }
-    if (!in_array($assetstatus, ['Borrowing', 'Deployment', 'Archived'])) {
-        $errors['asset_status'] = "Invalid asset status.";
+    if (!empty($asset_specs) && !preg_match("/^[a-zA-Z\s\.,\-()\'\"&]+$/", $asset_specs)) {
+        $errors['asset_specs'] = "Asset Specification can only contain letters, spaces, and basic punctuation. Numbers are not allowed.";
     }
-    if (!in_array($assetcurrentstatus, ['Available', 'Borrowed', 'Deployed', 'Archived'])) {
-        $errors['current_status'] = "Invalid current status.";
+    $valid_conditions = ['Brand New', 'Good Condition', 'Slightly Used', 'For Repair', 'Damaged'];
+    if (!in_array($asset_condition, $valid_conditions)) {
+        $errors['asset_condition'] = "Please select a valid Asset Condition.";
     }
 
     // Check if asset is Borrowed or Deployed
@@ -425,16 +426,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
     }
 
     if (empty($errors)) {
-        $sql = "UPDATE tbl_assets SET a_name = ?, a_status = ?, a_current_status = ?, a_serial_no = ? WHERE a_ref_no = ?";
+        $sql = "UPDATE tbl_assets SET a_name = ?, a_serial_no = ?, a_specs = ?, a_condition = ? WHERE a_ref_no = ?";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param("sssss", $assetname, $assetstatus, $assetcurrentstatus, $serial_no, $assetRefNo);
+            $stmt->bind_param("sssss", $assetname, $serial_no, $asset_specs, $asset_condition, $assetRefNo);
             if ($stmt->execute()) {
-                if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'message' => 'Asset updated successfully!']);
-                    exit();
-                }
                 $_SESSION['message'] = "Asset updated successfully.";
             } else {
                 $errors['general'] = "Failed to update asset.";
@@ -445,28 +441,30 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
         }
     }
 
+    // Get current page numbers for redirect
+    $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
+    $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+    
     if (!empty($errors)) {
-        if (isset($_POST['ajax']) && $_POST['ajax'] == 'true') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'errors' => $errors]);
-            exit();
-        }
         $_SESSION['error'] = implode(" ", array_filter($errors));
         $_SESSION['edit_form_data'] = [
             'a_ref_no' => $assetRefNo,
             'asset_name' => $assetname,
-            'asset_status' => $assetstatus,
-            'current_status' => $assetcurrentstatus,
             'serial_no' => $serial_no,
+            'asset_specs' => $asset_specs,
+            'asset_condition' => $asset_condition,
         ];
         $_SESSION['open_modal'] = 'editAsset';
     }
-
-    $activePage = isset($_GET['active_page']) ? $_GET['active_page'] : 1;
-    $archivedPage = isset($_GET['archived_page']) ? $_GET['archived_page'] : 1;
+    
+    // Always redirect back to AssetsT.php
     header("Location: assetsT.php?active_page=$activePage&archived_page=$archivedPage");
     exit();
 }
+  
+
+
+
 
          ob_start();
     if (isset($_POST['borrow_asset'])) {
@@ -633,6 +631,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['re
         ob_end_flush();
         exit();
     }
+
+
+
+    
  
 if (isset($_POST['deploy_asset'])) {
     $errors = [];
@@ -787,6 +789,9 @@ if (isset($_POST['deploy_asset'])) {
     ob_end_flush();
     exit();
 }
+
+
+
 
 if (isset($_POST['return_asset'])) {
     $errors = [];
@@ -1116,7 +1121,7 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
                     <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                    <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                  <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                     <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                 </td></tr>";
         }
@@ -1191,7 +1196,7 @@ if (isset($_POST['return_asset'])) {
                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td>
                 <td>
                     <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                    <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
+                   <a class='unarchive-btn' onclick=\"showUnarchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Unarchive'><i class='fas fa-box-open'></i></a>
                     <a class='delete-btn' onclick=\"showDeleteModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Delete'><i class='fas fa-trash'></i></a>
                 </td></tr>";
         }
@@ -1335,7 +1340,7 @@ unset($_SESSION['open_modal']);
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Asset Management</title>
-        <link rel="stylesheet" href="assetsTT.css"> 
+        <link rel="stylesheet" href="assetsT.css"> 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
         <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1505,7 +1510,7 @@ unset($_SESSION['open_modal']);
                                                 <td>" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "</td> 
                                                 <td>
                                                    <a class='view-btn' onclick=\"showAssetViewModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_date'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_cycle'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='View'><i class='fas fa-eye'></i></a>
-                                                   <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
+                                                <a class='edit-btn' onclick=\"showEditAssetModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_current_status'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_serial_no'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_specs'] ?? '', ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_condition'] ?? '', ENT_QUOTES, 'UTF-8') . "')\" title='Edit'><i class='fas fa-edit'></i></a>
                                                    <a class='archive-btn' onclick=\"showArchiveModal('" . htmlspecialchars($row['a_ref_no'], ENT_QUOTES, 'UTF-8') . "', '" . htmlspecialchars($row['a_name'], ENT_QUOTES, 'UTF-8') . "')\" title='Archive'><i class='fas fa-archive'></i></a>
                                                 </td></tr>"; 
                                     } 
@@ -1862,52 +1867,55 @@ unset($_SESSION['open_modal']);
     </div>
 </div>
 
-            <!-- Edit Asset Modal - Updated labels -->
-      <div id="editAssetModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-            <h2>Edit Asset</h2>
-        </div>
-        <form method="POST" id="editAssetForm" class="modal-form">
-            <input type="hidden" name="edit_asset" value="1">
-            <input type="hidden" name="a_ref_no" id="edit_a_ref_no">
-            <div class="form-group">
-                <label for="edit_asset_name">Asset Name:</label>
-                <input type="text" id="edit_asset_name" name="asset_name" required>
-                <span class="error" id="edit_asset_name_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_serial_no">Serial Number:</label>
-                <input type="text" id="edit_serial_no" name="serial_no" placeholder="Serial Number (optional)">
-                <span class="error" id="edit_serial_no_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_asset_status">Asset Specification:</label>
-                <select id="edit_asset_status" name="asset_status" required>
-                    <option value="Borrowing">Borrowing</option>
-                    <option value="Deployment">Deployment</option>
-                    <option value="Archived">Archived</option>
-                </select>
-                <span class="error" id="edit_asset_status_error"></span>
-            </div>
-            <div class="form-group">
-                <label for="edit_current_status">Asset Category:</label>
-                <select id="edit_current_status" name="current_status" required>
-                    <option value="Available">Available</option>
-                    <option value="Borrowed">Borrowed</option>
-                    <option value="Deployed">Deployed</option>
-                    <option value="Archived">Archived</option>
-                </select>
-                <span class="error" id="edit_current_status_error"></span>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="modal-btn cancel" onclick="closeModal('editAssetModal')">Cancel</button>
-                <button type="submit" class="modal-btn confirm">Update</button>
-            </div>
-        </form>
+    <!-- Edit Asset Modal - Simplified with only 4 fields -->
+<div id="editAssetModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+        <h2>Edit Asset</h2>
     </div>
+    <form method="POST" id="editAssetForm" class="modal-form">
+        <input type="hidden" name="edit_asset" value="1">
+        <input type="hidden" name="a_ref_no" id="edit_a_ref_no">
+        <input type="hidden" name="ajax" value="true">
+        
+        <div class="form-group">
+            <label for="edit_asset_name">Asset Name:</label>
+            <input type="text" id="edit_asset_name" name="asset_name" required>
+            <span class="error" id="edit_asset_name_error"></span>
+        </div>
+        
+        <div class="form-group">
+            <label for="edit_serial_no">Serial Number:</label>
+            <input type="text" id="edit_serial_no" name="serial_no" placeholder="Serial Number (optional)">
+            <span class="error" id="edit_serial_no_error"></span>
+        </div>
+        
+        <div class="form-group">
+            <label for="edit_asset_specs">Asset Specification:</label>
+            <textarea id="edit_asset_specs" name="asset_specs" rows="3" placeholder="e.g. Wireless Optical Mouse with USB Receiver"></textarea>
+            <span class="error" id="edit_asset_specs_error"></span>
+        </div>
+        
+        <div class="form-group">
+            <label for="edit_asset_condition">Asset Condition:</label>
+            <select id="edit_asset_condition" name="asset_condition" required>
+                <option value="">Select Condition</option>
+                <option value="Brand New">Brand New</option>
+                <option value="Good Condition">Good Condition</option>
+                <option value="Slightly Used">Slightly Used</option>
+                <option value="For Repair">For Repair</option>
+                <option value="Damaged">Damaged</option>
+            </select>
+            <span class="error" id="edit_asset_condition_error"></span>
+        </div>
+        
+        <div class="modal-footer">
+            <button type="button" class="modal-btn cancel" onclick="closeModal('editAssetModal')">Cancel</button>
+            <button type="submit" class="modal-btn confirm">Update</button>
+        </div>
+    </form>
   </div>
-
+</div>
         <!-- Borrow Asset Modal - Updated with error spans -->
        <div id="borrowAssetModal" class="modal">
     <div class="modal-content">
@@ -2182,7 +2190,7 @@ document.getElementById('addAssetForm').addEventListener('keypress', function(e)
     }
 });
 
-    window.onload = function() {
+ window.onload = function() {
     <?php if (isset($_SESSION['open_modal'])): ?>
         <?php if ($_SESSION['open_modal'] === 'addAsset'): ?>
             showAddAssetModal();
@@ -2190,9 +2198,27 @@ document.getElementById('addAssetForm').addEventListener('keypress', function(e)
             showBorrowAssetModal();
         <?php elseif ($_SESSION['open_modal'] === 'deployAsset'): ?>
             showDeployAssetModal();
+        <?php elseif ($_SESSION['open_modal'] === 'editAsset'): ?>
+            <?php if (isset($_SESSION['edit_form_data'])): ?>
+                showEditAssetModal(
+                    '<?php echo $_SESSION['edit_form_data']['a_ref_no']; ?>',
+                    '<?php echo addslashes($_SESSION['edit_form_data']['asset_name']); ?>',
+                    '', // status
+                    '', // current_status
+                    '<?php echo addslashes($_SESSION['edit_form_data']['serial_no']); ?>',
+                    '<?php echo addslashes($_SESSION['edit_form_data']['asset_specs']); ?>',
+                    '<?php echo addslashes($_SESSION['edit_form_data']['asset_condition']); ?>'
+                );
+            <?php endif; ?>
         <?php endif; ?>
     <?php endif; ?>
-    };
+    
+    <?php 
+    // Clear session data after use
+    unset($_SESSION['open_modal']);
+    unset($_SESSION['edit_form_data']);
+    ?>
+};
 
 function displayModalErrors(formId, errors) {
     const errorSpans = document.querySelectorAll(`#${formId} .error`);
@@ -2676,7 +2702,7 @@ function showAssetViewModal(ref_no, name, status, current_status, date, serial_n
         <div class="asset-details">
             <p><strong>Asset Ref No:</strong> ${ref_no}</p>
             <p><strong>Asset Name:</strong> ${name}</p>
-            <p><strong>Asset Specification:</strong> ${status}</p>
+            <p><strong>Asset Status:</strong> ${status}</p>
             <p><strong>Asset Category:</strong> ${current_status}</p>
             <p><strong>Serial No:</strong> ${serial_no || 'N/A'}</p>
             <p><strong>Asset Specification:</strong> ${specs ? specs : '<em>Not specified</em>'}</p>
@@ -2702,18 +2728,31 @@ function showAssetViewModal(ref_no, name, status, current_status, date, serial_n
     document.getElementById('assetViewModal').style.display = 'block';
 }
 
-function showEditAssetModal(ref_no, name, status, current_status, serial_no) {
-    console.log('showEditAssetModal called with:', { ref_no, name, status, current_status, serial_no });
+function showEditAssetModal(ref_no, name, status, current_status, serial_no, specs = '', condition = '') {
+    console.log('showEditAssetModal called with:', { ref_no, name, status, current_status, serial_no, specs, condition });
+    
     if (current_status === 'Borrowed' || current_status === 'Deployed') {
         showErrorMessage('Cannot edit the borrowed and deployed asset.');
         return;
     }
+    
+    // Clear any previous errors
+    clearModalErrors('editAssetForm');
+    
+    // Populate the form with the data
     document.getElementById('edit_a_ref_no').value = ref_no;
     document.getElementById('edit_asset_name').value = name;
-    document.getElementById('edit_asset_status').value = status;
-    document.getElementById('edit_current_status').value = current_status;
-    document.getElementById('edit_serial_no').value = serial_no || '';
-    document.querySelectorAll('#editAssetForm .error').forEach(el => el.textContent = '');
+    
+    // Handle serial number - if it's N/A, None, or empty, display "N/A"
+    if (serial_no && serial_no !== '' && serial_no !== 'N/A' && serial_no !== 'None') {
+        document.getElementById('edit_serial_no').value = serial_no;
+    } else {
+        document.getElementById('edit_serial_no').value = 'N/A';
+    }
+    
+    document.getElementById('edit_asset_specs').value = specs || '';
+    document.getElementById('edit_asset_condition').value = condition || '';
+    
     document.getElementById('editAssetModal').style.display = 'block';
 }
 

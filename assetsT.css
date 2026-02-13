@@ -1176,3 +1176,119 @@ tr:hover td {
     scrollbar-width: thin;
     scrollbar-color: var(--primary) #f1f1f1;
 }
+
+/* ———————— EDIT MODAL ASSET SPECIFICATION TEXTAREA ———————— */
+/* Apply the same styling as the add asset modal */
+#editAssetModal .form-group textarea#edit_asset_specs {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 100px;
+    background-color: #fafafa;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03) inset;
+}
+
+#editAssetModal .form-group textarea#edit_asset_specs:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(61, 40, 226, 0.15);
+    transform: translateY(-1px);
+}
+
+#editAssetModal .form-group textarea#edit_asset_specs::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* Error state for textarea */
+#editAssetModal .form-group textarea#edit_asset_specs.error-input {
+    border-color: var(--danger);
+    background-color: #fff5f5;
+    box-shadow: 0 0 0 3px rgba(214, 48, 49, 0.15);
+}
+
+/* Error message styling */
+#editAssetModal .form-group .error {
+    color: var(--danger);
+    font-size: 0.9em;
+    margin-top: 6px;
+    display: block;
+    font-weight: 400;
+}
+
+/* Optional: Add the same scrollbar styling if your edit modal becomes tall */
+#editAssetModal .modal-content {
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#editAssetModal .modal-form {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+    margin-right: -10px;
+}
+
+/* Beautiful custom scrollbar for the edit modal */
+#editAssetModal .modal-form::-webkit-scrollbar {
+    width: 8px;
+}
+
+#editAssetModal .modal-form::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#editAssetModal .modal-form::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+#editAssetModal .modal-form::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
+}
+
+/* Firefox support */
+#editAssetModal .modal-form {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) #f1f1f1;
+}
+
+/* Make sure all form elements in edit modal have consistent styling */
+#editAssetModal .form-group input[type="text"],
+#editAssetModal .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    background-color: #fafafa;
+    transition: all 0.3s ease;
+}
+
+#editAssetModal .form-group input[type="text"]:focus,
+#editAssetModal .form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(61, 40, 226, 0.15);
+}
+
+/* Label styling */
+#editAssetModal .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--dark);
+    font-size: 14px;
+}
